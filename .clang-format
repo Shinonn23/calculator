@@ -1,0 +1,35 @@
+---
+# We'll use defaults from the LLVM style, but with 4 columns indentation.
+BasedOnStyle: LLVM
+IndentWidth: 4
+AccessModifierOffset: 0
+IndentAccessModifiers: false
+NamespaceIndentation: All
+---
+Language: Cpp
+# Force pointers to the type for C++.
+DerivePointerAlignment: true
+PointerAlignment: Left
+AlignAfterOpenBracket: true
+AlignArrayOfStructures: Left
+AlignConsecutiveAssignments: AcrossEmptyLinesAndComments
+AlignConsecutiveBitFields: AcrossEmptyLinesAndComments
+AlignConsecutiveDeclarations: AcrossEmptyLinesAndComments
+AlignConsecutiveMacros: AcrossEmptyLinesAndComments
+AlignConsecutiveShortCaseStatements:
+  Enabled: true
+  AcrossEmptyLines: true
+  AcrossComments: true
+  AlignCaseArrows: true
+  AlignCaseColons: true
+AlignConsecutiveTableGenCondOperatorColons: AcrossEmptyLinesAndComments
+AlignConsecutiveTableGenDefinitionColons: AcrossEmptyLinesAndComments
+AlignEscapedNewlines: Right
+AlignOperands: Align
+AlignTrailingComments:
+  Kind: Always
+  OverEmptyLines: 2
+BreakBeforeBraces: Custom
+BraceWrapping:
+    AfterClass: false
+    AfterCaseLabel: false

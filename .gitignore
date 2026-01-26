@@ -1,0 +1,32 @@
+# CMake build files
+build/
+cmake-build-*/
+*.cmake
+CMakeCache.txt
+CMakeFiles/
+
+# Compiled binaries and libraries
+*.o
+*.a
+*.so
+*.dylib
+*.dll
+*.exe
+bin/
+lib/
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Output directories
+src/output/
+dist/
+
+# Temporary files
+*.tmp
+*.log
