@@ -113,15 +113,6 @@ void print_help() {
     cout << "Other:\n";
     cout << "  :help                     Show this help\n";
     cout << "  exit, quit                Exit the program\n\n";
-    cout << "Examples:\n";
-    cout << "  > 2 + 3 * 4\n";
-    cout << "  = 14\n\n";
-    cout << "  > :set y 4\n";
-    cout << "  y = 4\n\n";
-    cout << "  > solve 2*x + y = 10\n";
-    cout << "  x = 3\n\n";
-    cout << "  > simplify 12*x + 2 - 54*y * 3 = z --vars x y z\n";
-    cout << "  12x - 162y - z = -2\n\n";
 }
 
 void cmd_set(const string& args, Context& ctx) {
