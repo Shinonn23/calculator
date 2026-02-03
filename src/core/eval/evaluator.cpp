@@ -1,12 +1,24 @@
 #include "evaluator.h"
 #include "../ast/binary.h"
 #include "../ast/number.h"
+#include "../ast/variable.h"
+#include "../common/error.h"
 #include <cmath>
 #include <stdexcept>
 
 namespace math_solver {
 
     void Evaluator::visit(const Number& node) { result_ = node.value(); }
+
+    void Evaluator::visit(const Variable& node) {
+        if (!context_) {
+            throw UndefinedVariableError(node.name(), node.span(), input_);
+        }
+        if (!context_->has(node.name())) {
+            throw UndefinedVariableError(node.name(), node.span(), input_);
+        }
+        result_ = context_->get(node.name());
+    }
 
     void Evaluator::visit(const BinaryOp& node) {
         node.left().accept(*this);
@@ -27,7 +39,7 @@ namespace math_solver {
             break;
         case BinaryOpType::Div:
             if (right_val == 0) {
-                throw std::runtime_error("Division by zero");
+                throw MathError("division by zero", node.right().span(), input_);
             }
             result_ = left_val / right_val;
             break;

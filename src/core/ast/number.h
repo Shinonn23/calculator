@@ -11,7 +11,9 @@ namespace math_solver {
         double value_;
 
         public:
-        explicit Number(double value) : value_(value) {}
+        explicit Number(double value) : Expr(), value_(value) {}
+
+        Number(double value, const Span& span) : Expr(span), value_(value) {}
 
         double value() const { return value_; }
 
@@ -28,7 +30,7 @@ namespace math_solver {
         }
 
         std::unique_ptr<Expr> clone() const override {
-            return std::make_unique<Number>(value_);
+            return std::make_unique<Number>(value_, span_);
         }
     };
 

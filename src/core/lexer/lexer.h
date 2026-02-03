@@ -1,9 +1,10 @@
 #ifndef LEXER_H
 #define LEXER_H
 
+#include "../common/error.h"
+#include "../common/span.h"
 #include "token.h"
 #include <cctype>
-#include <stdexcept>
 #include <string>
 
 namespace math_solver {
@@ -20,26 +21,40 @@ namespace math_solver {
         void advance() { pos_++; }
 
         void skip_whitespace() {
-            while (std::isspace(current()))
+            while (std::isspace(static_cast<unsigned char>(current())))
                 advance();
+        }
+
+        bool is_identifier_start(char c) const {
+            return std::isalpha(static_cast<unsigned char>(c)) || c == '_';
+        }
+
+        bool is_identifier_char(char c) const {
+            return std::isalnum(static_cast<unsigned char>(c)) || c == '_';
         }
 
         public:
         explicit Lexer(const std::string& input) : input_(input), pos_(0) {}
 
+        const std::string& input() const { return input_; }
+        size_t position() const { return pos_; }
+
         Token next_token() {
             skip_whitespace();
 
+            size_t start = pos_;
+
             if (current() == '\0') {
-                return {TokenType::End, 0};
+                return Token(TokenType::End, 0, Span(pos_, pos_));
             }
 
             // Numbers
-            if (std::isdigit(current()) || current() == '.') {
+            if (std::isdigit(static_cast<unsigned char>(current())) ||
+                current() == '.') {
                 std::string num;
                 bool        has_dot = false;
 
-                while (std::isdigit(current()) ||
+                while (std::isdigit(static_cast<unsigned char>(current())) ||
                        (current() == '.' && !has_dot)) {
                     if (current() == '.')
                         has_dot = true;
@@ -48,35 +63,54 @@ namespace math_solver {
                 }
 
                 if (num.empty() || num == ".") {
-                    throw std::runtime_error("Invalid number");
+                    throw ParseError("invalid number", Span(start, pos_), input_);
                 }
 
-                return {TokenType::Number, std::stod(num)};
+                return Token(TokenType::Number, std::stod(num), Span(start, pos_));
             }
 
-            // Operators
+            // Identifiers (variables and keywords)
+            if (is_identifier_start(current())) {
+                std::string name;
+                while (is_identifier_char(current())) {
+                    name += current();
+                    advance();
+                }
+
+                // Check for reserved keywords
+                if (is_reserved_keyword(name)) {
+                    throw ReservedKeywordError(name, Span(start, pos_), input_);
+                }
+
+                return Token(TokenType::Identifier, name, Span(start, pos_));
+            }
+
+            // Single character operators
             char c = current();
             advance();
+            Span span(start, pos_);
 
             switch (c) {
             case '+':
-                return {TokenType::Plus, 0};
+                return Token(TokenType::Plus, 0, span);
             case '-':
-                return {TokenType::Minus, 0};
+                return Token(TokenType::Minus, 0, span);
             case '*':
-                return {TokenType::Mul, 0};
+                return Token(TokenType::Mul, 0, span);
             case '/':
-                return {TokenType::Div, 0};
+                return Token(TokenType::Div, 0, span);
             case '^':
-                return {TokenType::Pow, 0};
+                return Token(TokenType::Pow, 0, span);
             case '(':
-                return {TokenType::LParen, 0};
+                return Token(TokenType::LParen, 0, span);
             case ')':
-                return {TokenType::RParen, 0};
+                return Token(TokenType::RParen, 0, span);
+            case '=':
+                return Token(TokenType::Equals, 0, span);
             }
 
-            throw std::runtime_error("Unexpected character: " +
-                                     std::string(1, c));
+            throw ParseError("unexpected character '" + std::string(1, c) + "'",
+                           span, input_);
         }
     };
 
