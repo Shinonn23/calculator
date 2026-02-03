@@ -5,6 +5,7 @@
 #include "core/eval/context.h"
 #include "core/eval/evaluator.h"
 #include "core/parser/parser.h"
+#include "core/solve/linear_system.h"
 #include "core/solve/simplify.h"
 #include "core/solve/solver.h"
 #include <algorithm>
@@ -102,8 +103,13 @@ void print_help() {
     cout << "  :clear                    Clear all variables\n";
     cout << "  :vars                     Show all defined variables\n\n";
     cout << "Equation Solving:\n";
-    cout << "  solve <lhs> = <rhs>       Solve linear equation for unknown\n";
-    cout << "                            (other vars substituted from context)\n\n";
+    cout << "  solve <lhs> = <rhs>       Solve single linear equation\n";
+    cout << "  solve                     Enter multi-equation mode:\n";
+    cout << "                            Type equations one per line\n";
+    cout << "                            Empty line to solve\n";
+    cout << "  Options:\n";
+    cout << "    --vars x y z            Specify variable order\n";
+    cout << "    --fraction              Display results as fractions\n\n";
     cout << "Simplification:\n";
     cout << "  simplify <lhs> = <rhs>    Simplify to canonical form Ax + By = C\n";
     cout << "  Options:\n";
@@ -112,7 +118,7 @@ void print_help() {
     cout << "    --fraction              Display coefficients as fractions\n\n";
     cout << "Other:\n";
     cout << "  :help                     Show this help\n";
-    cout << "  exit, quit                Exit the program\n\n";
+    cout << "  :exit, :q                Exit the program\n\n";
 }
 
 void cmd_set(const string& args, Context& ctx) {
@@ -214,6 +220,7 @@ void cmd_vars(const Context& ctx) {
 void cmd_solve(const string& args, Context& ctx) {
     if (args.empty()) {
         cout << "Usage: solve <lhs> = <rhs>\n";
+        cout << "       solve  (then enter equations, empty line to solve)\n";
         return;
     }
 
@@ -230,11 +237,101 @@ void cmd_solve(const string& args, Context& ctx) {
         cout << e.format() << "\n";
         // Add hints for common issues
         if (dynamic_cast<const MultipleUnknownsError*>(&e)) {
-            cout << "Hint: use :set to define variables, or use simplify\n";
+            cout << "Hint: use 'solve' alone for multi-variable systems, or :set to define variables\n";
         }
     } catch (const exception& e) {
         cout << "Error: " << e.what() << "\n";
     }
+}
+
+// Multi-equation solve mode
+// Returns true if system mode was entered, false if it was a single equation
+bool cmd_solve_system(const string& args, Context& ctx) {
+    CommandFlags flags = parse_flags(args);
+
+    // If there's an expression, it's a single equation (handled by cmd_solve)
+    if (!flags.expression.empty()) {
+        return false;
+    }
+
+    // Multi-equation mode
+    cout << "Enter equations (one per line, empty line to solve):\n";
+
+    LinearSystem system;
+    LinearCollector collector(&ctx, "", false);  // Use context for substitution
+    int eq_num = 1;
+    string line;
+
+    while (true) {
+        cout << "[" << eq_num << "] ";
+        if (!getline(cin, line))
+            break;
+
+        line = trim(line);
+
+        // Empty line = done entering equations
+        if (line.empty()) {
+            break;
+        }
+
+        // Allow cancel
+        if (line == "cancel" || line == ":cancel") {
+            cout << "Cancelled.\n";
+            return true;
+        }
+
+        try {
+            Parser parser(line);
+            auto eq = parser.parse_equation();
+
+            // Convert to LinearForm
+            collector.set_input(line);
+            LinearForm lhs = collector.collect(eq->lhs());
+            LinearForm rhs = collector.collect(eq->rhs());
+            LinearForm normalized = lhs - rhs;
+            normalized.simplify();
+
+            system.add_equation(normalized);
+            ++eq_num;
+
+        } catch (const MathError& e) {
+            cout << e.format() << "\n";
+            cout << "Try again or type 'cancel' to abort.\n";
+        } catch (const exception& e) {
+            cout << "Error: " << e.what() << "\n";
+            cout << "Try again or type 'cancel' to abort.\n";
+        }
+    }
+
+    if (system.empty()) {
+        cout << "No equations entered.\n";
+        return true;
+    }
+
+    // Sort variables alphabetically unless explicit order given
+    if (flags.vars.empty()) {
+        system.sort_variables();
+    } else {
+        system.set_variables(flags.vars);
+    }
+
+    // Show system info
+    cout << "\nSystem: " << system.num_equations() << " equation(s), "
+         << system.num_variables() << " variable(s)\n";
+
+    // Warn if under/over-determined
+    if (system.num_equations() < system.num_variables()) {
+        cout << "Warning: fewer equations than variables (may have infinite solutions)\n";
+    } else if (system.num_equations() > system.num_variables()) {
+        cout << "Warning: more equations than variables (may be inconsistent)\n";
+    }
+
+    // Solve
+    SystemSolution result = system.solve();
+
+    cout << "\n" << result.to_string(flags.fraction) << "\n";
+
+    return true;
 }
 
 void cmd_simplify(const string& args, Context& ctx) {
@@ -383,7 +480,7 @@ int main(int argc, char* argv[]) {
             continue;
 
         // Exit commands
-        if (input == "exit" || input == "quit")
+        if (input == ":exit" || input == ":q")
             break;
 
         // Help
@@ -413,7 +510,13 @@ int main(int argc, char* argv[]) {
             continue;
         }
 
-        // Solve command
+        // Solve command - check for multi-equation mode
+        if (input == "solve" || starts_with(input, "solve --")) {
+            // Multi-equation mode (no expression, just flags)
+            cmd_solve_system(input.substr(5), ctx);
+            continue;
+        }
+
         if (starts_with(input, "solve ")) {
             cmd_solve(input.substr(6), ctx);
             continue;
