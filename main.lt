@@ -1,0 +1,11 @@
+:set x 1
+5x + 3
+
+:clear
+simplify 24x - 32z - (16x + 8z) = x - 12y
+
+
+:set x 12
+solve x - 12y = 0
+
+:clear

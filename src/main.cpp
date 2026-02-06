@@ -1,14 +1,13 @@
-#include "core/ast/expr.h"
 #include "core/ast/equation.h"
+#include "core/ast/expr.h"
 #include "core/common/error.h"
-#include "core/common/span.h"
 #include "core/eval/context.h"
 #include "core/eval/evaluator.h"
 #include "core/parser/parser.h"
 #include "core/solve/linear_system.h"
 #include "core/solve/simplify.h"
 #include "core/solve/solver.h"
-#include <algorithm>
+#include <fstream>
 #include <iostream>
 #include <sstream>
 #include <string>
@@ -24,7 +23,8 @@ using namespace math_solver;
 // Trim whitespace from both ends
 string trim(const string& s) {
     size_t start = s.find_first_not_of(" \t\r\n");
-    if (start == string::npos) return "";
+    if (start == string::npos)
+        return "";
     size_t end = s.find_last_not_of(" \t\r\n");
     return s.substr(start, end - start + 1);
 }
@@ -32,8 +32,8 @@ string trim(const string& s) {
 // Split string by whitespace
 vector<string> split(const string& s) {
     vector<string> tokens;
-    istringstream iss(s);
-    string token;
+    istringstream  iss(s);
+    string         token;
     while (iss >> token) {
         tokens.push_back(token);
     }
@@ -46,29 +46,34 @@ bool starts_with(const string& s, const string& prefix) {
            s.compare(0, prefix.size(), prefix) == 0;
 }
 
+bool ends_with(const string& s, const string& suffix) {
+    return s.size() >= suffix.size() &&
+           s.compare(s.size() - suffix.size(), suffix.size(), suffix) == 0;
+}
+
 // Parse flags from command (e.g., --vars, --isolated, --fraction)
 struct CommandFlags {
     vector<string> vars;
     bool           isolated = false;
     bool           fraction = false;
-    string         expression;  // Everything before flags
+    string         expression; // Everything before flags
 };
 
 CommandFlags parse_flags(const string& input) {
     CommandFlags flags;
 
     // Find first flag
-    size_t flag_start = input.find(" --");
+    size_t       flag_start = input.find(" --");
     if (flag_start == string::npos) {
         flags.expression = input;
         return flags;
     }
 
-    flags.expression = trim(input.substr(0, flag_start));
+    flags.expression         = trim(input.substr(0, flag_start));
 
     // Parse flags
-    string flag_part = input.substr(flag_start);
-    vector<string> tokens = split(flag_part);
+    string         flag_part = input.substr(flag_start);
+    vector<string> tokens    = split(flag_part);
 
     for (size_t i = 0; i < tokens.size(); ++i) {
         if (tokens[i] == "--vars") {
@@ -95,8 +100,10 @@ void print_help() {
     cout << "Math Solver - Commands\n";
     cout << "======================\n\n";
     cout << "Evaluation:\n";
-    cout << "  <expression>              Evaluate expression (e.g., 2 + 3 * 4)\n";
-    cout << "  <expression> with vars    Use :set to define variables first\n\n";
+    cout << "  <expression>              Evaluate expression (e.g., 2 + 3 * "
+            "4)\n";
+    cout
+        << "  <expression> with vars    Use :set to define variables first\n\n";
     cout << "Variable Commands:\n";
     cout << "  :set <var> <value>        Set variable value (e.g., :set x 5)\n";
     cout << "  :unset <var>              Remove variable\n";
@@ -111,11 +118,17 @@ void print_help() {
     cout << "    --vars x y z            Specify variable order\n";
     cout << "    --fraction              Display results as fractions\n\n";
     cout << "Simplification:\n";
-    cout << "  simplify <lhs> = <rhs>    Simplify to canonical form Ax + By = C\n";
+    cout << "  simplify <lhs> = <rhs>    Simplify to canonical form Ax + By = "
+            "C\n";
     cout << "  Options:\n";
     cout << "    --vars x y z            Specify variable order\n";
     cout << "    --isolated              Don't substitute from context\n";
     cout << "    --fraction              Display coefficients as fractions\n\n";
+    cout << "File Mode (CLI):\n";
+    cout << "  --file <path.lt>          Execute commands from .lt file\n";
+    cout << "  -f <path.lt>              Same as --file\n";
+    cout << "  <path.lt>                 Pass a single .lt file without "
+            "flags\n\n";
     cout << "Other:\n";
     cout << "  :help                     Show this help\n";
     cout << "  :exit, :q                Exit the program\n\n";
@@ -131,8 +144,7 @@ void cmd_set(const string& args, Context& ctx) {
     string var_name = parts[0];
 
     // Check if valid identifier
-    if (var_name.empty() ||
-        !(isalpha(var_name[0]) || var_name[0] == '_')) {
+    if (var_name.empty() || !(isalpha(var_name[0]) || var_name[0] == '_')) {
         cout << "Error: invalid variable name '" << var_name << "'\n";
         return;
     }
@@ -152,15 +164,16 @@ void cmd_set(const string& args, Context& ctx) {
     // Parse value (could be an expression)
     string value_str;
     for (size_t i = 1; i < parts.size(); ++i) {
-        if (i > 1) value_str += " ";
+        if (i > 1)
+            value_str += " ";
         value_str += parts[i];
     }
 
     try {
-        Parser parser(value_str);
-        auto expr = parser.parse();
+        Parser    parser(value_str);
+        auto      expr = parser.parse();
         Evaluator eval(&ctx, value_str);
-        double value = eval.evaluate(*expr);
+        double    value = eval.evaluate(*expr);
         ctx.set(var_name, value);
 
         // Format output nicely
@@ -168,7 +181,8 @@ void cmd_set(const string& args, Context& ctx) {
         size_t dot_pos = val_str.find('.');
         if (dot_pos != string::npos) {
             val_str.erase(val_str.find_last_not_of('0') + 1);
-            if (val_str.back() == '.') val_str.pop_back();
+            if (val_str.back() == '.')
+                val_str.pop_back();
         }
         cout << var_name << " = " << val_str << "\n";
 
@@ -211,7 +225,8 @@ void cmd_vars(const Context& ctx) {
         size_t dot_pos = val_str.find('.');
         if (dot_pos != string::npos) {
             val_str.erase(val_str.find_last_not_of('0') + 1);
-            if (val_str.back() == '.') val_str.pop_back();
+            if (val_str.back() == '.')
+                val_str.pop_back();
         }
         cout << "  " << pair.first << " = " << val_str << "\n";
     }
@@ -225,11 +240,11 @@ void cmd_solve(const string& args, Context& ctx) {
     }
 
     try {
-        Parser parser(args);
-        auto eq = parser.parse_equation();
+        Parser         parser(args);
+        auto           eq = parser.parse_equation();
 
         EquationSolver solver(&ctx, args);
-        SolveResult result = solver.solve(*eq);
+        SolveResult    result = solver.solve(*eq);
 
         cout << result.to_string() << "\n";
 
@@ -237,7 +252,8 @@ void cmd_solve(const string& args, Context& ctx) {
         cout << e.format() << "\n";
         // Add hints for common issues
         if (dynamic_cast<const MultipleUnknownsError*>(&e)) {
-            cout << "Hint: use 'solve' alone for multi-variable systems, or :set to define variables\n";
+            cout << "Hint: use 'solve' alone for multi-variable systems, or "
+                    ":set to define variables\n";
         }
     } catch (const exception& e) {
         cout << "Error: " << e.what() << "\n";
@@ -246,7 +262,8 @@ void cmd_solve(const string& args, Context& ctx) {
 
 // Multi-equation solve mode
 // Returns true if system mode was entered, false if it was a single equation
-bool cmd_solve_system(const string& args, Context& ctx) {
+bool cmd_solve_system(const string& args, Context& ctx, istream& in,
+                      bool interactive) {
     CommandFlags flags = parse_flags(args);
 
     // If there's an expression, it's a single equation (handled by cmd_solve)
@@ -255,16 +272,20 @@ bool cmd_solve_system(const string& args, Context& ctx) {
     }
 
     // Multi-equation mode
-    cout << "Enter equations (one per line, empty line to solve):\n";
+    if (interactive) {
+        cout << "Enter equations (one per line, empty line to solve):\n";
+    }
 
-    LinearSystem system;
-    LinearCollector collector(&ctx, "", false);  // Use context for substitution
-    int eq_num = 1;
-    string line;
+    LinearSystem    system;
+    LinearCollector collector(&ctx, "", false); // Use context for substitution
+    int             eq_num = 1;
+    string          line;
 
     while (true) {
-        cout << "[" << eq_num << "] ";
-        if (!getline(cin, line))
+        if (interactive) {
+            cout << "[" << eq_num << "] ";
+        }
+        if (!getline(in, line))
             break;
 
         line = trim(line);
@@ -282,12 +303,12 @@ bool cmd_solve_system(const string& args, Context& ctx) {
 
         try {
             Parser parser(line);
-            auto eq = parser.parse_equation();
+            auto   eq = parser.parse_equation();
 
             // Convert to LinearForm
             collector.set_input(line);
-            LinearForm lhs = collector.collect(eq->lhs());
-            LinearForm rhs = collector.collect(eq->rhs());
+            LinearForm lhs        = collector.collect(eq->lhs());
+            LinearForm rhs        = collector.collect(eq->rhs());
             LinearForm normalized = lhs - rhs;
             normalized.simplify();
 
@@ -321,9 +342,11 @@ bool cmd_solve_system(const string& args, Context& ctx) {
 
     // Warn if under/over-determined
     if (system.num_equations() < system.num_variables()) {
-        cout << "Warning: fewer equations than variables (may have infinite solutions)\n";
+        cout << "Warning: fewer equations than variables (may have infinite "
+                "solutions)\n";
     } else if (system.num_equations() > system.num_variables()) {
-        cout << "Warning: more equations than variables (may be inconsistent)\n";
+        cout
+            << "Warning: more equations than variables (may be inconsistent)\n";
     }
 
     // Solve
@@ -336,27 +359,29 @@ bool cmd_solve_system(const string& args, Context& ctx) {
 
 void cmd_simplify(const string& args, Context& ctx) {
     if (args.empty()) {
-        cout << "Usage: simplify <lhs> = <rhs> [--vars x y] [--isolated] [--fraction]\n";
+        cout << "Usage: simplify <lhs> = <rhs> [--vars x y] [--isolated] "
+                "[--fraction]\n";
         return;
     }
 
     CommandFlags flags = parse_flags(args);
 
     if (flags.expression.empty()) {
-        cout << "Usage: simplify <lhs> = <rhs> [--vars x y] [--isolated] [--fraction]\n";
+        cout << "Usage: simplify <lhs> = <rhs> [--vars x y] [--isolated] "
+                "[--fraction]\n";
         return;
     }
 
     try {
-        Parser parser(flags.expression);
-        auto eq = parser.parse_equation();
+        Parser          parser(flags.expression);
+        auto            eq = parser.parse_equation();
 
         SimplifyOptions opts;
-        opts.var_order = flags.vars;
-        opts.isolated = flags.isolated;
+        opts.var_order   = flags.vars;
+        opts.isolated    = flags.isolated;
         opts.as_fraction = flags.fraction;
 
-        Simplifier simplifier(&ctx, flags.expression);
+        Simplifier     simplifier(&ctx, flags.expression);
         SimplifyResult result = simplifier.simplify(*eq, opts);
 
         // Print warnings
@@ -390,16 +415,17 @@ void cmd_evaluate(const string& input, Context& ctx) {
         if (eq) {
             // It's an equation - evaluate both sides
             Evaluator eval(&ctx, input);
-            double lhs_val = eval.evaluate(eq->lhs());
-            double rhs_val = eval.evaluate(eq->rhs());
+            double    lhs_val    = eval.evaluate(eq->lhs());
+            double    rhs_val    = eval.evaluate(eq->rhs());
 
             // Format values
-            auto format_val = [](double v) {
-                string s = to_string(v);
+            auto      format_val = [](double v) {
+                string s   = to_string(v);
                 size_t dot = s.find('.');
                 if (dot != string::npos) {
                     s.erase(s.find_last_not_of('0') + 1);
-                    if (s.back() == '.') s.pop_back();
+                    if (s.back() == '.')
+                        s.pop_back();
                 }
                 return s;
             };
@@ -413,13 +439,14 @@ void cmd_evaluate(const string& input, Context& ctx) {
         } else {
             // Simple expression
             Evaluator eval(&ctx, input);
-            double result = eval.evaluate(*expr);
+            double    result     = eval.evaluate(*expr);
 
-            string result_str = to_string(result);
-            size_t dot_pos = result_str.find('.');
+            string    result_str = to_string(result);
+            size_t    dot_pos    = result_str.find('.');
             if (dot_pos != string::npos) {
                 result_str.erase(result_str.find_last_not_of('0') + 1);
-                if (result_str.back() == '.') result_str.pop_back();
+                if (result_str.back() == '.')
+                    result_str.pop_back();
             }
             cout << "= " << result_str << "\n";
         }
@@ -431,24 +458,138 @@ void cmd_evaluate(const string& input, Context& ctx) {
     }
 }
 
+bool process_input_line(const string& raw_input, Context& ctx, istream& in,
+                        bool interactive) {
+    string input = trim(raw_input);
+
+    if (input.empty())
+        return true;
+
+    // Exit commands
+    if (input == ":exit" || input == ":q")
+        return false;
+
+    // Help
+    if (input == ":help" || input == "help") {
+        print_help();
+        return true;
+    }
+
+    // Variable commands
+    if (starts_with(input, ":set ")) {
+        cmd_set(input.substr(5), ctx);
+        return true;
+    }
+
+    if (starts_with(input, ":unset ")) {
+        cmd_unset(input.substr(7), ctx);
+        return true;
+    }
+
+    if (input == ":clear") {
+        cmd_clear(ctx);
+        return true;
+    }
+
+    if (input == ":vars") {
+        cmd_vars(ctx);
+        return true;
+    }
+
+    // Solve command - check for multi-equation mode
+    if (input == "solve" || starts_with(input, "solve --")) {
+        cmd_solve_system(input.substr(5), ctx, in, interactive);
+        return true;
+    }
+
+    if (starts_with(input, "solve ")) {
+        cmd_solve(input.substr(6), ctx);
+        return true;
+    }
+
+    // Simplify command
+    if (starts_with(input, "simplify ")) {
+        cmd_simplify(input.substr(9), ctx);
+        return true;
+    }
+
+    // Default: evaluate expression or equation
+    cmd_evaluate(input, ctx);
+    return true;
+}
+
 // ============================================================================
 // Main Entry Point
 // ============================================================================
 
 int main(int argc, char* argv[]) {
-    // Command-line mode: evaluate expression directly
-    if (argc > 1) {
-        string expr_str;
-        for (int i = 1; i < argc; ++i) {
-            if (i > 1) expr_str += " ";
-            expr_str += argv[i];
+    string         file_path;
+    bool           file_mode = false;
+    vector<string> expr_args;
+
+    for (int i = 1; i < argc; ++i) {
+        string arg = argv[i];
+        if (arg == "--file" || arg == "-f") {
+            if (file_mode) {
+                cerr << "Error: --file specified multiple times\n";
+                return 1;
+            }
+            if (i + 1 >= argc) {
+                cerr << "Error: missing path for --file\n";
+                return 1;
+            }
+            file_mode = true;
+            file_path = argv[++i];
+        } else {
+            expr_args.push_back(arg);
+        }
+    }
+
+    if (!file_mode && expr_args.size() == 1 && ends_with(expr_args[0], ".lt")) {
+        file_mode = true;
+        file_path = expr_args[0];
+        expr_args.clear();
+    }
+
+    if (file_mode) {
+        if (!ends_with(file_path, ".lt")) {
+            cerr << "Error: file must have .lt extension\n";
+            return 1;
+        }
+        if (!expr_args.empty()) {
+            cerr << "Error: cannot combine --file with expression arguments\n";
+            return 1;
         }
 
-        Context ctx;  // Empty context for command-line mode
+        ifstream file(file_path);
+        if (!file) {
+            cerr << "Error: cannot open file '" << file_path << "'\n";
+            return 1;
+        }
+
+        Context ctx;
+        string  line;
+        while (getline(file, line)) {
+            if (!process_input_line(line, ctx, file, false)) {
+                break;
+            }
+        }
+        return 0;
+    }
+
+    if (!expr_args.empty()) {
+        string expr_str;
+        for (size_t i = 0; i < expr_args.size(); ++i) {
+            if (i > 0)
+                expr_str += " ";
+            expr_str += expr_args[i];
+        }
+
+        Context ctx; // Empty context for command-line mode
 
         try {
-            Parser parser(expr_str);
-            auto expr = parser.parse();
+            Parser    parser(expr_str);
+            auto      expr = parser.parse();
             Evaluator eval(&ctx, expr_str);
             cout << eval.evaluate(*expr) << endl;
         } catch (const MathError& e) {
@@ -466,70 +607,16 @@ int main(int argc, char* argv[]) {
     cout << "Supports: expressions, variables, equations, solve, simplify\n";
     cout << "Type :help for commands, 'exit' to quit.\n\n";
 
-    Context ctx;  // Shared persistent context
+    Context ctx; // Shared persistent context
 
-    string input;
+    string  input;
     while (true) {
         cout << "> ";
         if (!getline(cin, input))
             break;
 
-        input = trim(input);
-
-        if (input.empty())
-            continue;
-
-        // Exit commands
-        if (input == ":exit" || input == ":q")
+        if (!process_input_line(input, ctx, cin, true))
             break;
-
-        // Help
-        if (input == ":help" || input == "help") {
-            print_help();
-            continue;
-        }
-
-        // Variable commands
-        if (starts_with(input, ":set ")) {
-            cmd_set(input.substr(5), ctx);
-            continue;
-        }
-
-        if (starts_with(input, ":unset ")) {
-            cmd_unset(input.substr(7), ctx);
-            continue;
-        }
-
-        if (input == ":clear") {
-            cmd_clear(ctx);
-            continue;
-        }
-
-        if (input == ":vars") {
-            cmd_vars(ctx);
-            continue;
-        }
-
-        // Solve command - check for multi-equation mode
-        if (input == "solve" || starts_with(input, "solve --")) {
-            // Multi-equation mode (no expression, just flags)
-            cmd_solve_system(input.substr(5), ctx);
-            continue;
-        }
-
-        if (starts_with(input, "solve ")) {
-            cmd_solve(input.substr(6), ctx);
-            continue;
-        }
-
-        // Simplify command
-        if (starts_with(input, "simplify ")) {
-            cmd_simplify(input.substr(9), ctx);
-            continue;
-        }
-
-        // Default: evaluate expression or equation
-        cmd_evaluate(input, ctx);
     }
 
     return 0;
