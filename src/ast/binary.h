@@ -40,10 +40,10 @@ namespace math_solver {
             const char* op_str = "?";
             switch (op_) {
             case BinaryOpType::Add:
-                op_str = "+";
+                op_str = " + ";
                 break;
             case BinaryOpType::Sub:
-                op_str = "-";
+                op_str = " - ";
                 break;
             case BinaryOpType::Mul:
                 op_str = "*";
@@ -55,13 +55,51 @@ namespace math_solver {
                 op_str = "^";
                 break;
             }
-            return "(" + left_->to_string() + " " + op_str + " " +
-                   right_->to_string() + ")";
+
+            string left_str   = left_->to_string();
+            string right_str  = right_->to_string();
+
+            // Add parentheses only when necessary for precedence
+            auto   precedence = [](BinaryOpType t) -> int {
+                switch (t) {
+                case BinaryOpType::Add:
+                case BinaryOpType::Sub:
+                    return 1;
+                case BinaryOpType::Mul:
+                case BinaryOpType::Div:
+                    return 2;
+                case BinaryOpType::Pow:
+                    return 3;
+                }
+                return 0;
+            };
+
+            int   my_prec  = precedence(op_);
+
+            // Wrap left child if it has lower precedence
+            auto* left_bin = dynamic_cast<const BinaryOp*>(left_.get());
+            if (left_bin && precedence(left_bin->op()) < my_prec) {
+                left_str = "(" + left_str + ")";
+            }
+
+            // Wrap right child if it has lower precedence,
+            // or same precedence for Sub/Div (left-associative)
+            auto* right_bin = dynamic_cast<const BinaryOp*>(right_.get());
+            if (right_bin) {
+                int rp = precedence(right_bin->op());
+                if (rp < my_prec ||
+                    (rp == my_prec &&
+                     (op_ == BinaryOpType::Sub || op_ == BinaryOpType::Div))) {
+                    right_str = "(" + right_str + ")";
+                }
+            }
+
+            return left_str + op_str + right_str;
         }
 
         unique_ptr<Expr> clone() const override {
-            auto cloned = make_unique<BinaryOp>(
-                left_->clone(), right_->clone(), op_);
+            auto cloned =
+                make_unique<BinaryOp>(left_->clone(), right_->clone(), op_);
             cloned->set_span(span_);
             return cloned;
         }

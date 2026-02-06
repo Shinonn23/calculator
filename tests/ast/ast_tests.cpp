@@ -6,7 +6,10 @@
 #include "ast/binary.h"
 #include "ast/equation.h"
 #include "ast/expr.h"
+#include "ast/function_call.h"
+#include "ast/index_access.h"
 #include "ast/number.h"
+#include "ast/number_array.h"
 #include "ast/variable.h"
 #include <gtest/gtest.h>
 
@@ -89,6 +92,9 @@ TEST(NumberTest, AcceptVisitor) {
         void visit(const Number&) override { visited_number = true; }
         void visit(const BinaryOp&) override {}
         void visit(const Variable&) override {}
+        void visit(const FunctionCall&) override {}
+        void visit(const NumberArray&) override {}
+        void visit(const IndexAccess&) override {}
     };
 
     Number      num(5);
@@ -146,6 +152,9 @@ TEST(VariableTest, AcceptVisitor) {
         void visit(const Number&) override {}
         void visit(const BinaryOp&) override {}
         void visit(const Variable&) override { visited_variable = true; }
+        void visit(const FunctionCall&) override {}
+        void visit(const NumberArray&) override {}
+        void visit(const IndexAccess&) override {}
     };
 
     Variable    var("x");
@@ -172,35 +181,35 @@ TEST(BinaryOpTest, ToStringAdd) {
     auto     left  = make_unique<Number>(2);
     auto     right = make_unique<Number>(3);
     BinaryOp op(move(left), move(right), BinaryOpType::Add);
-    EXPECT_EQ(op.to_string(), "(2 + 3)");
+    EXPECT_EQ(op.to_string(), "2 + 3");
 }
 
 TEST(BinaryOpTest, ToStringSub) {
     auto     left  = make_unique<Number>(5);
     auto     right = make_unique<Number>(1);
     BinaryOp op(move(left), move(right), BinaryOpType::Sub);
-    EXPECT_EQ(op.to_string(), "(5 - 1)");
+    EXPECT_EQ(op.to_string(), "5 - 1");
 }
 
 TEST(BinaryOpTest, ToStringMul) {
     auto     left  = make_unique<Number>(4);
     auto     right = make_unique<Number>(6);
     BinaryOp op(move(left), move(right), BinaryOpType::Mul);
-    EXPECT_EQ(op.to_string(), "(4 * 6)");
+    EXPECT_EQ(op.to_string(), "4*6");
 }
 
 TEST(BinaryOpTest, ToStringDiv) {
     auto     left  = make_unique<Number>(10);
     auto     right = make_unique<Number>(2);
     BinaryOp op(move(left), move(right), BinaryOpType::Div);
-    EXPECT_EQ(op.to_string(), "(10 / 2)");
+    EXPECT_EQ(op.to_string(), "10/2");
 }
 
 TEST(BinaryOpTest, ToStringPow) {
     auto     left  = make_unique<Number>(2);
     auto     right = make_unique<Number>(3);
     BinaryOp op(move(left), move(right), BinaryOpType::Pow);
-    EXPECT_EQ(op.to_string(), "(2 ^ 3)");
+    EXPECT_EQ(op.to_string(), "2^3");
 }
 
 // ทดสอบ left() และ right() accessors
@@ -252,7 +261,7 @@ TEST(BinaryOpTest, Clone) {
     auto*    cloned_op = dynamic_cast<BinaryOp*>(cloned.get());
     ASSERT_NE(cloned_op, nullptr);
     EXPECT_EQ(cloned_op->op(), BinaryOpType::Mul);
-    EXPECT_EQ(cloned_op->to_string(), "(3 * y)");
+    EXPECT_EQ(cloned_op->to_string(), "3*y");
 }
 
 // ทดสอบ nested expression: (1 + 2) * 3
@@ -263,7 +272,7 @@ TEST(BinaryOpTest, NestedExpression) {
     auto three = make_unique<Number>(3);
     BinaryOp mul(move(add), move(three), BinaryOpType::Mul);
 
-    EXPECT_EQ(mul.to_string(), "((1 + 2) * 3)");
+    EXPECT_EQ(mul.to_string(), "(1 + 2)*3");
 }
 
 // ทดสอบ accept visitor
@@ -273,6 +282,9 @@ TEST(BinaryOpTest, AcceptVisitor) {
         void visit(const Number&) override {}
         void visit(const BinaryOp&) override { visited_binary = true; }
         void visit(const Variable&) override {}
+        void visit(const FunctionCall&) override {}
+        void visit(const NumberArray&) override {}
+        void visit(const IndexAccess&) override {}
     };
 
     auto        left  = make_unique<Number>(1);
@@ -354,7 +366,7 @@ TEST(EquationTest, ComplexToString) {
     auto five = make_unique<Number>(5);
     Equation eq(move(add), move(five));
 
-    EXPECT_EQ(eq.to_string(), "((2 * x) + 1) = 5");
+    EXPECT_EQ(eq.to_string(), "2*x + 1 = 5");
 }
 
 // ทดสอบ take_lhs / take_rhs — move ownership ออก

@@ -27,7 +27,7 @@ A C++ project for solving and manipulating mathematical expressions.
 
 5. **Run the executable:**
    ```bash
-   ./build/bin/Debug/math-solver.exe -f ./main.ms
+   ./build/bin/Debug/math-solver.exe -f ./main.msl
    ```
 
 ## Quick Commands
@@ -37,7 +37,7 @@ A C++ project for solving and manipulating mathematical expressions.
 | `cmake -B build -S .` | Configure project |
 | `cmake --build build` | Build project |
 | `cmake --build build --target clean` | Clean build files |
-| `./build/bin/Debug/math-solver.exe -f ./main.ms` | Run executable |
+| `./build/bin/Debug/math-solver.exe -f ./main.msl` | Run executable |
 
 ## Development
 

@@ -10,14 +10,20 @@ namespace math_solver {
     class Number;
     class BinaryOp;
     class Variable;
+    class FunctionCall;
+    class NumberArray;
+    class IndexAccess;
     class Equation;
 
     class ExprVisitor {
         public:
-        virtual ~ExprVisitor() = default;
-        virtual void visit(const Number& node)   = 0;
-        virtual void visit(const BinaryOp& node) = 0;
-        virtual void visit(const Variable& node) = 0;
+        virtual ~ExprVisitor()                       = default;
+        virtual void visit(const Number& node)       = 0;
+        virtual void visit(const BinaryOp& node)     = 0;
+        virtual void visit(const Variable& node)     = 0;
+        virtual void visit(const FunctionCall& node) = 0;
+        virtual void visit(const NumberArray& node)  = 0;
+        virtual void visit(const IndexAccess& node)  = 0;
     };
 
     class Expr {
@@ -29,12 +35,12 @@ namespace math_solver {
         explicit Expr(const Span& span) : span_(span) {}
         virtual ~Expr() = default;
 
-        const Span& span() const { return span_; }
-        void set_span(const Span& span) { span_ = span; }
+        const Span&         span() const { return span_; }
+        void                set_span(const Span& span) { span_ = span; }
 
-        virtual void                  accept(ExprVisitor& visitor) const = 0;
-        virtual std::string           to_string() const                  = 0;
-        virtual std::unique_ptr<Expr> clone() const                      = 0;
+        virtual void        accept(ExprVisitor& visitor) const = 0;
+        virtual std::string to_string() const                  = 0;
+        virtual std::unique_ptr<Expr> clone() const            = 0;
     };
 
     using ExprPtr = std::unique_ptr<Expr>;

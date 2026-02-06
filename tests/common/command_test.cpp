@@ -189,7 +189,9 @@ TEST(CmdSolve, SingleEquation) {
     testing::internal::CaptureStdout();
     cmd_solve("a * x + b = 11", ctx, test_ui());
     string output = testing::internal::GetCapturedStdout();
-    EXPECT_EQ(output, "Solution:\n  x = 4\n");
+    EXPECT_TRUE(output.find("x = 4") != string::npos);
+    // solve is now pure — should NOT contain 'stored'
+    EXPECT_TRUE(output.find("stored") == string::npos);
 }
 
 TEST(CmdSolve, EmptyInput) {
@@ -198,9 +200,9 @@ TEST(CmdSolve, EmptyInput) {
     testing::internal::CaptureStdout();
     cmd_solve("", ctx, test_ui());
     string output = testing::internal::GetCapturedStdout();
-    EXPECT_EQ(output, "Usage: solve <lhs> = <rhs>\n"
-                      "       solve  (then enter equations, empty line to "
-                      "solve)\n");
+    EXPECT_TRUE(output.find("Usage: solve <lhs> = <rhs>") != string::npos);
+    EXPECT_TRUE(output.find("solve positive/negative/nonneg/integer") !=
+                string::npos);
 }
 
 TEST(CmdSolve, InvalidEquation) {
@@ -254,9 +256,9 @@ TEST(CmdSolve, NonLinearEquation) {
     testing::internal::CaptureStdout();
     cmd_solve("a * x + b * y = c", ctx, test_ui());
     string output = testing::internal::GetCapturedStdout();
-    EXPECT_EQ(output, "Error: non-linear term: multiplication of variables\n"
-                      "  a * x + b * y = c\n"
-                      "  ^^^^^\n");
+    // Falls through to quadratic solver which also detects multiplication of
+    // variables
+    EXPECT_TRUE(output.find("Error:") != string::npos);
 }
 
 TEST(CmdSolve, NonLinearEquationExponentiation) {
@@ -264,9 +266,8 @@ TEST(CmdSolve, NonLinearEquationExponentiation) {
     testing::internal::CaptureStdout();
     cmd_solve("x^2 + y = 5", ctx, test_ui());
     string output = testing::internal::GetCapturedStdout();
-    EXPECT_EQ(output, "Error: non-linear term: variable raised to power 2\n"
-                      "  x^2 + y = 5\n"
-                      "  ^^^\n");
+    // Now falls through to quadratic solver which detects multiple unknowns
+    EXPECT_TRUE(output.find("Error:") != string::npos);
 }
 
 TEST(CmdSolve, DivisionByVariable) {
@@ -274,9 +275,11 @@ TEST(CmdSolve, DivisionByVariable) {
     testing::internal::CaptureStdout();
     cmd_solve("x / y = 10", ctx, test_ui());
     string output = testing::internal::GetCapturedStdout();
-    EXPECT_EQ(output, "Error: non-linear term: division by variable\n"
+    EXPECT_EQ(output, "Error: multiple unknowns in equation (x, y)\n"
                       "  x / y = 10\n"
-                      "  ^^^^^\n");
+                      "  ^^^^^^^^^^\n"
+                      "Hint: use 'solve' alone for multi-variable systems, "
+                      "or set to define variables\n");
 }
 
 TEST(CmdSolve, DivisionByZero) {
@@ -714,7 +717,8 @@ TEST(CmdSet, UnderscoreVariableName) {
     EXPECT_DOUBLE_EQ(ctx.get("my_var"), 10.0);
 }
 
-// ทดสอบ set ด้วย expression เป็นค่า (เช่น set x 2+3 => x=5)
+// ทดสอบ set ด้วย expression เป็นค่า (symbolic storage: set x 2+3 => stores
+// expression)
 TEST(CmdSet, ExpressionValue) {
     Context ctx;
 
@@ -723,11 +727,12 @@ TEST(CmdSet, ExpressionValue) {
     string output = testing::internal::GetCapturedStdout();
 
     EXPECT_TRUE(ctx.has("x"));
-    EXPECT_DOUBLE_EQ(ctx.get("x"), 5.0);
-    EXPECT_TRUE(output.find("x = 5") != string::npos);
+    // Now stores expression, not evaluated value
+    EXPECT_EQ(ctx.get_display("x"), "2 + 3");
+    EXPECT_TRUE(output.find("x = ") != string::npos);
 }
 
-// ทดสอบ set ค่าลบ (set x -7)
+// ทดสอบ set ค่าลบ (set x -7) - now stores expression
 TEST(CmdSet, NegativeValue) {
     Context ctx;
 
@@ -736,8 +741,9 @@ TEST(CmdSet, NegativeValue) {
     string output = testing::internal::GetCapturedStdout();
 
     EXPECT_TRUE(ctx.has("x"));
-    EXPECT_DOUBLE_EQ(ctx.get("x"), -7.0);
-    EXPECT_TRUE(output.find("x = -7") != string::npos);
+    // Unary minus is parsed as (0 - 7)
+    EXPECT_NE(ctx.get_expr("x"), nullptr);
+    EXPECT_TRUE(output.find("x = ") != string::npos);
 }
 
 // ทดสอบ set ทับค่าเดิม (overwrite)
@@ -862,7 +868,7 @@ TEST(CmdEvaluate, FalseEquation) {
     EXPECT_TRUE(output.find("false") != string::npos);
 }
 
-// ทดสอบ evaluate expression ที่มี undefined variable
+// ทดสอบ evaluate expression ที่มี undefined variable — now shows symbolic form
 TEST(CmdEvaluate, UndefinedVariable) {
     Context ctx;
 
@@ -870,8 +876,8 @@ TEST(CmdEvaluate, UndefinedVariable) {
     cmd_evaluate("x + 1", ctx, test_ui());
     string output = testing::internal::GetCapturedStdout();
 
-    EXPECT_TRUE(output.find("Error:") != string::npos);
-    EXPECT_TRUE(output.find("undefined variable") != string::npos);
+    // With symbolic support, undefined variables show simplified symbolic form
+    EXPECT_TRUE(output.find("x") != string::npos);
 }
 
 // ทดสอบ evaluate กับ parse error
@@ -1024,4 +1030,310 @@ TEST(ProcessInputLine, WhitespaceTrimming) {
     string output = testing::internal::GetCapturedStdout();
 
     EXPECT_EQ(output, "5\n");
+}
+
+// ============================================================
+// Comment tests (#)
+// ============================================================
+
+TEST(ProcessInputLine, FullLineComment) {
+    Context       ctx;
+    istringstream in("");
+
+    testing::internal::CaptureStdout();
+    bool result =
+        process_input_line("# this is a comment", ctx, in, false, test_ui());
+    string output = testing::internal::GetCapturedStdout();
+
+    EXPECT_TRUE(result);
+    EXPECT_TRUE(output.empty());
+}
+
+TEST(ProcessInputLine, InlineComment) {
+    Context       ctx;
+    istringstream in("");
+
+    testing::internal::CaptureStdout();
+    process_input_line("set x 42 # set x to 42", ctx, in, false, test_ui());
+    string output = testing::internal::GetCapturedStdout();
+
+    EXPECT_TRUE(ctx.has("x"));
+    EXPECT_TRUE(output.find("x = 42") != string::npos);
+}
+
+// ============================================================
+// Print command tests
+// ============================================================
+
+TEST(CmdPrint, SimpleExpression) {
+    Context ctx;
+
+    testing::internal::CaptureStdout();
+    cmd_print("2 + 3", ctx, test_ui());
+    string output = testing::internal::GetCapturedStdout();
+
+    EXPECT_TRUE(output.find("2 + 3 = 5") != string::npos);
+}
+
+TEST(CmdPrint, VariableValue) {
+    Context ctx;
+    ctx.set("x", 42);
+
+    testing::internal::CaptureStdout();
+    cmd_print("x", ctx, test_ui());
+    string output = testing::internal::GetCapturedStdout();
+
+    EXPECT_TRUE(output.find("x = 42") != string::npos);
+}
+
+TEST(CmdPrint, ExpressionWithVariable) {
+    Context ctx;
+    ctx.set("x", 3);
+
+    testing::internal::CaptureStdout();
+    cmd_print("x^2 + 1", ctx, test_ui());
+    string output = testing::internal::GetCapturedStdout();
+
+    EXPECT_TRUE(output.find("= 10") != string::npos);
+}
+
+TEST(CmdPrint, EmptyInput) {
+    Context ctx;
+
+    testing::internal::CaptureStdout();
+    cmd_print("", ctx, test_ui());
+    string output = testing::internal::GetCapturedStdout();
+
+    EXPECT_TRUE(output.find("Usage:") != string::npos);
+}
+
+TEST(CmdPrint, UndefinedVariable) {
+    Context ctx;
+
+    testing::internal::CaptureStdout();
+    cmd_print("z", ctx, test_ui());
+    string output = testing::internal::GetCapturedStdout();
+
+    // Should show symbolic form since z is undefined
+    EXPECT_TRUE(output.find("z") != string::npos);
+    EXPECT_TRUE(output.find("symbolic") != string::npos);
+}
+
+TEST(ProcessInputLine, PrintRouting) {
+    Context       ctx;
+    istringstream in("");
+    ctx.set("x", 5);
+
+    testing::internal::CaptureStdout();
+    process_input_line("print x", ctx, in, false, test_ui());
+    string output = testing::internal::GetCapturedStdout();
+
+    EXPECT_TRUE(output.find("x = 5") != string::npos);
+}
+
+// ============================================================
+// Solve auto-store tests
+// ============================================================
+
+TEST(CmdSolve, SolvePureNoStore) {
+    Context ctx;
+
+    testing::internal::CaptureStdout();
+    cmd_solve("2x + 4 = 0", ctx, test_ui());
+    string output = testing::internal::GetCapturedStdout();
+
+    // solve is pure — does NOT store results
+    EXPECT_FALSE(ctx.has("x"));
+    EXPECT_TRUE(output.find("stored") == string::npos);
+    EXPECT_TRUE(output.find("x = -2") != string::npos);
+}
+
+TEST(CmdSolve, LetSolveStoresResult) {
+    Context       ctx;
+    istringstream in("");
+
+    // Use let to store
+    testing::internal::CaptureStdout();
+    process_input_line("let x = solve 2x + 4 = 0", ctx, in, false, test_ui());
+    testing::internal::GetCapturedStdout();
+
+    // Now x should be in context
+    EXPECT_TRUE(ctx.has("x"));
+    EXPECT_DOUBLE_EQ(ctx.get("x"), -2.0);
+
+    // Reuse x
+    testing::internal::CaptureStdout();
+    process_input_line("set z x + 10", ctx, in, false, test_ui());
+    testing::internal::GetCapturedStdout();
+
+    EXPECT_TRUE(ctx.has("z"));
+}
+
+// ============================================================
+// Let...solve tests
+// ============================================================
+
+TEST(CmdLetSolve, BasicLinear) {
+    Context ctx;
+
+    testing::internal::CaptureStdout();
+    cmd_let_solve("x = solve 2x + 4 = 0", ctx, test_ui());
+    string output = testing::internal::GetCapturedStdout();
+
+    EXPECT_TRUE(ctx.has("x"));
+    EXPECT_DOUBLE_EQ(ctx.get("x"), -2.0);
+    EXPECT_TRUE(output.find("x = -2") != string::npos);
+    EXPECT_TRUE(output.find("stored") != string::npos);
+}
+
+TEST(CmdLetSolve, DifferentVariableName) {
+    Context ctx;
+
+    testing::internal::CaptureStdout();
+    cmd_let_solve("result = solve 3y + 9 = 0", ctx, test_ui());
+    string output = testing::internal::GetCapturedStdout();
+
+    EXPECT_TRUE(ctx.has("result"));
+    EXPECT_DOUBLE_EQ(ctx.get("result"), -3.0);
+}
+
+TEST(CmdLetSolve, WithContext) {
+    Context ctx;
+    ctx.set("a", 2);
+
+    testing::internal::CaptureStdout();
+    cmd_let_solve("x = solve a*x + 6 = 0", ctx, test_ui());
+    string output = testing::internal::GetCapturedStdout();
+
+    EXPECT_TRUE(ctx.has("x"));
+    EXPECT_DOUBLE_EQ(ctx.get("x"), -3.0);
+}
+
+TEST(CmdLetSolve, EmptyInput) {
+    Context ctx;
+
+    testing::internal::CaptureStdout();
+    cmd_let_solve("", ctx, test_ui());
+    string output = testing::internal::GetCapturedStdout();
+
+    EXPECT_TRUE(output.find("Usage:") != string::npos);
+}
+
+TEST(CmdLetSolve, InvalidVariableName) {
+    Context ctx;
+
+    testing::internal::CaptureStdout();
+    cmd_let_solve("123bad = solve x = 5", ctx, test_ui());
+    string output = testing::internal::GetCapturedStdout();
+
+    EXPECT_TRUE(output.find("Error:") != string::npos ||
+                output.find("invalid") != string::npos);
+}
+
+TEST(CmdLetSolve, ReservedKeywordAsVar) {
+    Context ctx;
+
+    testing::internal::CaptureStdout();
+    cmd_let_solve("solve = solve x = 5", ctx, test_ui());
+    string output = testing::internal::GetCapturedStdout();
+
+    EXPECT_TRUE(output.find("reserved") != string::npos);
+}
+
+TEST(CmdLetSolve, MissingSolve) {
+    Context ctx;
+
+    testing::internal::CaptureStdout();
+    cmd_let_solve("x = 5", ctx, test_ui());
+    string output = testing::internal::GetCapturedStdout();
+
+    EXPECT_TRUE(output.find("Usage:") != string::npos);
+}
+
+TEST(ProcessInputLine, LetRouting) {
+    Context       ctx;
+    istringstream in("");
+
+    testing::internal::CaptureStdout();
+    process_input_line("let x = solve 2x + 4 = 0", ctx, in, false, test_ui());
+    string output = testing::internal::GetCapturedStdout();
+
+    EXPECT_TRUE(ctx.has("x"));
+    EXPECT_DOUBLE_EQ(ctx.get("x"), -2.0);
+}
+
+// ============================================================
+// Quadratic solve command tests
+// ============================================================
+
+TEST(CmdSolve, QuadraticEquation) {
+    Context ctx;
+
+    testing::internal::CaptureStdout();
+    cmd_solve("x^2 - 5x + 6 = 0", ctx, test_ui());
+    string output = testing::internal::GetCapturedStdout();
+
+    EXPECT_TRUE(output.find("2") != string::npos);
+    EXPECT_TRUE(output.find("3") != string::npos);
+}
+
+TEST(CmdLetSolve, QuadraticEquation) {
+    Context ctx;
+
+    testing::internal::CaptureStdout();
+    cmd_let_solve("x = solve x^2 - 4 = 0", ctx, test_ui());
+    string output = testing::internal::GetCapturedStdout();
+
+    // Should store first solution
+    EXPECT_TRUE(ctx.has("x"));
+    EXPECT_TRUE(output.find("stored") != string::npos);
+}
+
+// ============================================================
+// Chained solving flow tests
+// ============================================================
+
+TEST(ProcessInputLine, ChainedSolvingFlow) {
+    Context       ctx;
+    istringstream in("");
+
+    // Step 1: set y = 2*x + 3
+    testing::internal::CaptureStdout();
+    process_input_line("set y 2*x + 3", ctx, in, false, test_ui());
+    testing::internal::GetCapturedStdout();
+
+    // Step 2: let x = solve 4*y + 8 = 0
+    testing::internal::CaptureStdout();
+    process_input_line("let x = solve 4*y + 8 = 0", ctx, in, false, test_ui());
+    testing::internal::GetCapturedStdout();
+
+    // x should be stored
+    EXPECT_TRUE(ctx.has("x"));
+    EXPECT_NEAR(ctx.get("x"), -2.5, 1e-10);
+
+    // Step 3: set z = x^2 + 10
+    testing::internal::CaptureStdout();
+    process_input_line("set z x^2 + 10", ctx, in, false, test_ui());
+    testing::internal::GetCapturedStdout();
+
+    EXPECT_TRUE(ctx.has("z"));
+}
+
+// ============================================================
+// Let destructure tests
+// ============================================================
+
+TEST(ProcessInputLine, LetDestructureBasic) {
+    Context       ctx;
+    // Provide equations inline
+    istringstream in("x + y = 10\nx - y = 4\n}\n");
+
+    testing::internal::CaptureStdout();
+    process_input_line("let (x, y) = solve {", ctx, in, false, test_ui());
+    string output = testing::internal::GetCapturedStdout();
+
+    EXPECT_TRUE(ctx.has("x"));
+    EXPECT_TRUE(ctx.has("y"));
+    EXPECT_NEAR(ctx.get("x"), 7.0, 1e-10);
+    EXPECT_NEAR(ctx.get("y"), 3.0, 1e-10);
 }

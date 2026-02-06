@@ -38,19 +38,19 @@ TEST(ParserTest, DecimalNumber) { EXPECT_EQ(parse_str("3.14"), "3.14"); }
 TEST(ParserTest, SingleVariable) { EXPECT_EQ(parse_str("x"), "x"); }
 
 // ทดสอบ parse บวก
-TEST(ParserTest, Addition) { EXPECT_EQ(parse_str("1 + 2"), "(1 + 2)"); }
+TEST(ParserTest, Addition) { EXPECT_EQ(parse_str("1 + 2"), "1 + 2"); }
 
 // ทดสอบ parse ลบ
-TEST(ParserTest, Subtraction) { EXPECT_EQ(parse_str("5 - 3"), "(5 - 3)"); }
+TEST(ParserTest, Subtraction) { EXPECT_EQ(parse_str("5 - 3"), "5 - 3"); }
 
 // ทดสอบ parse คูณ
-TEST(ParserTest, Multiplication) { EXPECT_EQ(parse_str("4 * 6"), "(4 * 6)"); }
+TEST(ParserTest, Multiplication) { EXPECT_EQ(parse_str("4 * 6"), "4*6"); }
 
 // ทดสอบ parse หาร
-TEST(ParserTest, Division) { EXPECT_EQ(parse_str("10 / 2"), "(10 / 2)"); }
+TEST(ParserTest, Division) { EXPECT_EQ(parse_str("10 / 2"), "10/2"); }
 
 // ทดสอบ parse ยกกำลัง
-TEST(ParserTest, Power) { EXPECT_EQ(parse_str("2 ^ 3"), "(2 ^ 3)"); }
+TEST(ParserTest, Power) { EXPECT_EQ(parse_str("2 ^ 3"), "2^3"); }
 
 // ============================================================
 // Operator precedence
@@ -59,25 +59,25 @@ TEST(ParserTest, Power) { EXPECT_EQ(parse_str("2 ^ 3"), "(2 ^ 3)"); }
 // ทดสอบ precedence: * ก่อน +
 TEST(ParserPrecedenceTest, MulBeforeAdd) {
     // 1 + 2 * 3 = 1 + (2*3)
-    EXPECT_EQ(parse_str("1 + 2 * 3"), "(1 + (2 * 3))");
+    EXPECT_EQ(parse_str("1 + 2 * 3"), "1 + 2*3");
 }
 
 // ทดสอบ precedence: ^ ก่อน *
 TEST(ParserPrecedenceTest, PowBeforeMul) {
     // 2 * 3 ^ 2 = 2 * (3^2)
-    EXPECT_EQ(parse_str("2 * 3 ^ 2"), "(2 * (3 ^ 2))");
+    EXPECT_EQ(parse_str("2 * 3 ^ 2"), "2*3^2");
 }
 
 // ทดสอบ precedence: - ก่อน + (left assoc, ลำดับเดียวกัน)
 TEST(ParserPrecedenceTest, LeftAssocAddSub) {
     // 1 - 2 + 3 = ((1-2)+3)
-    EXPECT_EQ(parse_str("1 - 2 + 3"), "((1 - 2) + 3)");
+    EXPECT_EQ(parse_str("1 - 2 + 3"), "1 - 2 + 3");
 }
 
 // ทดสอบ precedence: / ก่อน - (ไม่ใช่จริงๆ — / precedence > -)
 TEST(ParserPrecedenceTest, DivBeforeSub) {
     // 6 - 4 / 2 = 6 - (4/2)
-    EXPECT_EQ(parse_str("6 - 4 / 2"), "(6 - (4 / 2))");
+    EXPECT_EQ(parse_str("6 - 4 / 2"), "6 - 4/2");
 }
 
 // ============================================================
@@ -87,12 +87,12 @@ TEST(ParserPrecedenceTest, DivBeforeSub) {
 // ทดสอบ parentheses ที่เปลี่ยน precedence
 TEST(ParserParenTest, OverridePrecedence) {
     // (1 + 2) * 3
-    EXPECT_EQ(parse_str("(1 + 2) * 3"), "((1 + 2) * 3)");
+    EXPECT_EQ(parse_str("(1 + 2) * 3"), "(1 + 2)*3");
 }
 
 // ทดสอบ nested parentheses
 TEST(ParserParenTest, NestedParens) {
-    EXPECT_EQ(parse_str("((1 + 2))"), "(1 + 2)");
+    EXPECT_EQ(parse_str("((1 + 2))"), "1 + 2");
 }
 
 // ============================================================
@@ -100,19 +100,17 @@ TEST(ParserParenTest, NestedParens) {
 // ============================================================
 
 // ทดสอบ unary minus — ได้ (0 - x)
-TEST(ParserUnaryTest, UnaryMinus) { EXPECT_EQ(parse_str("-x"), "(0 - x)"); }
+TEST(ParserUnaryTest, UnaryMinus) { EXPECT_EQ(parse_str("-x"), "0 - x"); }
 
 // ทดสอบ unary minus กับตัวเลข
-TEST(ParserUnaryTest, UnaryMinusNumber) {
-    EXPECT_EQ(parse_str("-5"), "(0 - 5)");
-}
+TEST(ParserUnaryTest, UnaryMinusNumber) { EXPECT_EQ(parse_str("-5"), "0 - 5"); }
 
 // ทดสอบ unary plus (ไม่เปลี่ยนค่า)
 TEST(ParserUnaryTest, UnaryPlus) { EXPECT_EQ(parse_str("+x"), "x"); }
 
 // ทดสอบ double unary minus: --x = -(0-x) = (0 - (0 - x))
 TEST(ParserUnaryTest, DoubleUnaryMinus) {
-    EXPECT_EQ(parse_str("--x"), "(0 - (0 - x))");
+    EXPECT_EQ(parse_str("--x"), "0 - (0 - x)");
 }
 
 // ============================================================
@@ -121,22 +119,22 @@ TEST(ParserUnaryTest, DoubleUnaryMinus) {
 
 // ทดสอบ implicit multiplication: "2x" = "2 * x"
 TEST(ParserImplicitMulTest, NumberVariable) {
-    EXPECT_EQ(parse_str("2x"), "(2 * x)");
+    EXPECT_EQ(parse_str("2x"), "2*x");
 }
 
 // ทดสอบ implicit multiplication: "3(x)" = "3 * x"
 TEST(ParserImplicitMulTest, NumberParen) {
-    EXPECT_EQ(parse_str("3(x)"), "(3 * x)");
+    EXPECT_EQ(parse_str("3(x)"), "3*x");
 }
 
 // ทดสอบ implicit multiplication: "x y" = "x * y"
 TEST(ParserImplicitMulTest, VariableVariable) {
-    EXPECT_EQ(parse_str("x y"), "(x * y)");
+    EXPECT_EQ(parse_str("x y"), "x*y");
 }
 
 // ทดสอบ implicit multiplication ซ้อนกัน: "2x y" = "(2*x)*y"
 TEST(ParserImplicitMulTest, ChainedImplicit) {
-    EXPECT_EQ(parse_str("2x y"), "((2 * x) * y)");
+    EXPECT_EQ(parse_str("2x y"), "2*x*y");
 }
 
 // ============================================================
@@ -145,12 +143,12 @@ TEST(ParserImplicitMulTest, ChainedImplicit) {
 
 // ทดสอบ expression ซับซ้อน: "2x + 3y - 1"
 TEST(ParserComplexTest, LinearExpression) {
-    EXPECT_EQ(parse_str("2x + 3y - 1"), "(((2 * x) + (3 * y)) - 1)");
+    EXPECT_EQ(parse_str("2x + 3y - 1"), "2*x + 3*y - 1");
 }
 
 // ทดสอบ: "x^2 + 2x + 1"
 TEST(ParserComplexTest, QuadraticLike) {
-    EXPECT_EQ(parse_str("x^2 + 2x + 1"), "(((x ^ 2) + (2 * x)) + 1)");
+    EXPECT_EQ(parse_str("x^2 + 2x + 1"), "x^2 + 2*x + 1");
 }
 
 // ============================================================
@@ -168,7 +166,7 @@ TEST(ParserEquationTest, SimpleEquation) {
 TEST(ParserEquationTest, LinearEquation) {
     Parser parser("2x + 1 = 7");
     auto   eq = parser.parse_equation();
-    EXPECT_EQ(eq->to_string(), "((2 * x) + 1) = 7");
+    EXPECT_EQ(eq->to_string(), "2*x + 1 = 7");
 }
 
 // ทดสอบ parse equation fail — ไม่มี '='
@@ -193,7 +191,7 @@ TEST(ParserExprOrEqTest, ExpressionPath) {
     auto [expr, eq] = parser.parse_expression_or_equation();
     EXPECT_NE(expr, nullptr);
     EXPECT_EQ(eq, nullptr);
-    EXPECT_EQ(expr->to_string(), "(1 + 2)");
+    EXPECT_EQ(expr->to_string(), "1 + 2");
 }
 
 // ทดสอบ parse_expression_or_equation กับ equation

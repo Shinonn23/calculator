@@ -69,16 +69,34 @@ namespace math_solver {
             out_ << "[Running " << filename << "]\n";
         }
 
-        void print_file_footer(const std::string& filename, bool stopped) {
+        void print_file_footer(const std::string& filename, bool stopped,
+                               double elapsed_ms = -1.0) {
             if (stopped) {
                 err_ << "[Execution stopped]\n";
             } else {
-                out_ << "[Finished " << filename << "]\n";
+                out_ << "[Finished " << filename;
+                if (elapsed_ms >= 0.0) {
+                    out_ << " in ";
+                    if (elapsed_ms < 1.0) {
+                        // sub-millisecond: show microseconds
+                        out_ << format_double(elapsed_ms * 1000.0) << " us";
+                    } else if (elapsed_ms < 1000.0) {
+                        out_ << format_double(elapsed_ms) << " ms";
+                    } else {
+                        out_ << format_double(elapsed_ms / 1000.0) << " s";
+                    }
+                }
+                out_ << "]\n";
             }
         }
 
         // ─── Result Printers ─────────────────────────────────────
 
+        void print_set(const std::string& var, const std::string& expr_str) {
+            out_ << var << " = " << expr_str << "\n";
+        }
+
+        // Legacy overload for numeric values
         void print_set(const std::string& var, double value) {
             out_ << var << " = " << format_double(value) << "\n";
         }
@@ -107,8 +125,7 @@ namespace math_solver {
 
             out_ << "Variables:\n";
             for (const auto& name : names) {
-                out_ << "  " << name << " = "
-                     << format_double(ctx.all().at(name)) << "\n";
+                out_ << "  " << name << " = " << ctx.get_display(name) << "\n";
             }
         }
 
@@ -125,14 +142,59 @@ namespace math_solver {
             }
         }
 
+        // Print substitution steps during solve
+        void print_substitution_steps(
+            const std::vector<std::pair<std::string, std::string>>& subs,
+            const std::string& reduced_eq = "") {
+            if (!subs.empty()) {
+                out_ << "Substituting:\n";
+                for (const auto& [var, expr] : subs) {
+                    out_ << "  " << var << " = " << expr << "\n";
+                }
+                if (!reduced_eq.empty()) {
+                    out_ << "Reduced equation:\n";
+                    out_ << "  " << reduced_eq << "\n";
+                }
+            }
+        }
+
         void print_solve(const SolveResult& result) {
             if (!result.has_solution) {
                 out_ << "No solution\n";
                 return;
             }
             out_ << "Solution:\n";
-            out_ << "  " << result.variable << " = "
-                 << format_double(result.value) << "\n";
+            if (result.values.size() == 1) {
+                out_ << "  " << result.variable << " = "
+                     << format_double(result.values[0]) << "\n";
+            } else {
+                for (size_t i = 0; i < result.values.size(); ++i) {
+                    out_ << "  " << result.variable << "_" << (i + 1) << " = "
+                         << format_double(result.values[i]) << "\n";
+                }
+            }
+        }
+
+        // Print stored variable notification
+        void print_stored(const std::string& var, double value) {
+            out_ << "  (stored: " << var << " = " << format_double(value)
+                 << ")\n";
+        }
+
+        // Print command output: "expr = value"
+        void print_print(const std::string& expr_str, double value) {
+            out_ << "  " << expr_str << " = " << format_double(value) << "\n";
+        }
+
+        // Print symbolic form when cannot fully evaluate
+        void print_print_symbolic(const std::string& expr_str,
+                                  const std::string& expanded_str) {
+            if (expr_str != expanded_str) {
+                out_ << "  " << expr_str << " = " << expanded_str
+                     << " (symbolic)\n";
+            } else {
+                out_ << "  " << expr_str << " (symbolic)\n";
+            }
         }
 
         void print_solve_system_info(size_t num_eq, size_t num_vars) {
@@ -235,6 +297,12 @@ namespace math_solver {
                 print_help_solve();
             } else if (topic == "simplify") {
                 print_help_simplify();
+            } else if (topic == "print") {
+                print_help_print();
+            } else if (topic == "let") {
+                print_help_let();
+            } else if (topic == "comment" || topic == "#") {
+                print_help_comment();
             } else {
                 err_ << "Unknown help topic: '" << topic << "'\n";
                 out_ << "Type 'help' for available commands.\n";
@@ -256,11 +324,17 @@ namespace math_solver {
             out_ << "    vars                       Show all variables\n\n";
             out_ << "  Solving:\n";
             out_ << "    solve <lhs> = <rhs>        Solve single equation\n";
-            out_ << "    solve                      Multi-equation mode\n\n";
+            out_ << "    solve                      Multi-equation mode\n";
+            out_ << "    let <var> = solve <eq>      Solve and store result\n";
+            out_
+                << "    let (x,y) = solve { ... }   Solve system and store\n\n";
+            out_ << "  Output:\n";
+            out_ << "    print <expression>         Print expression value\n\n";
             out_ << "  Simplification:\n";
             out_ << "    simplify <lhs> = <rhs>     Simplify to canonical "
                     "form\n\n";
             out_ << "  Other:\n";
+            out_ << "    # comment                  Line comment\n";
             out_ << "    help [command]              Show help\n";
             out_ << "    exit, q                    Quit\n\n";
             out_ << "Type 'help <command>' for details (e.g., help solve)\n\n";
@@ -325,6 +399,41 @@ namespace math_solver {
             out_ << "Example:\n";
             out_ << "  simplify 4x + 8y = 16\n";
             out_ << "  simplify 4x + 8y = 16 --fraction\n\n";
+        }
+
+        void print_help_print() {
+            out_ << "\nPrint expression value\n\n";
+            out_ << "Usage:\n";
+            out_ << "  print <expression>\n\n";
+            out_ << "Evaluates the expression and displays: expr = value\n\n";
+            out_ << "Examples:\n";
+            out_ << "  print x\n";
+            out_ << "  print x^2 + 1\n";
+            out_ << "  print 2*pi*r\n\n";
+        }
+
+        void print_help_let() {
+            out_ << "\nSolve and store result\n\n";
+            out_ << "Usage:\n";
+            out_ << "  let <var> = solve <equation>\n";
+            out_ << "  let (<v1>, <v2>) = solve { <system> }\n\n";
+            out_ << "Solves the equation and stores the result.\n\n";
+            out_ << "Examples:\n";
+            out_ << "  let x = solve 2x + 4 = 0\n";
+            out_ << "  let r = solve pi*r^2 = 314\n";
+            out_ << "  let (x, y) = solve {\n";
+            out_ << "    x + y = 10\n";
+            out_ << "    x - y = 4\n";
+            out_ << "  }\n\n";
+        }
+
+        void print_help_comment() {
+            out_ << "\nComments\n\n";
+            out_ << "Use # for single-line comments.\n";
+            out_ << "Everything after # is ignored.\n\n";
+            out_ << "Examples:\n";
+            out_ << "  # this is a comment\n";
+            out_ << "  set y 2*x + 3   # y is linear function of x\n\n";
         }
     };
 

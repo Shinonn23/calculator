@@ -4,11 +4,13 @@
 #include "common/console_ui.h"
 #include "common/error.h"
 #include "common/utils.h"
+#include "common/value.h"
 #include "eval/evaluator.h"
 #include "parser/parser.h"
 #include "solve/linear_system.h"
 #include "solve/simplify.h"
 #include "solve/solver.h"
+#include <chrono>
 #include <fstream>
 #include <iostream>
 #include <sstream>
@@ -41,15 +43,16 @@ int main(int argc, char* argv[]) {
         }
     }
 
-    if (!file_mode && expr_args.size() == 1 && ends_with(expr_args[0], ".ms")) {
+    if (!file_mode && expr_args.size() == 1 &&
+        ends_with(expr_args[0], ".msl")) {
         file_mode = true;
         file_path = expr_args[0];
         expr_args.clear();
     }
 
     if (file_mode) {
-        if (!ends_with(file_path, ".ms")) {
-            cerr << "Error: file must have .ms extension\n";
+        if (!ends_with(file_path, ".msl")) {
+            cerr << "Error: file must have .msl extension\n";
             return 1;
         }
         if (!expr_args.empty()) {
@@ -69,13 +72,21 @@ int main(int argc, char* argv[]) {
 
         ui.print_file_header(file_path);
 
+        auto start   = std::chrono::high_resolution_clock::now();
+
+        bool stopped = false;
         while (getline(file, line)) {
             if (!process_input_line(line, ctx, file, false, ui)) {
+                stopped = true;
                 break;
             }
         }
 
-        ui.print_file_footer(file_path, false);
+        auto   end = std::chrono::high_resolution_clock::now();
+        double elapsed =
+            std::chrono::duration<double, std::milli>(end - start).count();
+
+        ui.print_file_footer(file_path, stopped, elapsed);
         return 0;
     }
 
@@ -93,7 +104,8 @@ int main(int argc, char* argv[]) {
             Parser    parser(expr_str);
             auto      expr = parser.parse();
             Evaluator eval(&ctx, expr_str);
-            cout << eval.evaluate(*expr) << endl;
+            Value     result = eval.evaluate(*expr);
+            cout << result.to_string() << endl;
         } catch (const MathError& e) {
             cerr << e.format() << endl;
             return 1;

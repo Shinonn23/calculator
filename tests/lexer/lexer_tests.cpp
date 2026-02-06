@@ -9,7 +9,6 @@
 #include "lexer/token.h"
 #include <gtest/gtest.h>
 
-
 using namespace math_solver;
 using namespace std;
 
@@ -29,6 +28,11 @@ TEST(TokenTypeNameTest, AllTypes) {
     EXPECT_STREQ(token_type_name(TokenType::Pow), "^");
     EXPECT_STREQ(token_type_name(TokenType::LParen), "(");
     EXPECT_STREQ(token_type_name(TokenType::RParen), ")");
+    EXPECT_STREQ(token_type_name(TokenType::LBracket), "[");
+    EXPECT_STREQ(token_type_name(TokenType::RBracket), "]");
+    EXPECT_STREQ(token_type_name(TokenType::LBrace), "{");
+    EXPECT_STREQ(token_type_name(TokenType::RBrace), "}");
+    EXPECT_STREQ(token_type_name(TokenType::Comma), ",");
     EXPECT_STREQ(token_type_name(TokenType::Equals), "=");
 }
 
@@ -46,6 +50,8 @@ TEST(IsReservedKeywordTest, ReservedWords) {
     EXPECT_TRUE(is_reserved_keyword("help"));
     EXPECT_TRUE(is_reserved_keyword("exit"));
     EXPECT_TRUE(is_reserved_keyword("quit"));
+    EXPECT_TRUE(is_reserved_keyword("print"));
+    EXPECT_TRUE(is_reserved_keyword("let"));
 }
 
 // ทดสอบ keywords ที่ไม่ถูก reserve
@@ -225,10 +231,11 @@ TEST(LexerTest, UnexpectedCharacter) {
     EXPECT_THROW(lexer.next_token(), ParseError);
 }
 
-// ทดสอบตัวอักษรแปลกๆ (เช่น #)
-TEST(LexerTest, AnotherUnexpectedCharacter) {
+// ทดสอบ # เป็น comment — skip ทั้งบรรทัด return End
+TEST(LexerTest, CommentIsSkipped) {
     Lexer lexer("#");
-    EXPECT_THROW(lexer.next_token(), ParseError);
+    Token t = lexer.next_token();
+    EXPECT_EQ(t.type, TokenType::End);
 }
 
 // ทดสอบ reserved keyword ถูก reject
@@ -275,4 +282,79 @@ TEST(LexerTest, TrailingDotNumber) {
     Token t = lexer.next_token();
     EXPECT_EQ(t.type, TokenType::Number);
     EXPECT_DOUBLE_EQ(t.value, 5.0);
+}
+
+// ============================================================
+// Comment tests (#)
+// ============================================================
+
+// ทดสอบ full-line comment
+TEST(LexerTest, FullLineComment) {
+    Lexer lexer("# this is a comment");
+    Token t = lexer.next_token();
+    EXPECT_EQ(t.type, TokenType::End);
+}
+
+// ทดสอบ inline comment — code ก่อน #
+TEST(LexerTest, InlineComment) {
+    Lexer lexer("2 + 3 # trailing comment");
+    Token t1 = lexer.next_token();
+    EXPECT_EQ(t1.type, TokenType::Number);
+    EXPECT_DOUBLE_EQ(t1.value, 2.0);
+
+    Token t2 = lexer.next_token();
+    EXPECT_EQ(t2.type, TokenType::Plus);
+
+    Token t3 = lexer.next_token();
+    EXPECT_EQ(t3.type, TokenType::Number);
+    EXPECT_DOUBLE_EQ(t3.value, 3.0);
+
+    Token t4 = lexer.next_token();
+    EXPECT_EQ(t4.type, TokenType::End); // comment ignored
+}
+
+// ทดสอบ empty comment
+TEST(LexerTest, EmptyComment) {
+    Lexer lexer("#");
+    Token t = lexer.next_token();
+    EXPECT_EQ(t.type, TokenType::End);
+}
+
+// ทดสอบ comment หลัง whitespace
+TEST(LexerTest, CommentAfterWhitespace) {
+    Lexer lexer("   # indented comment");
+    Token t = lexer.next_token();
+    EXPECT_EQ(t.type, TokenType::End);
+}
+
+// ============================================================
+// New token type tests (brackets, braces, comma)
+// ============================================================
+
+TEST(LexerTest, BracketTokens) {
+    Lexer lexer("[0]");
+    Token t1 = lexer.next_token();
+    EXPECT_EQ(t1.type, TokenType::LBracket);
+    Token t2 = lexer.next_token();
+    EXPECT_EQ(t2.type, TokenType::Number);
+    Token t3 = lexer.next_token();
+    EXPECT_EQ(t3.type, TokenType::RBracket);
+}
+
+TEST(LexerTest, BraceTokens) {
+    Lexer lexer("{ }");
+    Token t1 = lexer.next_token();
+    EXPECT_EQ(t1.type, TokenType::LBrace);
+    Token t2 = lexer.next_token();
+    EXPECT_EQ(t2.type, TokenType::RBrace);
+}
+
+TEST(LexerTest, CommaToken) {
+    Lexer lexer("a, b");
+    Token t1 = lexer.next_token();
+    EXPECT_EQ(t1.type, TokenType::Identifier);
+    Token t2 = lexer.next_token();
+    EXPECT_EQ(t2.type, TokenType::Comma);
+    Token t3 = lexer.next_token();
+    EXPECT_EQ(t3.type, TokenType::Identifier);
 }

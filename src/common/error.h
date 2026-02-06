@@ -99,6 +99,24 @@ namespace math_solver {
             : MathError(message, span, input) {}
     };
 
+    // Domain constraint violation (root excluded by domain)
+    class DomainError : public MathError {
+        public:
+        DomainError(const std::string& message, const Span& span = Span(),
+                    const std::string& input = "")
+            : MathError(message, span, input) {}
+    };
+
+    // Numerical solver diverged (all starting points failed)
+    class SolverDivergedError : public MathError {
+        public:
+        SolverDivergedError(
+            const std::string& message =
+                "numerical solver diverged from all starting points",
+            const Span& span = Span(), const std::string& input = "")
+            : MathError(message, span, input) {}
+    };
+
     // Infinite solutions
     class InfiniteSolutionsError : public MathError {
         public:

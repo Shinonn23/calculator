@@ -14,7 +14,6 @@
 #include <cmath>
 #include <gtest/gtest.h>
 
-
 using namespace math_solver;
 using namespace std;
 
@@ -36,7 +35,7 @@ static SolveResult solve_eq(const string& input, const Context* ctx = nullptr) {
 TEST(SolveResultTest, HasSolution) {
     SolveResult r;
     r.variable     = "x";
-    r.value        = 5.0;
+    r.values       = {5.0};
     r.has_solution = true;
     EXPECT_EQ(r.to_string(), "x = 5");
 }
@@ -52,7 +51,7 @@ TEST(SolveResultTest, NoSolution) {
 TEST(SolveResultTest, DecimalValue) {
     SolveResult r;
     r.variable     = "y";
-    r.value        = 2.5;
+    r.values       = {2.5};
     r.has_solution = true;
     EXPECT_EQ(r.to_string(), "y = 2.5");
 }
@@ -66,49 +65,49 @@ TEST(SolverTest, TrivialEquation) {
     auto r = solve_eq("x = 5");
     EXPECT_TRUE(r.has_solution);
     EXPECT_EQ(r.variable, "x");
-    EXPECT_DOUBLE_EQ(r.value, 5.0);
+    EXPECT_DOUBLE_EQ(r.value(), 5.0);
 }
 
 // ทดสอบ 2x = 10 → x = 5
 TEST(SolverTest, SimpleLinear) {
     auto r = solve_eq("2x = 10");
     EXPECT_TRUE(r.has_solution);
-    EXPECT_DOUBLE_EQ(r.value, 5.0);
+    EXPECT_DOUBLE_EQ(r.value(), 5.0);
 }
 
 // ทดสอบ x + 3 = 7 → x = 4
 TEST(SolverTest, WithConstant) {
     auto r = solve_eq("x + 3 = 7");
     EXPECT_TRUE(r.has_solution);
-    EXPECT_DOUBLE_EQ(r.value, 4.0);
+    EXPECT_DOUBLE_EQ(r.value(), 4.0);
 }
 
 // ทดสอบ 3x + 1 = 10 → x = 3
 TEST(SolverTest, CoeffAndConstant) {
     auto r = solve_eq("3x + 1 = 10");
     EXPECT_TRUE(r.has_solution);
-    EXPECT_DOUBLE_EQ(r.value, 3.0);
+    EXPECT_DOUBLE_EQ(r.value(), 3.0);
 }
 
 // ทดสอบ ตัวแปรทั้งสองฝั่ง: 2x = x + 4 → x = 4
 TEST(SolverTest, VariableBothSides) {
     auto r = solve_eq("2x = x + 4");
     EXPECT_TRUE(r.has_solution);
-    EXPECT_DOUBLE_EQ(r.value, 4.0);
+    EXPECT_DOUBLE_EQ(r.value(), 4.0);
 }
 
 // ทดสอบ ค่าเป็นลบ: x + 10 = 3 → x = -7
 TEST(SolverTest, NegativeResult) {
     auto r = solve_eq("x + 10 = 3");
     EXPECT_TRUE(r.has_solution);
-    EXPECT_DOUBLE_EQ(r.value, -7.0);
+    EXPECT_DOUBLE_EQ(r.value(), -7.0);
 }
 
 // ทดสอบ ค่าทศนิยม: 2x = 5 → x = 2.5
 TEST(SolverTest, FractionalResult) {
     auto r = solve_eq("2x = 5");
     EXPECT_TRUE(r.has_solution);
-    EXPECT_DOUBLE_EQ(r.value, 2.5);
+    EXPECT_DOUBLE_EQ(r.value(), 2.5);
 }
 
 // ============================================================
@@ -151,7 +150,7 @@ TEST(SolverTest, WithContext) {
     // a*x = 12 → 3x = 12 → x = 4
     auto r = solve_eq("a * x = 12", &ctx);
     EXPECT_TRUE(r.has_solution);
-    EXPECT_DOUBLE_EQ(r.value, 4.0);
+    EXPECT_DOUBLE_EQ(r.value(), 4.0);
 }
 
 // ============================================================
@@ -166,7 +165,7 @@ TEST(SolverTest, SolveForBasic) {
     auto           eq = parser.parse_equation();
     EquationSolver solver(nullptr, "x + 3 = 10");
     auto           r = solver.solve_for(*eq, "x");
-    EXPECT_DOUBLE_EQ(r.value, 7.0);
+    EXPECT_DOUBLE_EQ(r.value(), 7.0);
 }
 
 // ทดสอบ solve_for — target variable ไม่อยู่ใน equation
@@ -189,7 +188,7 @@ TEST(SolverTest, DefaultConstructor) {
     auto           eq = parser.parse_equation();
     solver.set_input("x = 5");
     auto r = solver.solve(*eq);
-    EXPECT_DOUBLE_EQ(r.value, 5.0);
+    EXPECT_DOUBLE_EQ(r.value(), 5.0);
 }
 
 // ทดสอบ constructor กับ context เท่านั้น
@@ -202,5 +201,78 @@ TEST(SolverTest, ContextOnlyConstructor) {
     Parser parser("a * x = 8");
     auto   eq = parser.parse_equation();
     auto   r  = solver.solve(*eq);
-    EXPECT_DOUBLE_EQ(r.value, 4.0);
+    EXPECT_DOUBLE_EQ(r.value(), 4.0);
+}
+
+// ============================================================
+// Quadratic equation tests
+// ============================================================
+
+// x^2 = 4 → x = [-2, 2]
+TEST(SolverTest, QuadraticSimple) {
+    auto r = solve_eq("x^2 = 4");
+    EXPECT_TRUE(r.has_solution);
+    ASSERT_EQ(r.values.size(), 2u);
+    EXPECT_NEAR(r.values[0], -2.0, 1e-10);
+    EXPECT_NEAR(r.values[1], 2.0, 1e-10);
+}
+
+// x^2 - 5x + 6 = 0 → x = [2, 3]
+TEST(SolverTest, QuadraticFactorable) {
+    auto r = solve_eq("x^2 - 5x + 6 = 0");
+    EXPECT_TRUE(r.has_solution);
+    ASSERT_EQ(r.values.size(), 2u);
+    EXPECT_NEAR(r.values[0], 2.0, 1e-10);
+    EXPECT_NEAR(r.values[1], 3.0, 1e-10);
+}
+
+// x^2 - 4x + 4 = 0 → x = 2 (repeated root)
+TEST(SolverTest, QuadraticRepeatedRoot) {
+    auto r = solve_eq("x^2 - 4x + 4 = 0");
+    EXPECT_TRUE(r.has_solution);
+    ASSERT_EQ(r.values.size(), 1u);
+    EXPECT_NEAR(r.values[0], 2.0, 1e-10);
+}
+
+// x^2 + 1 = 0 → no real solution
+TEST(SolverTest, QuadraticNoRealSolution) {
+    EXPECT_THROW(solve_eq("x^2 + 1 = 0"), NoSolutionError);
+}
+
+// 2x^2 + 4x - 6 = 0 → x = [-3, 1]
+TEST(SolverTest, QuadraticWithCoefficients) {
+    auto r = solve_eq("2x^2 + 4x - 6 = 0");
+    EXPECT_TRUE(r.has_solution);
+    ASSERT_EQ(r.values.size(), 2u);
+    EXPECT_NEAR(r.values[0], -3.0, 1e-10);
+    EXPECT_NEAR(r.values[1], 1.0, 1e-10);
+}
+
+// x^2 = 0 → x = 0
+TEST(SolverTest, QuadraticZeroSolution) {
+    auto r = solve_eq("x^2 = 0");
+    EXPECT_TRUE(r.has_solution);
+    ASSERT_EQ(r.values.size(), 1u);
+    EXPECT_NEAR(r.values[0], 0.0, 1e-10);
+}
+
+// Quadratic with context: a*x^2 + b = 0 where a=1, b=-9
+TEST(SolverTest, QuadraticWithContext) {
+    Context ctx;
+    ctx.set("a", 1);
+    ctx.set("b", -9);
+    auto r = solve_eq("a*x^2 + b = 0", &ctx);
+    EXPECT_TRUE(r.has_solution);
+    ASSERT_EQ(r.values.size(), 2u);
+    EXPECT_NEAR(r.values[0], -3.0, 1e-10);
+    EXPECT_NEAR(r.values[1], 3.0, 1e-10);
+}
+
+// SolveResult multi-solution to_string
+TEST(SolveResultTest, MultiSolutionToString) {
+    SolveResult r;
+    r.variable     = "x";
+    r.values       = {-2.0, 2.0};
+    r.has_solution = true;
+    EXPECT_EQ(r.to_string(), "x = [-2, 2]");
 }

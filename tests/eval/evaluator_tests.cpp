@@ -14,7 +14,6 @@
 #include <cmath>
 #include <gtest/gtest.h>
 
-
 using namespace math_solver;
 using namespace std;
 
@@ -25,7 +24,7 @@ static double eval(const string& input, const Context* ctx = nullptr) {
     Parser    parser(input);
     auto      expr = parser.parse();
     Evaluator evaluator(ctx, input);
-    return evaluator.evaluate(*expr);
+    return evaluator.evaluate_scalar(*expr);
 }
 
 // ============================================================
@@ -149,7 +148,7 @@ TEST(EvaluatorTest, UndefinedVariableNotInContext) {
 TEST(EvaluatorTest, DefaultConstructor) {
     Evaluator evaluator;
     Number    num(99);
-    EXPECT_DOUBLE_EQ(evaluator.evaluate(num), 99.0);
+    EXPECT_DOUBLE_EQ(evaluator.evaluate_scalar(num), 99.0);
 }
 
 // ทดสอบ set_input เพื่อให้ error message มี context
@@ -158,7 +157,7 @@ TEST(EvaluatorTest, SetInput) {
     evaluator.set_input("test input");
     Number num(1);
     // set_input ไม่เปลี่ยนพฤติกรรมการ evaluate แค่เก็บ input ไว้ใช้ในข้อความ error
-    EXPECT_DOUBLE_EQ(evaluator.evaluate(num), 1.0);
+    EXPECT_DOUBLE_EQ(evaluator.evaluate_scalar(num), 1.0);
 }
 
 // ============================================================

@@ -1,13 +1,18 @@
 // ============================================================
 // Unit tests สำหรับ Context (variable storage)
-// ครอบคลุม: set, get, has, unset, clear, all_names, all,
-//           size, empty
+// ครอบคลุม: set, get, has, unset, clear, all_names,
+//           size, empty, symbolic storage
 // ============================================================
 
+#include "ast/binary.h"
+#include "ast/number.h"
+#include "ast/variable.h"
 #include "eval/context.h"
+#include "parser/parser.h"
 #include <algorithm>
 #include <gtest/gtest.h>
 #include <stdexcept>
+
 
 using namespace math_solver;
 using namespace std;
@@ -143,16 +148,17 @@ TEST(ContextTest, AllNamesEmpty) {
 // all
 // ============================================================
 
-// ทดสอบ all() return reference ไปยัง internal map
-TEST(ContextTest, AllMap) {
+// ทดสอบ get_expr / get_display
+TEST(ContextTest, GetExprAndDisplay) {
     Context ctx;
     ctx.set("a", 10);
     ctx.set("b", 20);
 
-    const auto& m = ctx.all();
-    EXPECT_EQ(m.size(), 2u);
-    EXPECT_DOUBLE_EQ(m.at("a"), 10.0);
-    EXPECT_DOUBLE_EQ(m.at("b"), 20.0);
+    EXPECT_NE(ctx.get_expr("a"), nullptr);
+    EXPECT_NE(ctx.get_expr("b"), nullptr);
+    EXPECT_EQ(ctx.get_display("a"), "10");
+    EXPECT_EQ(ctx.get_display("b"), "20");
+    EXPECT_EQ(ctx.get_expr("missing"), nullptr);
 }
 
 // ============================================================

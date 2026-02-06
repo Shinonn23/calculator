@@ -17,14 +17,19 @@ namespace math_solver {
         Pow,
         LParen,
         RParen,
+        LBracket,
+        RBracket,
         Equals,
+        LBrace,
+        RBrace,
+        Comma,
     };
 
     struct Token {
         TokenType   type;
-        double      value;  // used only if type == Number
-        std::string name;   // used only if type == Identifier
-        Span        span;   // position in input
+        double      value; // used only if type == Number
+        std::string name;  // used only if type == Identifier
+        Span        span;  // position in input
 
         Token() : type(TokenType::End), value(0), name(), span() {}
 
@@ -59,6 +64,16 @@ namespace math_solver {
             return ")";
         case TokenType::Equals:
             return "=";
+        case TokenType::LBracket:
+            return "[";
+        case TokenType::RBracket:
+            return "]";
+        case TokenType::LBrace:
+            return "{";
+        case TokenType::RBrace:
+            return "}";
+        case TokenType::Comma:
+            return ",";
         default:
             return "unknown";
         }
@@ -66,9 +81,10 @@ namespace math_solver {
 
     // Reserved keywords that cannot be used as identifiers
     inline bool is_reserved_keyword(const std::string& name) {
-        return name == "simplify" || name == "solve" ||
-               name == "set" || name == "unset" || name == "clear" ||
-               name == "help" || name == "exit" || name == "quit";
+        return name == "simplify" || name == "solve" || name == "set" ||
+               name == "unset" || name == "clear" || name == "help" ||
+               name == "exit" || name == "quit" || name == "print" ||
+               name == "let";
     }
 
 } // namespace math_solver

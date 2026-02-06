@@ -1,0 +1,431 @@
+# ===== Constants =====
+set pi 3.141592653589793
+
+# =====================================================
+# Flow 1
+# =====================================================
+set y 3*x^2 + 2*x - 5
+set z 2*y + 4*x
+set w z^2 - y
+
+let x = solve w = 99
+
+set y_val y
+set z_val z
+set w_val w
+
+print x
+print y_val
+print z_val
+print w_val
+
+clear
+set pi 3.141592653589793
+
+# =====================================================
+# Flow 2
+# =====================================================
+set eq1 2*x + 3*y
+set eq2 x - y
+
+let (x, y) = solve {
+    eq1 = 13
+    eq2 = 1
+}
+
+set energy x^2 + y^2
+set weighted 4*x + 7*y
+
+print x
+print y
+print energy
+print weighted
+
+clear
+set pi 3.141592653589793
+
+# =====================================================
+# Flow 3
+# =====================================================
+set area pi*r^2
+set circumference 2*pi*r
+
+set target_area 452.389342
+
+let r = solve area = target_area
+
+set diameter 2*r
+set perimeter circumference
+set sphere_volume (4/3)*pi*r^3
+
+print r
+print diameter
+print perimeter
+print sphere_volume
+
+clear
+set pi 3.141592653589793
+
+# =====================================================
+# Flow 4
+# =====================================================
+set a 2*x + 1
+set b a^2 - 4
+set c sqrt(b + 9)
+
+let x = solve c = 7
+
+set a_val a
+set b_val b
+set c_val c
+
+print x
+print a_val
+print b_val
+print c_val
+
+clear
+set pi 3.141592653589793
+
+# =====================================================
+# Flow 5
+# =====================================================
+set v u + a*t
+set s u*t + 0.5*a*t^2
+
+set u 5
+set a 3
+set s_target 140
+
+let t = solve s = s_target
+
+set final_velocity v
+
+print t
+print final_velocity
+
+clear
+set pi 3.141592653589793
+
+# =====================================================
+# Flow 6
+# =====================================================
+set y x^2 + 4*x + 1
+
+let x = solve y = 21
+
+set p 3*x + 2
+set q p^2 - 5*p + 6
+
+let k = solve q = 0
+
+print x
+print p
+print k
+
+clear
+set pi 3.141592653589793
+
+# =====================================================
+# Flow 7
+# =====================================================
+set f x^2 + y^2
+set g x*y + y
+
+let (x, y) = solve {
+    f = 25
+    g = 6
+}
+
+set sum_val x + y
+set diff_val x - y
+
+print x
+print y
+print sum_val
+print diff_val
+
+clear
+set pi 3.141592653589793
+
+# =====================================================
+# Flow 8
+# =====================================================
+set a x + 2
+set b a^2 + 3
+
+set c 2*b - a
+set d c^2 + b
+
+set e sqrt(d + 7)
+
+let x = solve e = 15
+
+set a_val a
+set b_val b
+set c_val c
+set d_val d
+set e_val e
+
+print x
+print a_val
+print b_val
+print c_val
+print d_val
+print e_val
+
+clear
+set pi 3.141592653589793
+
+# =====================================================
+# Flow 9
+# =====================================================
+set y x^2 - 5*x + 6
+
+let roots = solve y = 0
+
+set r1 roots[0]
+set result1 3*r1 + 7
+
+set r2 roots[1]
+set result2 3*r2 + 7
+
+print roots
+print result1
+print result2
+
+clear
+set pi 3.141592653589793
+
+# =====================================================
+# Flow 10
+# =====================================================
+set m 4*x - 1
+set n m^2 + 5*m + 4
+set k 2*n + 3
+
+let x = solve k = 75
+
+set m_val m
+set n_val n
+set k_val k
+
+print x
+print m_val
+print n_val
+print k_val
+
+clear
+set pi 3.141592653589793
+
+# =====================================================
+# Flow 11
+# =====================================================
+set a sqrt(3*x + 5)
+set b a^2 + 2*a
+set c sqrt(b + 7)
+set d c^2 + 4*c + 4
+
+let x = solve d = 49
+
+print x
+
+clear
+set pi 3.141592653589793
+
+# =====================================================
+# Flow 12
+# =====================================================
+set expr a*x^2 + b*x + c
+
+let x = solve expr = 0
+
+print x
+
+clear
+set pi 3.141592653589793
+
+# =====================================================
+# Flow 13
+# =====================================================
+set y x^2 - 9
+let roots = solve y = 0
+
+set f (roots[0] + 2)^2 + (roots[1] - 3)^2
+
+print roots
+print f
+
+clear
+set pi 3.141592653589793
+
+# =====================================================
+# Flow 14
+# =====================================================
+set y 2*x + 3
+set z x*y + y
+
+let x = solve z = 45
+
+print x
+print y
+
+clear
+set pi 3.141592653589793
+
+# =====================================================
+# Flow 15
+# =====================================================
+set expr (x^2 - 9) / (x - 3)
+
+let x = solve expr = 6
+
+print x
+
+clear
+set pi 3.141592653589793
+
+# =====================================================
+# Flow 16
+# =====================================================
+set f x^2 + y^2
+set g sqrt(x + y)
+
+let (x, y) = solve {
+    f = 25
+    g = 3
+}
+
+print x
+print y
+
+clear
+set pi 3.141592653589793
+
+# =====================================================
+# Flow 17
+# =====================================================
+set expr 2^(x+1) + 2^x
+
+let x = solve expr = 24
+
+print x
+
+clear
+set pi 3.141592653589793
+
+# =====================================================
+# Flow 18
+# =====================================================
+set a x + 1
+set b a^2 + 2
+set c a^2 - 3
+set d b + c
+set e d^2 - 5*d
+
+let x = solve e = 220
+
+print x
+
+clear
+set pi 3.141592653589793
+
+# =====================================================
+# Flow 19
+# =====================================================
+set f 3*x + 2
+set g f^2 + 4*f + 4
+set h sqrt(g)
+
+let x = solve h = 14
+
+print x
+
+clear
+set pi 3.141592653589793
+
+# =====================================================
+# Flow 20
+# =====================================================
+set area pi*r^2
+set shell 4*pi*r^2 + k*r
+
+set k 6
+
+let r = solve shell = 300
+
+print r
+
+clear
+set pi 3.141592653589793
+
+# =====================================================
+# Flow 21
+# =====================================================
+set a 2*x + y
+set b a^2 - y
+set y sqrt(b + 5)
+
+let x = solve y = 7
+
+print x
+print y
+
+clear
+set pi 3.141592653589793
+
+# =====================================================
+# Flow 22
+# =====================================================
+set expr (x^4 - 1) / (x^2 - 1)
+
+let x = solve expr = 5
+
+print x
+
+clear
+set pi 3.141592653589793
+
+# =====================================================
+# Flow 23 — Challenge: sqrt(x-2) + 1/(x-3) = 4
+# Tests domain constraints (x≠3, x≥2) + numerical solver
+# =====================================================
+solve sqrt(x - 2) + 1/(x - 3) = 4
+
+clear
+set pi 3.141592653589793
+
+# =====================================================
+# Flow 24 — Vector math: scalar * array
+# Tests array broadcasting through set/print
+# =====================================================
+set roots [-3, 3]
+set scaled 4.18879*roots^3
+print scaled
+
+clear
+set pi 3.141592653589793
+
+# =====================================================
+# Flow 25 — Solve with positive filter
+# Tests SolveFlags root filtering
+# =====================================================
+solve positive x^2 - 9 = 0
+
+clear
+set pi 3.141592653589793
+
+# =====================================================
+# Flow 26 — Domain filtering: (x^2-9)/(x-3)
+# The root x=3 should be excluded by domain constraint
+# =====================================================
+solve (x^2 - 9)/(x - 3) = 0
+
+clear
+set pi 3.141592653589793
+
+# =====================================================
+# Flow 27 — Eval mode display
+# =====================================================
+mode
+mode numeric
