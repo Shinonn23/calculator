@@ -1,0 +1,20 @@
+# ===== Constants =====
+set pi 3.141592653589793
+
+# =====================================================
+# Flow 1
+# =====================================================
+set y 3*x^2 + 2*x - 5
+set z 2*y + 4*x
+set w z^2 - y
+
+let x = solve w = 99
+
+set y_val y
+set z_val z
+set w_val w
+
+print x
+print y_val
+print z_val
+print w_val
