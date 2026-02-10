@@ -1,8 +1,8 @@
 #ifndef EVALUATOR_H
 #define EVALUATOR_H
 
-#include "../ast/expr.h"
-#include "context.h"
+#include "../ast/expr.hpp"
+#include "context.hpp"
 
 namespace math_solver {
 

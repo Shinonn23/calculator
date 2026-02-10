@@ -1,7 +1,7 @@
 #ifndef TOKEN_H
 #define TOKEN_H
 
-#include "../common/span.h"
+#include "../common/span.hpp"
 #include <string>
 
 namespace math_solver {
@@ -68,7 +68,8 @@ namespace math_solver {
     inline bool is_reserved_keyword(const std::string& name) {
         return name == "simplify" || name == "solve" || name == "set" ||
                name == "unset" || name == "clear" || name == "help" ||
-               name == "exit" || name == "quit";
+               name == "exit" || name == "quit" || name == "config" ||
+               name == "env";
     }
 
 } // namespace math_solver

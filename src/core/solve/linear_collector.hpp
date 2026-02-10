@@ -1,12 +1,12 @@
 #ifndef LINEAR_COLLECTOR_H
 #define LINEAR_COLLECTOR_H
 
-#include "../ast/binary.h"
-#include "../ast/expr.h"
-#include "../ast/number.h"
-#include "../ast/variable.h"
-#include "../common/error.h"
-#include "../eval/context.h"
+#include "../ast/binary.hpp"
+#include "../ast/expr.hpp"
+#include "../ast/number.hpp"
+#include "../ast/variable.hpp"
+#include "../common/error.hpp"
+#include "../eval/context.hpp"
 #include <cmath>
 #include <map>
 #include <set>

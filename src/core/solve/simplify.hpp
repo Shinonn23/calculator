@@ -1,12 +1,12 @@
 #ifndef SIMPLIFY_H
 #define SIMPLIFY_H
 
-#include "../ast/equation.h"
-#include "../ast/expr.h"
-#include "../common/error.h"
-#include "../common/fraction.h"
-#include "../eval/context.h"
-#include "linear_collector.h"
+#include "../ast/equation.hpp"
+#include "../ast/expr.hpp"
+#include "../common/error.hpp"
+#include "../common/fraction.hpp"
+#include "../eval/context.hpp"
+#include "linear_collector.hpp"
 #include <algorithm>
 #include <cmath>
 #include <set>

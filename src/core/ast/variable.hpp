@@ -1,7 +1,7 @@
 #ifndef VARIABLE_H
 #define VARIABLE_H
 
-#include "expr.h"
+#include "expr.hpp"
 #include <string>
 
 namespace math_solver {

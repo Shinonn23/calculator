@@ -1,14 +1,14 @@
 #ifndef PARSER_H
 #define PARSER_H
 
-#include "../ast/binary.h"
-#include "../ast/equation.h"
-#include "../ast/expr.h"
-#include "../ast/number.h"
-#include "../ast/variable.h"
-#include "../common/error.h"
-#include "../lexer/lexer.h"
-#include "../lexer/token.h"
+#include "../ast/binary.hpp"
+#include "../ast/equation.hpp"
+#include "../ast/expr.hpp"
+#include "../ast/number.hpp"
+#include "../ast/variable.hpp"
+#include "../common/error.hpp"
+#include "../lexer/lexer.hpp"
+#include "../lexer/token.hpp"
 #include <memory>
 #include <string>
 

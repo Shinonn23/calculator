@@ -1,11 +1,11 @@
 #ifndef SOLVER_H
 #define SOLVER_H
 
-#include "../ast/equation.h"
-#include "../ast/expr.h"
-#include "../common/error.h"
-#include "../eval/context.h"
-#include "linear_collector.h"
+#include "../ast/equation.hpp"
+#include "../ast/expr.hpp"
+#include "../common/error.hpp"
+#include "../eval/context.hpp"
+#include "linear_collector.hpp"
 #include <cmath>
 #include <string>
 #include <vector>

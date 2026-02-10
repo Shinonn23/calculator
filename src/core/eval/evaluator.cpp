@@ -1,8 +1,8 @@
-#include "evaluator.h"
-#include "../ast/binary.h"
-#include "../ast/number.h"
-#include "../ast/variable.h"
-#include "../common/error.h"
+#include "evaluator.hpp"
+#include "../ast/binary.hpp"
+#include "../ast/number.hpp"
+#include "../ast/variable.hpp"
+#include "../common/error.hpp"
 #include <cmath>
 #include <stdexcept>
 

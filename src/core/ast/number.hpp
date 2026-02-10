@@ -1,7 +1,7 @@
 #ifndef NUMBER_H
 #define NUMBER_H
 
-#include "expr.h"
+#include "expr.hpp"
 #include <string>
 
 namespace math_solver {

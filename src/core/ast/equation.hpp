@@ -1,7 +1,7 @@
 #ifndef EQUATION_H
 #define EQUATION_H
 
-#include "expr.h"
+#include "expr.hpp"
 #include <memory>
 #include <string>
 

@@ -1,6 +1,6 @@
-#include "parser.h"
-#include "../ast/expr.h"
-#include "../ast/variable.h"
+#include "parser.hpp"
+#include "../ast/expr.hpp"
+#include "../ast/variable.hpp"
 
 namespace math_solver {
 

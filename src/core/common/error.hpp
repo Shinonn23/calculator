@@ -1,7 +1,7 @@
 #ifndef ERROR_H
 #define ERROR_H
 
-#include "span.h"
+#include "span.hpp"
 #include <stdexcept>
 #include <string>
 #include <vector>
