@@ -22,7 +22,7 @@ namespace math_solver {
 
         void        advance() { current_ = lexer_.next_token(); }
 
-        void expect(TokenType type, const std::string& msg) {
+        void        expect(TokenType type, const std::string& msg) {
             if (current_.type != type) {
                 throw ParseError(msg, current_.span, input_);
             }
@@ -46,11 +46,11 @@ namespace math_solver {
         const std::string& input() const { return input_; }
 
         // Parse a simple expression (no equation)
-        ExprPtr parse() {
+        ExprPtr            parse() {
             auto expr = parse_expression();
             if (current_.type != TokenType::End) {
                 throw ParseError("unexpected input after expression",
-                               current_.span, input_);
+                                            current_.span, input_);
             }
             return expr;
         }
@@ -66,24 +66,24 @@ namespace math_solver {
 
                 if (current_.type == TokenType::End) {
                     throw ParseError("expected expression after '='",
-                                   equals_span, input_);
+                                     equals_span, input_);
                 }
 
                 auto rhs = parse_expression();
 
                 if (current_.type != TokenType::End) {
                     throw ParseError("unexpected input after equation",
-                                   current_.span, input_);
+                                     current_.span, input_);
                 }
 
                 Span eq_span = lhs->span().merge(rhs->span());
                 return {nullptr, std::make_unique<Equation>(
-                    std::move(lhs), std::move(rhs), eq_span)};
+                                     std::move(lhs), std::move(rhs), eq_span)};
             }
 
             if (current_.type != TokenType::End) {
                 throw ParseError("unexpected input after expression",
-                               current_.span, input_);
+                                 current_.span, input_);
             }
 
             return {std::move(lhs), nullptr};
@@ -94,23 +94,23 @@ namespace math_solver {
             auto lhs = parse_expression();
 
             if (current_.type != TokenType::Equals) {
-                throw ParseError("expected '=' for equation",
-                               current_.span, input_);
+                throw ParseError("expected '=' for equation", current_.span,
+                                 input_);
             }
 
             Span equals_span = current_.span;
             advance();
 
             if (current_.type == TokenType::End) {
-                throw ParseError("expected expression after '='",
-                               equals_span, input_);
+                throw ParseError("expected expression after '='", equals_span,
+                                 input_);
             }
 
             auto rhs = parse_expression();
 
             if (current_.type != TokenType::End) {
                 throw ParseError("unexpected input after equation",
-                               current_.span, input_);
+                                 current_.span, input_);
             }
 
             return std::make_unique<Equation>(std::move(lhs), std::move(rhs));

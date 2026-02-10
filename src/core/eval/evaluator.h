@@ -10,7 +10,7 @@ namespace math_solver {
         private:
         double         result_;
         const Context* context_;
-        std::string    input_;  // For error formatting
+        std::string    input_; // For error formatting
 
         public:
         Evaluator() : result_(0.0), context_(nullptr), input_() {}
@@ -21,7 +21,7 @@ namespace math_solver {
         Evaluator(const Context* ctx, const std::string& input)
             : result_(0.0), context_(ctx), input_(input) {}
 
-        void set_input(const std::string& input) { input_ = input; }
+        void   set_input(const std::string& input) { input_ = input; }
 
         double evaluate(const Expr& expr) {
             expr.accept(*this);

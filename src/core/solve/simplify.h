@@ -18,10 +18,10 @@ namespace math_solver {
 
     // Options for simplification
     struct SimplifyOptions {
-        std::vector<std::string> var_order;    // Order of variables (empty = auto)
-        bool                     isolated;     // Ignore context
-        bool                     as_fraction;  // Display coefficients as fractions
-        bool                     show_zero_coeffs;  // Show 0x terms
+        std::vector<std::string> var_order; // Order of variables (empty = auto)
+        bool                     isolated;  // Ignore context
+        bool as_fraction;                   // Display coefficients as fractions
+        bool show_zero_coeffs;              // Show 0x terms
 
         SimplifyOptions()
             : isolated(false), as_fraction(false), show_zero_coeffs(false) {}
@@ -29,12 +29,12 @@ namespace math_solver {
 
     // Result of simplification
     struct SimplifyResult {
-        LinearForm               form;        // Canonical linear form
-        std::vector<std::string> var_order;   // Variable ordering used
-        std::string              canonical;   // Formatted string
-        std::set<std::string>    warnings;    // Any warnings
+        LinearForm               form;      // Canonical linear form
+        std::vector<std::string> var_order; // Variable ordering used
+        std::string              canonical; // Formatted string
+        std::set<std::string>    warnings;  // Any warnings
 
-        bool is_no_solution() const {
+        bool                     is_no_solution() const {
             // 0 = c where c != 0
             return form.is_constant() && std::abs(form.constant) > 1e-12;
         }
@@ -62,36 +62,37 @@ namespace math_solver {
         void set_input(const std::string& input) { input_ = input; }
 
         // Simplify an equation to canonical form: Ax + By + Cz = D
-        SimplifyResult simplify(const Equation& eq,
-                               const SimplifyOptions& opts = SimplifyOptions()) {
+        SimplifyResult
+        simplify(const Equation&        eq,
+                 const SimplifyOptions& opts = SimplifyOptions()) {
             SimplifyResult result;
 
             // First pass: collect all variables without substitution
             // to detect shadowing
             if (context_ && !opts.isolated) {
                 LinearCollector shadow_check(nullptr, input_, true);
-                LinearForm lhs_vars = shadow_check.collect(eq.lhs());
-                LinearForm rhs_vars = shadow_check.collect(eq.rhs());
-                LinearForm all_vars = lhs_vars - rhs_vars;
+                LinearForm      lhs_vars = shadow_check.collect(eq.lhs());
+                LinearForm      rhs_vars = shadow_check.collect(eq.rhs());
+                LinearForm      all_vars = lhs_vars - rhs_vars;
 
                 for (const auto& var : all_vars.variables()) {
                     if (context_->has(var)) {
                         result.warnings.insert(
-                            "'" + var + "' in expression shadows context variable "
+                            "'" + var +
+                            "' in expression shadows context variable "
                             "(use --isolated to keep as variable)");
                     }
                 }
             }
 
             // Collect linear forms (with or without context)
-            LinearCollector collector(
-                opts.isolated ? nullptr : context_,
-                input_,
-                false  // not isolated for collector itself
+            LinearCollector collector(opts.isolated ? nullptr : context_,
+                                      input_,
+                                      false // not isolated for collector itself
             );
 
-            LinearForm lhs = collector.collect(eq.lhs());
-            LinearForm rhs = collector.collect(eq.rhs());
+            LinearForm lhs        = collector.collect(eq.lhs());
+            LinearForm rhs        = collector.collect(eq.rhs());
 
             // Normalize: lhs - rhs = 0, so lhs = rhs becomes coeffs = -constant
             LinearForm normalized = lhs - rhs;
@@ -106,27 +107,26 @@ namespace math_solver {
             } else {
                 // Auto-detect: alphabetical order
                 auto vars = normalized.variables();
-                result.var_order = std::vector<std::string>(vars.begin(), vars.end());
+                result.var_order =
+                    std::vector<std::string>(vars.begin(), vars.end());
                 std::sort(result.var_order.begin(), result.var_order.end());
             }
 
             // Format canonical string
-            result.canonical = format_canonical(
-                normalized, result.var_order, opts);
+            result.canonical =
+                format_canonical(normalized, result.var_order, opts);
 
             return result;
         }
 
         // Simplify a single expression (not an equation)
-        SimplifyResult simplify_expr(const Expr& expr,
-                                    const SimplifyOptions& opts = SimplifyOptions()) {
-            SimplifyResult result;
+        SimplifyResult
+        simplify_expr(const Expr&            expr,
+                      const SimplifyOptions& opts = SimplifyOptions()) {
+            SimplifyResult  result;
 
-            LinearCollector collector(
-                opts.isolated ? nullptr : context_,
-                input_,
-                opts.isolated
-            );
+            LinearCollector collector(opts.isolated ? nullptr : context_,
+                                      input_, opts.isolated);
 
             LinearForm form = collector.collect(expr);
             form.simplify();
@@ -138,7 +138,8 @@ namespace math_solver {
                 result.var_order = opts.var_order;
             } else {
                 auto vars = form.variables();
-                result.var_order = std::vector<std::string>(vars.begin(), vars.end());
+                result.var_order =
+                    std::vector<std::string>(vars.begin(), vars.end());
                 std::sort(result.var_order.begin(), result.var_order.end());
             }
 
@@ -150,12 +151,12 @@ namespace math_solver {
 
         private:
         // Format as: Ax + By + Cz = D
-        std::string format_canonical(const LinearForm& form,
-                                    const std::vector<std::string>& var_order,
-                                    const SimplifyOptions& opts) {
+        std::string format_canonical(const LinearForm&               form,
+                                     const std::vector<std::string>& var_order,
+                                     const SimplifyOptions&          opts) {
             std::ostringstream oss;
 
-            bool first = true;
+            bool               first = true;
 
             // Left side: all variable terms
             for (const auto& var : var_order) {
@@ -206,7 +207,8 @@ namespace math_solver {
                 oss << "0";
             }
 
-            // Right side: constant (negated because we have coeffs - constant = 0)
+            // Right side: constant (negated because we have coeffs - constant =
+            // 0)
             double rhs = -form.constant;
 
             // Fix -0 display
@@ -222,7 +224,7 @@ namespace math_solver {
             } else {
                 // Format constant
                 std::string rhs_str = std::to_string(rhs);
-                size_t dot_pos = rhs_str.find('.');
+                size_t      dot_pos = rhs_str.find('.');
                 if (dot_pos != std::string::npos) {
                     rhs_str.erase(rhs_str.find_last_not_of('0') + 1);
                     if (rhs_str.back() == '.') {
@@ -236,12 +238,12 @@ namespace math_solver {
         }
 
         // Format as expression (no = D part)
-        std::string format_expression(const LinearForm& form,
-                                     const std::vector<std::string>& var_order,
-                                     const SimplifyOptions& opts) {
+        std::string format_expression(const LinearForm&               form,
+                                      const std::vector<std::string>& var_order,
+                                      const SimplifyOptions&          opts) {
             std::ostringstream oss;
 
-            bool first = true;
+            bool               first = true;
 
             // Variable terms
             for (const auto& var : var_order) {
@@ -300,8 +302,8 @@ namespace math_solver {
                     Fraction frac = double_to_fraction(c);
                     oss << frac.to_string();
                 } else {
-                    std::string c_str = std::to_string(c);
-                    size_t dot_pos = c_str.find('.');
+                    std::string c_str   = std::to_string(c);
+                    size_t      dot_pos = c_str.find('.');
                     if (dot_pos != std::string::npos) {
                         c_str.erase(c_str.find_last_not_of('0') + 1);
                         if (c_str.back() == '.') {

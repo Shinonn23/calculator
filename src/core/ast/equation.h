@@ -31,16 +31,16 @@ namespace math_solver {
         const Span& span() const { return span_; }
 
         // Move ownership out
-        ExprPtr take_lhs() { return std::move(lhs_); }
-        ExprPtr take_rhs() { return std::move(rhs_); }
+        ExprPtr     take_lhs() { return std::move(lhs_); }
+        ExprPtr     take_rhs() { return std::move(rhs_); }
 
         std::string to_string() const {
             return lhs_->to_string() + " = " + rhs_->to_string();
         }
 
         std::unique_ptr<Equation> clone() const {
-            return std::make_unique<Equation>(
-                lhs_->clone(), rhs_->clone(), span_);
+            return std::make_unique<Equation>(lhs_->clone(), rhs_->clone(),
+                                              span_);
         }
     };
 

@@ -20,32 +20,32 @@ namespace math_solver {
         }
 
         if (current_.type == TokenType::Number) {
-            double val = current_.value;
-            Span span = current_.span;
+            double val  = current_.value;
+            Span   span = current_.span;
             advance();
             return std::make_unique<Number>(val, span);
         }
 
         if (current_.type == TokenType::Identifier) {
             std::string name = current_.name;
-            Span span = current_.span;
+            Span        span = current_.span;
             advance();
             return std::make_unique<Variable>(name, span);
         }
 
         throw ParseError("unexpected token '" +
-                        std::string(token_type_name(current_.type)) + "'",
-                        current_.span, input_);
+                             std::string(token_type_name(current_.type)) + "'",
+                         current_.span, input_);
     }
 
     ExprPtr Parser::parse_unary() {
         if (current_.type == TokenType::Minus) {
             Span op_span = current_.span;
             advance();
-            ExprPtr expr = parse_unary();
+            ExprPtr expr        = parse_unary();
             // Represent -x as (0 - x)
-            auto zero = std::make_unique<Number>(0, op_span);
-            Span result_span = op_span.merge(expr->span());
+            auto    zero        = std::make_unique<Number>(0, op_span);
+            Span    result_span = op_span.merge(expr->span());
             return std::make_unique<BinaryOp>(std::move(zero), std::move(expr),
                                               BinaryOpType::Sub, result_span);
         }
@@ -62,7 +62,7 @@ namespace math_solver {
         while (current_.type == TokenType::Pow) {
             Span op_span = current_.span;
             advance();
-            auto right = parse_unary();
+            auto right       = parse_unary();
             Span result_span = left->span().merge(right->span());
             left = std::make_unique<BinaryOp>(std::move(left), std::move(right),
                                               BinaryOpType::Pow, result_span);
@@ -74,7 +74,8 @@ namespace math_solver {
     ExprPtr Parser::parse_multiplicative() {
         auto left = parse_power();
 
-        // Handle both explicit (* /) and implicit multiplication (5x, 2(x+1), etc.)
+        // Handle both explicit (* /) and implicit multiplication (5x, 2(x+1),
+        // etc.)
         while (current_.type == TokenType::Mul ||
                current_.type == TokenType::Div ||
                current_.type == TokenType::Number ||
@@ -83,7 +84,7 @@ namespace math_solver {
 
             // Determine if it's explicit or implicit multiplication
             BinaryOpType op;
-            bool is_implicit = false;
+            bool         is_implicit = false;
 
             if (current_.type == TokenType::Mul) {
                 op = BinaryOpType::Mul;
@@ -93,12 +94,12 @@ namespace math_solver {
                 advance();
             } else {
                 // Implicit multiplication: number, identifier, or ( follows
-                op = BinaryOpType::Mul;
+                op          = BinaryOpType::Mul;
                 is_implicit = true;
                 // Don't advance - the next parse_power will consume the token
             }
 
-            auto right = parse_power();
+            auto right       = parse_power();
             Span result_span = left->span().merge(right->span());
             left = std::make_unique<BinaryOp>(std::move(left), std::move(right),
                                               op, result_span);
@@ -116,7 +117,7 @@ namespace math_solver {
                                   ? BinaryOpType::Add
                                   : BinaryOpType::Sub;
             advance();
-            auto right = parse_multiplicative();
+            auto right       = parse_multiplicative();
             Span result_span = left->span().merge(right->span());
             left = std::make_unique<BinaryOp>(std::move(left), std::move(right),
                                               op, result_span);

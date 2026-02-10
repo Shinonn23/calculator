@@ -1,5 +1,5 @@
-#include "core/ast/expr.h"
 #include "core/ast/equation.h"
+#include "core/ast/expr.h"
 #include "core/common/error.h"
 #include "core/common/span.h"
 #include "core/eval/context.h"
@@ -13,6 +13,7 @@
 #include <string>
 #include <vector>
 
+
 using namespace std;
 using namespace math_solver;
 
@@ -23,7 +24,8 @@ using namespace math_solver;
 // Trim whitespace from both ends
 string trim(const string& s) {
     size_t start = s.find_first_not_of(" \t\r\n");
-    if (start == string::npos) return "";
+    if (start == string::npos)
+        return "";
     size_t end = s.find_last_not_of(" \t\r\n");
     return s.substr(start, end - start + 1);
 }
@@ -31,8 +33,8 @@ string trim(const string& s) {
 // Split string by whitespace
 vector<string> split(const string& s) {
     vector<string> tokens;
-    istringstream iss(s);
-    string token;
+    istringstream  iss(s);
+    string         token;
     while (iss >> token) {
         tokens.push_back(token);
     }
@@ -50,24 +52,24 @@ struct CommandFlags {
     vector<string> vars;
     bool           isolated = false;
     bool           fraction = false;
-    string         expression;  // Everything before flags
+    string         expression; // Everything before flags
 };
 
 CommandFlags parse_flags(const string& input) {
     CommandFlags flags;
 
     // Find first flag
-    size_t flag_start = input.find(" --");
+    size_t       flag_start = input.find(" --");
     if (flag_start == string::npos) {
         flags.expression = input;
         return flags;
     }
 
-    flags.expression = trim(input.substr(0, flag_start));
+    flags.expression         = trim(input.substr(0, flag_start));
 
     // Parse flags
-    string flag_part = input.substr(flag_start);
-    vector<string> tokens = split(flag_part);
+    string         flag_part = input.substr(flag_start);
+    vector<string> tokens    = split(flag_part);
 
     for (size_t i = 0; i < tokens.size(); ++i) {
         if (tokens[i] == "--vars") {
@@ -94,8 +96,10 @@ void print_help() {
     cout << "Math Solver - Commands\n";
     cout << "======================\n\n";
     cout << "Evaluation:\n";
-    cout << "  <expression>              Evaluate expression (e.g., 2 + 3 * 4)\n";
-    cout << "  <expression> with vars    Use :set to define variables first\n\n";
+    cout << "  <expression>              Evaluate expression (e.g., 2 + 3 * "
+            "4)\n";
+    cout
+        << "  <expression> with vars    Use :set to define variables first\n\n";
     cout << "Variable Commands:\n";
     cout << "  :set <var> <value>        Set variable value (e.g., :set x 5)\n";
     cout << "  :unset <var>              Remove variable\n";
@@ -103,9 +107,11 @@ void print_help() {
     cout << "  :vars                     Show all defined variables\n\n";
     cout << "Equation Solving:\n";
     cout << "  solve <lhs> = <rhs>       Solve linear equation for unknown\n";
-    cout << "                            (other vars substituted from context)\n\n";
+    cout << "                            (other vars substituted from "
+            "context)\n\n";
     cout << "Simplification:\n";
-    cout << "  simplify <lhs> = <rhs>    Simplify to canonical form Ax + By = C\n";
+    cout << "  simplify <lhs> = <rhs>    Simplify to canonical form Ax + By = "
+            "C\n";
     cout << "  Options:\n";
     cout << "    --vars x y z            Specify variable order\n";
     cout << "    --isolated              Don't substitute from context\n";
@@ -125,8 +131,7 @@ void cmd_set(const string& args, Context& ctx) {
     string var_name = parts[0];
 
     // Check if valid identifier
-    if (var_name.empty() ||
-        !(isalpha(var_name[0]) || var_name[0] == '_')) {
+    if (var_name.empty() || !(isalpha(var_name[0]) || var_name[0] == '_')) {
         cout << "Error: invalid variable name '" << var_name << "'\n";
         return;
     }
@@ -146,15 +151,16 @@ void cmd_set(const string& args, Context& ctx) {
     // Parse value (could be an expression)
     string value_str;
     for (size_t i = 1; i < parts.size(); ++i) {
-        if (i > 1) value_str += " ";
+        if (i > 1)
+            value_str += " ";
         value_str += parts[i];
     }
 
     try {
-        Parser parser(value_str);
-        auto expr = parser.parse();
+        Parser    parser(value_str);
+        auto      expr = parser.parse();
         Evaluator eval(&ctx, value_str);
-        double value = eval.evaluate(*expr);
+        double    value = eval.evaluate(*expr);
         ctx.set(var_name, value);
 
         // Format output nicely
@@ -162,7 +168,8 @@ void cmd_set(const string& args, Context& ctx) {
         size_t dot_pos = val_str.find('.');
         if (dot_pos != string::npos) {
             val_str.erase(val_str.find_last_not_of('0') + 1);
-            if (val_str.back() == '.') val_str.pop_back();
+            if (val_str.back() == '.')
+                val_str.pop_back();
         }
         cout << var_name << " = " << val_str << "\n";
 
@@ -205,7 +212,8 @@ void cmd_vars(const Context& ctx) {
         size_t dot_pos = val_str.find('.');
         if (dot_pos != string::npos) {
             val_str.erase(val_str.find_last_not_of('0') + 1);
-            if (val_str.back() == '.') val_str.pop_back();
+            if (val_str.back() == '.')
+                val_str.pop_back();
         }
         cout << "  " << pair.first << " = " << val_str << "\n";
     }
@@ -218,11 +226,11 @@ void cmd_solve(const string& args, Context& ctx) {
     }
 
     try {
-        Parser parser(args);
-        auto eq = parser.parse_equation();
+        Parser         parser(args);
+        auto           eq = parser.parse_equation();
 
         EquationSolver solver(&ctx, args);
-        SolveResult result = solver.solve(*eq);
+        SolveResult    result = solver.solve(*eq);
 
         cout << result.to_string() << "\n";
 
@@ -239,27 +247,29 @@ void cmd_solve(const string& args, Context& ctx) {
 
 void cmd_simplify(const string& args, Context& ctx) {
     if (args.empty()) {
-        cout << "Usage: simplify <lhs> = <rhs> [--vars x y] [--isolated] [--fraction]\n";
+        cout << "Usage: simplify <lhs> = <rhs> [--vars x y] [--isolated] "
+                "[--fraction]\n";
         return;
     }
 
     CommandFlags flags = parse_flags(args);
 
     if (flags.expression.empty()) {
-        cout << "Usage: simplify <lhs> = <rhs> [--vars x y] [--isolated] [--fraction]\n";
+        cout << "Usage: simplify <lhs> = <rhs> [--vars x y] [--isolated] "
+                "[--fraction]\n";
         return;
     }
 
     try {
-        Parser parser(flags.expression);
-        auto eq = parser.parse_equation();
+        Parser          parser(flags.expression);
+        auto            eq = parser.parse_equation();
 
         SimplifyOptions opts;
-        opts.var_order = flags.vars;
-        opts.isolated = flags.isolated;
+        opts.var_order   = flags.vars;
+        opts.isolated    = flags.isolated;
         opts.as_fraction = flags.fraction;
 
-        Simplifier simplifier(&ctx, flags.expression);
+        Simplifier     simplifier(&ctx, flags.expression);
         SimplifyResult result = simplifier.simplify(*eq, opts);
 
         // Print warnings
@@ -293,16 +303,17 @@ void cmd_evaluate(const string& input, Context& ctx) {
         if (eq) {
             // It's an equation - evaluate both sides
             Evaluator eval(&ctx, input);
-            double lhs_val = eval.evaluate(eq->lhs());
-            double rhs_val = eval.evaluate(eq->rhs());
+            double    lhs_val    = eval.evaluate(eq->lhs());
+            double    rhs_val    = eval.evaluate(eq->rhs());
 
             // Format values
-            auto format_val = [](double v) {
-                string s = to_string(v);
+            auto      format_val = [](double v) {
+                string s   = to_string(v);
                 size_t dot = s.find('.');
                 if (dot != string::npos) {
                     s.erase(s.find_last_not_of('0') + 1);
-                    if (s.back() == '.') s.pop_back();
+                    if (s.back() == '.')
+                        s.pop_back();
                 }
                 return s;
             };
@@ -316,13 +327,14 @@ void cmd_evaluate(const string& input, Context& ctx) {
         } else {
             // Simple expression
             Evaluator eval(&ctx, input);
-            double result = eval.evaluate(*expr);
+            double    result     = eval.evaluate(*expr);
 
-            string result_str = to_string(result);
-            size_t dot_pos = result_str.find('.');
+            string    result_str = to_string(result);
+            size_t    dot_pos    = result_str.find('.');
             if (dot_pos != string::npos) {
                 result_str.erase(result_str.find_last_not_of('0') + 1);
-                if (result_str.back() == '.') result_str.pop_back();
+                if (result_str.back() == '.')
+                    result_str.pop_back();
             }
             cout << "= " << result_str << "\n";
         }
@@ -343,15 +355,16 @@ int main(int argc, char* argv[]) {
     if (argc > 1) {
         string expr_str;
         for (int i = 1; i < argc; ++i) {
-            if (i > 1) expr_str += " ";
+            if (i > 1)
+                expr_str += " ";
             expr_str += argv[i];
         }
 
-        Context ctx;  // Empty context for command-line mode
+        Context ctx; // Empty context for command-line mode
 
         try {
-            Parser parser(expr_str);
-            auto expr = parser.parse();
+            Parser    parser(expr_str);
+            auto      expr = parser.parse();
             Evaluator eval(&ctx, expr_str);
             cout << eval.evaluate(*expr) << endl;
         } catch (const MathError& e) {
@@ -369,9 +382,9 @@ int main(int argc, char* argv[]) {
     cout << "Supports: expressions, variables, equations, solve, simplify\n";
     cout << "Type :help for commands, 'exit' to quit.\n\n";
 
-    Context ctx;  // Shared persistent context
+    Context ctx; // Shared persistent context
 
-    string input;
+    string  input;
     while (true) {
         cout << "> ";
         if (!getline(cin, input))
@@ -383,32 +396,32 @@ int main(int argc, char* argv[]) {
             continue;
 
         // Exit commands
-        if (input == "exit" || input == "quit")
+        if (input == "exit" || input == "quit" || input == "q")
             break;
 
         // Help
-        if (input == ":help" || input == "help") {
+        if (input == "help" || input == "h") {
             print_help();
             continue;
         }
 
         // Variable commands
-        if (starts_with(input, ":set ")) {
-            cmd_set(input.substr(5), ctx);
+        if (starts_with(input, "set ")) {
+            cmd_set(input.substr(4), ctx);
             continue;
         }
 
-        if (starts_with(input, ":unset ")) {
-            cmd_unset(input.substr(7), ctx);
+        if (starts_with(input, "unset ")) {
+            cmd_unset(input.substr(6), ctx);
             continue;
         }
 
-        if (input == ":clear") {
+        if (input == "clear" || input == "cls") {
             cmd_clear(ctx);
             continue;
         }
 
-        if (input == ":vars") {
+        if (input == "vars") {
             cmd_vars(ctx);
             continue;
         }

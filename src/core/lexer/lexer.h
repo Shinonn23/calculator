@@ -37,9 +37,9 @@ namespace math_solver {
         explicit Lexer(const std::string& input) : input_(input), pos_(0) {}
 
         const std::string& input() const { return input_; }
-        size_t position() const { return pos_; }
+        size_t             position() const { return pos_; }
 
-        Token next_token() {
+        Token              next_token() {
             skip_whitespace();
 
             size_t start = pos_;
@@ -63,10 +63,12 @@ namespace math_solver {
                 }
 
                 if (num.empty() || num == ".") {
-                    throw ParseError("invalid number", Span(start, pos_), input_);
+                    throw ParseError("invalid number", Span(start, pos_),
+                                                  input_);
                 }
 
-                return Token(TokenType::Number, std::stod(num), Span(start, pos_));
+                return Token(TokenType::Number, std::stod(num),
+                                          Span(start, pos_));
             }
 
             // Identifiers (variables and keywords)
@@ -110,7 +112,7 @@ namespace math_solver {
             }
 
             throw ParseError("unexpected character '" + std::string(1, c) + "'",
-                           span, input_);
+                                          span, input_);
         }
     };
 

@@ -15,23 +15,19 @@ namespace math_solver {
 
         // Merge two spans to cover both
         Span merge(const Span& other) const {
-            return Span(
-                start < other.start ? start : other.start,
-                end > other.end ? end : other.end
-            );
+            return Span(start < other.start ? start : other.start,
+                        end > other.end ? end : other.end);
         }
 
         size_t length() const { return end - start; }
 
-        bool empty() const { return start == end; }
+        bool   empty() const { return start == end; }
     };
 
     // Format error with source line and caret pointer
-    inline std::string format_error_at_span(
-        const std::string& message,
-        const std::string& input,
-        const Span& span
-    ) {
+    inline std::string format_error_at_span(const std::string& message,
+                                            const std::string& input,
+                                            const Span&        span) {
         std::string result = "Error: " + message + "\n";
         result += "  " + input + "\n";
         result += "  ";
@@ -43,23 +39,22 @@ namespace math_solver {
 
         // Add carets for span length
         size_t len = span.length();
-        if (len == 0) len = 1;
+        if (len == 0)
+            len = 1;
         for (size_t i = 0; i < len && (span.start + i) < input.size(); ++i) {
             result += '^';
         }
         if (span.start >= input.size()) {
-            result += '^';  // Point at end if past input
+            result += '^'; // Point at end if past input
         }
 
         return result;
     }
 
     // Format warning with source line
-    inline std::string format_warning_at_span(
-        const std::string& message,
-        const std::string& input,
-        const Span& span
-    ) {
+    inline std::string format_warning_at_span(const std::string& message,
+                                              const std::string& input,
+                                              const Span&        span) {
         std::string result = "Warning: " + message + "\n";
         result += "  " + input + "\n";
         result += "  ";
@@ -69,7 +64,8 @@ namespace math_solver {
         }
 
         size_t len = span.length();
-        if (len == 0) len = 1;
+        if (len == 0)
+            len = 1;
         for (size_t i = 0; i < len && (span.start + i) < input.size(); ++i) {
             result += '~';
         }

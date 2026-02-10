@@ -18,7 +18,8 @@ namespace math_solver {
 
         public:
         BinaryOp(ExprPtr left, ExprPtr right, BinaryOpType op)
-            : Expr(), left_(std::move(left)), right_(std::move(right)), op_(op) {
+            : Expr(), left_(std::move(left)), right_(std::move(right)),
+              op_(op) {
             // Compute span from children
             if (left_ && right_) {
                 span_ = left_->span().merge(right_->span());
@@ -26,7 +27,8 @@ namespace math_solver {
         }
 
         BinaryOp(ExprPtr left, ExprPtr right, BinaryOpType op, const Span& span)
-            : Expr(span), left_(std::move(left)), right_(std::move(right)), op_(op) {}
+            : Expr(span), left_(std::move(left)), right_(std::move(right)),
+              op_(op) {}
 
         const Expr&  left() const { return *left_; }
         const Expr&  right() const { return *right_; }
@@ -60,8 +62,8 @@ namespace math_solver {
         }
 
         std::unique_ptr<Expr> clone() const override {
-            auto cloned = std::make_unique<BinaryOp>(
-                left_->clone(), right_->clone(), op_);
+            auto cloned = std::make_unique<BinaryOp>(left_->clone(),
+                                                     right_->clone(), op_);
             cloned->set_span(span_);
             return cloned;
         }

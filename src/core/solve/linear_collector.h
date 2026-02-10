@@ -17,10 +17,10 @@ namespace math_solver {
     // Represents a linear form: sum of (coeff * var) + constant
     // Example: 3x + 2y - 5 is represented as coeffs={x:3, y:2}, constant=-5
     struct LinearForm {
-        std::map<std::string, double> coeffs;  // variable -> coefficient
-        double constant = 0.0;
+        std::map<std::string, double> coeffs; // variable -> coefficient
+        double                        constant = 0.0;
 
-        LinearForm() = default;
+        LinearForm()                           = default;
 
         LinearForm(double c) : constant(c) {}
 
@@ -46,9 +46,7 @@ namespace math_solver {
         }
 
         // Check if this is just a constant (no variables)
-        bool is_constant() const {
-            return variables().empty();
-        }
+        bool       is_constant() const { return variables().empty(); }
 
         // Add two linear forms
         LinearForm operator+(const LinearForm& other) const {
@@ -81,13 +79,11 @@ namespace math_solver {
         }
 
         // Negate
-        LinearForm operator-() const {
-            return (*this) * (-1.0);
-        }
+        LinearForm operator-() const { return (*this) * (-1.0); }
 
         // Clean up near-zero coefficients
-        void simplify(double epsilon = 1e-12) {
-            for (auto it = coeffs.begin(); it != coeffs.end(); ) {
+        void       simplify(double epsilon = 1e-12) {
+            for (auto it = coeffs.begin(); it != coeffs.end();) {
                 if (std::abs(it->second) < epsilon) {
                     it = coeffs.erase(it);
                 } else {
@@ -104,27 +100,26 @@ namespace math_solver {
     // Detects non-linear terms and throws NonLinearError
     class LinearCollector : public ExprVisitor {
         private:
-        LinearForm      result_;
-        const Context*  context_;
-        std::string     input_;
-        bool            isolated_;  // If true, don't substitute from context
+        LinearForm     result_;
+        const Context* context_;
+        std::string    input_;
+        bool           isolated_; // If true, don't substitute from context
 
         // Track variables we've seen but haven't substituted
         std::set<std::string> shadowed_vars_;
 
         public:
-        LinearCollector()
-            : context_(nullptr), input_(), isolated_(false) {}
+        LinearCollector() : context_(nullptr), input_(), isolated_(false) {}
 
         explicit LinearCollector(const Context* ctx, bool isolated = false)
             : context_(ctx), input_(), isolated_(isolated) {}
 
         LinearCollector(const Context* ctx, const std::string& input,
-                       bool isolated = false)
+                        bool isolated = false)
             : context_(ctx), input_(input), isolated_(isolated) {}
 
-        void set_input(const std::string& input) { input_ = input; }
-        void set_isolated(bool isolated) { isolated_ = isolated; }
+        void       set_input(const std::string& input) { input_ = input; }
+        void       set_isolated(bool isolated) { isolated_ = isolated; }
 
         // Collect linear form from expression
         LinearForm collect(const Expr& expr) {
@@ -197,11 +192,12 @@ namespace math_solver {
                 // For linearity, divisor must be constant
                 if (!right.is_constant()) {
                     throw NonLinearError(
-                        "non-linear term: division by variable",
-                        node.span(), input_);
+                        "non-linear term: division by variable", node.span(),
+                        input_);
                 }
                 if (std::abs(right.constant) < 1e-12) {
-                    throw MathError("division by zero", node.right().span(), input_);
+                    throw MathError("division by zero", node.right().span(),
+                                    input_);
                 }
                 result_ = left * (1.0 / right.constant);
                 break;
@@ -209,9 +205,8 @@ namespace math_solver {
             case BinaryOpType::Pow:
                 // For linearity, exponent must be constant
                 if (!right.is_constant()) {
-                    throw NonLinearError(
-                        "non-linear term: variable exponent",
-                        node.span(), input_);
+                    throw NonLinearError("non-linear term: variable exponent",
+                                         node.span(), input_);
                 }
 
                 double exp = right.constant;
@@ -232,7 +227,7 @@ namespace math_solver {
                 if (!left.is_constant()) {
                     throw NonLinearError(
                         "non-linear term: variable raised to power " +
-                        std::to_string(static_cast<int>(exp)),
+                            std::to_string(static_cast<int>(exp)),
                         node.span(), input_);
                 }
 

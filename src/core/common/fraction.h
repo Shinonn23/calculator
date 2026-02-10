@@ -15,7 +15,7 @@ namespace math_solver {
         Fraction(int64_t num = 0, int64_t den = 1)
             : numerator(num), denominator(den) {
             if (denominator < 0) {
-                numerator = -numerator;
+                numerator   = -numerator;
                 denominator = -denominator;
             }
             simplify();
@@ -23,7 +23,7 @@ namespace math_solver {
 
         void simplify() {
             if (denominator == 0) {
-                numerator = 0;
+                numerator   = 0;
                 denominator = 1;
                 return;
             }
@@ -38,23 +38,23 @@ namespace math_solver {
             if (denominator == 1) {
                 return std::to_string(numerator);
             }
-            return std::to_string(numerator) + "/" + std::to_string(denominator);
+            return std::to_string(numerator) + "/" +
+                   std::to_string(denominator);
         }
 
         double to_double() const {
-            return static_cast<double>(numerator) / static_cast<double>(denominator);
+            return static_cast<double>(numerator) /
+                   static_cast<double>(denominator);
         }
 
-        bool is_integer() const {
-            return denominator == 1;
-        }
+        bool is_integer() const { return denominator == 1; }
 
-    private:
+        private:
         static int64_t gcd(int64_t a, int64_t b) {
             while (b != 0) {
                 int64_t t = b;
-                b = a % b;
-                a = t;
+                b         = a % b;
+                a         = t;
             }
             return a;
         }
@@ -69,23 +69,24 @@ namespace math_solver {
             return Fraction(0, 1);
         }
 
-        bool negative = value < 0;
-        value = std::abs(value);
+        bool negative  = value < 0;
+        value          = std::abs(value);
 
         // Check if it's close to an integer
         double rounded = std::round(value);
         if (std::abs(value - rounded) < tolerance) {
             return Fraction(negative ? -static_cast<int64_t>(rounded)
-                                     : static_cast<int64_t>(rounded), 1);
+                                     : static_cast<int64_t>(rounded),
+                            1);
         }
 
         // Continued fractions algorithm
         int64_t h0 = 0, h1 = 1;
         int64_t k0 = 1, k1 = 0;
-        double x = value;
+        double  x = value;
 
         while (true) {
-            int64_t a = static_cast<int64_t>(std::floor(x));
+            int64_t a  = static_cast<int64_t>(std::floor(x));
             int64_t h2 = a * h1 + h0;
             int64_t k2 = a * k1 + k0;
 
@@ -93,8 +94,10 @@ namespace math_solver {
                 break;
             }
 
-            h0 = h1; h1 = h2;
-            k0 = k1; k1 = k2;
+            h0            = h1;
+            h1            = h2;
+            k0            = k1;
+            k1            = k2;
 
             double approx = static_cast<double>(h1) / static_cast<double>(k1);
             if (std::abs(approx - value) < tolerance) {
@@ -131,8 +134,8 @@ namespace math_solver {
             }
 
             // Format nicely without trailing zeros
-            std::string str = std::to_string(coeff);
-            size_t dot_pos = str.find('.');
+            std::string str     = std::to_string(coeff);
+            size_t      dot_pos = str.find('.');
             if (dot_pos != std::string::npos) {
                 str.erase(str.find_last_not_of('0') + 1, std::string::npos);
                 if (str.back() == '.') {

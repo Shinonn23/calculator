@@ -39,7 +39,8 @@ namespace math_solver {
             break;
         case BinaryOpType::Div:
             if (right_val == 0) {
-                throw MathError("division by zero", node.right().span(), input_);
+                throw MathError("division by zero", node.right().span(),
+                                input_);
             }
             result_ = left_val / right_val;
             break;

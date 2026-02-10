@@ -42,9 +42,7 @@ namespace math_solver {
         }
 
         // Clear all variables
-        void clear() {
-            variables_.clear();
-        }
+        void                     clear() { variables_.clear(); }
 
         // Get all variable names
         std::vector<std::string> all_names() const {
@@ -62,13 +60,9 @@ namespace math_solver {
         }
 
         // Number of defined variables
-        size_t size() const {
-            return variables_.size();
-        }
+        size_t size() const { return variables_.size(); }
 
-        bool empty() const {
-            return variables_.empty();
-        }
+        bool   empty() const { return variables_.empty(); }
     };
 
 } // namespace math_solver

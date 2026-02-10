@@ -18,13 +18,11 @@ namespace math_solver {
 
         const std::string& name() const { return name_; }
 
-        void accept(ExprVisitor& visitor) const override {
+        void               accept(ExprVisitor& visitor) const override {
             visitor.visit(*this);
         }
 
-        std::string to_string() const override {
-            return name_;
-        }
+        std::string           to_string() const override { return name_; }
 
         std::unique_ptr<Expr> clone() const override {
             return std::make_unique<Variable>(name_, span_);
