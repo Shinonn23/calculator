@@ -5,6 +5,7 @@ IndentWidth: 4
 AccessModifierOffset: 0
 IndentAccessModifiers: false
 NamespaceIndentation: All
+IndentPPDirectives: BeforeHash 
 ---
 Language: Cpp
 # Force pointers to the type for C++.

@@ -1,10 +1,13 @@
 #ifndef SUGGEST_H
 #define SUGGEST_H
 
+#include <iostream>
 #include <algorithm>
 #include <optional>
 #include <string>
 #include <vector>
+
+using namespace std;
 
 namespace math_solver {
 
@@ -74,6 +77,34 @@ namespace math_solver {
             result.push_back(std::move(c));
         }
         return result;
+    }
+
+    void maybe_suggest_command(const string& word, const vector<string>& all_commands) {
+        auto match = suggest(word, all_commands);
+        if (match) {
+            cout << ansi::dim << "  Did you mean " << ansi::reset << ansi::bold
+                 << *match << ansi::reset << ansi::dim << "?" << ansi::reset
+                 << "\n";
+        }
+    }
+
+    void maybe_suggest_subcommand(const string&         word,
+                                  const vector<string>& subs) {
+        auto match = suggest(word, subs);
+        if (match) {
+            cout << ansi::dim << "  Did you mean " << ansi::reset << ansi::bold
+                 << *match << ansi::reset << ansi::dim << "?" << ansi::reset
+                 << "\n";
+        }
+    }
+
+    void maybe_suggest_setting(const string& word) {
+        auto match = suggest(word, Settings::all_keys());
+        if (match) {
+            cout << ansi::dim << "  Did you mean " << ansi::reset << ansi::bold
+                 << *match << ansi::reset << ansi::dim << "?" << ansi::reset
+                 << "\n";
+        }
     }
 
 } // namespace math_solver
