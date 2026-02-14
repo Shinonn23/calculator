@@ -42,8 +42,8 @@ FetchContent_MakeAvailable(json replxx)
 
 # ===== Core Library =====
 add_library(math_core
-    src/core/eval/evaluator.cpp
-    src/core/parser/parser.cpp
+    src/eval/evaluator.cpp
+    src/parser/parser.cpp
 )
 
 target_include_directories(math_core
