@@ -1,25 +1,16 @@
-#include "core/ast/equation.hpp"
-#include "core/ast/expr.hpp"
 #include "core/common/color.hpp"
 #include "core/common/command.hpp"
 #include "core/common/config.hpp"
 #include "core/common/environment.hpp"
 #include "core/common/error.hpp"
 #include "core/common/replxx.hpp"
-#include "core/common/span.hpp"
-#include "core/common/suggest.hpp"
 #include "core/common/utils.hpp"
 #include "core/eval/context.hpp"
 #include "core/eval/evaluator.hpp"
 #include "core/parser/parser.hpp"
-#include "core/solve/simplify.hpp"
-#include "core/solve/solver.hpp"
-#include <algorithm>
 #include <cerrno>
-#include <cmath>
 #include <iostream>
 #include <replxx.hxx>
-#include <sstream>
 #include <string>
 #include <vector>
 

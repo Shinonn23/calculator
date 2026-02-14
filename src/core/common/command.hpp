@@ -28,7 +28,7 @@ namespace math_solver {
         string         expression;
     };
 
-    CommandFlags parse_flags(const string& input) {
+    inline CommandFlags parse_flags(const string& input) {
         CommandFlags flags;
         size_t       flag_start = input.find(" --");
         if (flag_start == string::npos) {
@@ -65,7 +65,7 @@ namespace math_solver {
         "list", "load", "save", "new", "delete",
     };
 
-    void cmd_set(const string& args, Context& g_ctx, Config& g_config) {
+    inline void cmd_set(const string& args, Context& g_ctx, Config& g_config) {
         vector<string> parts = split(args);
         if (parts.size() < 2) {
             cout << "  Usage: :set <variable> <value>\n";
@@ -154,7 +154,7 @@ namespace math_solver {
         }
     }
 
-    void cmd_unset(const string& args, Context& g_ctx) {
+    inline void cmd_unset(const string& args, Context& g_ctx) {
         string var_name = trim(args);
         if (var_name.empty()) {
             cout << "  Usage: :unset <variable>\n";
@@ -173,13 +173,13 @@ namespace math_solver {
         }
     }
 
-    void cmd_clear(Context& g_ctx) {
+    inline void cmd_clear(Context& g_ctx) {
         size_t count = g_ctx.size();
         g_ctx.clear();
         cout << "  Cleared " << count << " variable(s)\n";
     }
 
-    void cmd_vars(Context& g_ctx, Config& g_config) {
+    inline void cmd_vars(Context& g_ctx, Config& g_config) {
         if (g_ctx.empty()) {
             cout << "  No variables defined\n";
             return;
@@ -197,7 +197,7 @@ namespace math_solver {
         }
     }
 
-    void cmd_solve(const string& args, Context& g_ctx, Config& g_config) {
+    inline void cmd_solve(const string& args, Context& g_ctx, Config& g_config) {
         if (args.empty()) {
             cout << "  Usage: solve <lhs> = <rhs>\n";
             return;
@@ -250,7 +250,7 @@ namespace math_solver {
         }
     }
 
-    void cmd_simplify(const string& args, Config& g_config, Context& g_ctx) {
+    inline void cmd_simplify(const string& args, Config& g_config, Context& g_ctx) {
         if (args.empty()) {
             cout << "  Usage: simplify <lhs> = <rhs> [--vars x y] [--isolated] "
                     "[--fraction]\n";
@@ -303,7 +303,7 @@ namespace math_solver {
         }
     }
 
-    void cmd_evaluate(const string& input, Context& g_ctx, Config& g_config) {
+    inline void cmd_evaluate(const string& input, Context& g_ctx, Config& g_config) {
         try {
             Parser parser(input);
             auto [expr, eq] = parser.parse_expression_or_equation();
@@ -334,11 +334,7 @@ namespace math_solver {
         }
     }
 
-    // ============================================================================
-    // :config command
-    // ============================================================================
-
-    void cmd_config(const string& args, Config& g_config) {
+    inline void cmd_config(const string& args, Config& g_config) {
         vector<string> parts = split(args);
 
         if (parts.empty()) {
@@ -434,11 +430,7 @@ namespace math_solver {
         maybe_suggest_subcommand(sub, CONFIG_SUBCOMMANDS);
     }
 
-    // ============================================================================
-    // :env command
-    // ============================================================================
-
-    void cmd_env(const string& args, string& g_current_env, Config& g_config,
+    inline void cmd_env(const string& args, string& g_current_env, Config& g_config,
                  Context& g_ctx) {
         vector<string> parts = split(args);
 
@@ -599,7 +591,7 @@ namespace math_solver {
         maybe_suggest_subcommand(sub, ENV_SUBCOMMANDS);
     }
 
-    void print_help() {
+    inline void print_help() {
         cout << "\n";
         cout << ansi::bold << "Math Solver " << ansi::reset << "- Commands\n";
         cout << string(40, '-') << "\n\n";

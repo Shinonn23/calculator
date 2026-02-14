@@ -2,7 +2,6 @@
 #define REPLXX_H
 #include "command.hpp"
 #include "config.hpp"
-#include <iostream>
 #include <replxx.hxx>
 #include <string>
 #include <vector>
@@ -10,7 +9,7 @@
 using namespace std;
 
 namespace math_solver {
-    static void setup_completions(replxx::Replxx& rx, Config& g_config,
+    inline void setup_completions(replxx::Replxx& rx, Config& g_config,
                                   Context& g_ctx) {
         rx.set_completion_callback([&g_config, &g_ctx](const string& input,
                                                        int&          contextLen)
@@ -131,7 +130,7 @@ namespace math_solver {
         rx.set_word_break_characters(" \t");
     }
 
-    static void setup_hints(replxx::Replxx& rx) {
+    inline void setup_hints(replxx::Replxx& rx) {
         rx.set_hint_callback(
             [](const string& input, int& contextLen,
                replxx::Replxx::Color& color) -> replxx::Replxx::hints_t {

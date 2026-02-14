@@ -7,6 +7,9 @@
 #include <string>
 #include <vector>
 
+#include "color.hpp"
+#include "config.hpp"
+
 using namespace std;
 
 namespace math_solver {
@@ -79,7 +82,7 @@ namespace math_solver {
         return result;
     }
 
-    void maybe_suggest_command(const string& word, const vector<string>& all_commands) {
+    inline void maybe_suggest_command(const string& word, const vector<string>& all_commands) {
         auto match = suggest(word, all_commands);
         if (match) {
             cout << ansi::dim << "  Did you mean " << ansi::reset << ansi::bold
@@ -88,7 +91,7 @@ namespace math_solver {
         }
     }
 
-    void maybe_suggest_subcommand(const string&         word,
+    inline void maybe_suggest_subcommand(const string&         word,
                                   const vector<string>& subs) {
         auto match = suggest(word, subs);
         if (match) {
@@ -98,7 +101,7 @@ namespace math_solver {
         }
     }
 
-    void maybe_suggest_setting(const string& word) {
+    inline void maybe_suggest_setting(const string& word) {
         auto match = suggest(word, Settings::all_keys());
         if (match) {
             cout << ansi::dim << "  Did you mean " << ansi::reset << ansi::bold

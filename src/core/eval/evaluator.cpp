@@ -4,7 +4,6 @@
 #include "../ast/variable.hpp"
 #include "../common/error.hpp"
 #include <cmath>
-#include <stdexcept>
 
 namespace math_solver {
 

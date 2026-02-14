@@ -70,20 +70,26 @@ namespace math_solver {
         return format_double(value, g_config.settings().precision);
     }
 
-    static string get_history_file_path() {
+    inline string get_history_file_path() {
         namespace fs = std::filesystem;
 #ifdef _WIN32
-        const char* appdata = std::getenv("APPDATA");
+        char*  appdata = nullptr;
+        size_t len     = 0;
+        _dupenv_s(&appdata, &len, "APPDATA");
         if (appdata) {
             fs::path dir = fs::path(appdata) / "math-solver";
+            free(appdata); // must free the buffer allocated by _dupenv_s
             if (!fs::exists(dir))
                 fs::create_directories(dir);
             return (dir / "history.txt").string();
         }
 #else
-        const char* home = std::getenv("HOME");
+        char*  home = nullptr;
+        size_t len  = 0;
+        _dupenv_s(&home, &len, "HOME");
         if (home) {
             fs::path dir = fs::path(home) / ".config" / "math-solver";
+            free(home); // must free the buffer allocated by _dupenv_s
             if (!fs::exists(dir))
                 fs::create_directories(dir);
             return (dir / "history.txt").string();

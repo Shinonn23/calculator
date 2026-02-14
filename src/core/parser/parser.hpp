@@ -1,11 +1,8 @@
 #ifndef PARSER_H
 #define PARSER_H
 
-#include "../ast/binary.hpp"
 #include "../ast/equation.hpp"
 #include "../ast/expr.hpp"
-#include "../ast/number.hpp"
-#include "../ast/variable.hpp"
 #include "../common/error.hpp"
 #include "../lexer/lexer.hpp"
 #include "../lexer/token.hpp"
@@ -19,6 +16,7 @@ namespace math_solver {
         Lexer       lexer_;
         Token       current_;
         std::string input_;
+        bool        is_implicit_;
 
         void        advance() { current_ = lexer_.next_token(); }
 

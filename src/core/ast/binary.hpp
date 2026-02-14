@@ -3,7 +3,6 @@
 
 #include "expr.hpp"
 #include <memory>
-#include <stdexcept>
 #include <string>
 
 namespace math_solver {

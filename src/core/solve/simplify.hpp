@@ -3,7 +3,6 @@
 
 #include "../ast/equation.hpp"
 #include "../ast/expr.hpp"
-#include "../common/error.hpp"
 #include "../common/fraction.hpp"
 #include "../eval/context.hpp"
 #include "linear_collector.hpp"

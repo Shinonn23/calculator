@@ -4,7 +4,6 @@
 #include <cmath>
 #include <cstdint>
 #include <string>
-#include <utility>
 
 namespace math_solver {
 

@@ -17,10 +17,6 @@ namespace math_solver {
     namespace fs = std::filesystem;
     using json   = nlohmann::json;
 
-    // ========================================================================
-    // Settings — typed application settings
-    // ========================================================================
-
     struct Settings {
         int         precision     = 6;         // Decimal precision for output
         bool        fraction_mode = false;     // Default --fraction flag
@@ -113,10 +109,6 @@ namespace math_solver {
         }
     };
 
-    // ========================================================================
-    // Environment — a named set of preset variables
-    // ========================================================================
-
     struct Environment {
         std::string                             name;
         std::unordered_map<std::string, double> variables;
@@ -144,10 +136,6 @@ namespace math_solver {
             return env;
         }
     };
-
-    // ========================================================================
-    // Config — manages settings and environments, persisted to JSON file
-    // ========================================================================
 
     class Config {
         private:

@@ -1,5 +1,7 @@
 #include "parser.hpp"
+#include "../ast/binary.hpp"
 #include "../ast/expr.hpp"
+#include "../ast/number.hpp"
 #include "../ast/variable.hpp"
 
 namespace math_solver {
@@ -60,7 +62,7 @@ namespace math_solver {
         auto left = parse_unary();
 
         while (current_.type == TokenType::Pow) {
-            Span op_span = current_.span;
+            // Span op_span = current_.span;
             advance();
             auto right       = parse_unary();
             Span result_span = left->span().merge(right->span());
@@ -84,7 +86,7 @@ namespace math_solver {
 
             // Determine if it's explicit or implicit multiplication
             BinaryOpType op;
-            bool         is_implicit = false;
+            // bool         is_implicit = false;
 
             if (current_.type == TokenType::Mul) {
                 op = BinaryOpType::Mul;
@@ -94,8 +96,8 @@ namespace math_solver {
                 advance();
             } else {
                 // Implicit multiplication: number, identifier, or ( follows
-                op          = BinaryOpType::Mul;
-                is_implicit = true;
+                op = BinaryOpType::Mul;
+                // is_implicit = true;
                 // Don't advance - the next parse_power will consume the token
             }
 
