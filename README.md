@@ -141,38 +141,37 @@ Environments allow saving and loading named sets of variables. They are serializ
 math-solver/
 ├── src/
 │   ├── main.cpp                    # Entry point, REPL loop, command dispatch
-│   └── core/
-│       ├── ast/                    # Expression tree nodes
-│       │   ├── expr.hpp            #   Base Expr class + Visitor interface
-│       │   ├── number.hpp          #   Numeric literal node
-│       │   ├── variable.hpp        #   Variable reference node
-│       │   ├── binary.hpp          #   Binary operation node (+, -, *, /, ^)
-│       │   └── equation.hpp        #   Equation node (lhs = rhs)
-│       ├── lexer/                  # Tokenizer
-│       │   ├── token.hpp           #   Token types and struct
-│       │   └── lexer.hpp           #   Character-level scanner
-│       ├── parser/                 # Recursive descent parser
-│       │   ├── parser.hpp          #   Parser class definition
-│       │   └── parser.cpp          #   Parsing implementation
-│       ├── eval/                   # Expression evaluator
-│       │   ├── context.hpp         #   Variable storage (name -> value)
-│       │   ├── evaluator.hpp       #   Evaluator class (Visitor)
-│       │   └── evaluator.cpp       #   Evaluation logic
-│       ├── solve/                  # Equation solving and simplification
-│       │   ├── linear_collector.hpp#   Collect linear coefficients from AST
-│       │   ├── solver.hpp          #   Linear equation solver
-│       │   └── simplify.hpp        #   Canonical form simplifier
-│       └── common/                 # Shared utilities
-│           ├── command.hpp         #   REPL command implementations
-│           ├── config.hpp          #   Persistent JSON configuration
-│           ├── environment.hpp     #   Environment save/load
-│           ├── error.hpp           #   Error types with source spans
-│           ├── color.hpp           #   ANSI color codes
-│           ├── fraction.hpp        #   Fraction formatting
-│           ├── replxx.hpp          #   Replxx setup (completions, hints)
-│           ├── suggest.hpp         #   Fuzzy suggestion for typos
-│           ├── span.hpp            #   Source position tracking
-│           └── utils.hpp           #   String utilities
+│   ├── ast/                        # Expression tree nodes
+│   │   ├── expr.hpp                #   Base Expr class + Visitor interface
+│   │   ├── number.hpp              #   Numeric literal node
+│   │   ├── variable.hpp            #   Variable reference node
+│   │   ├── binary.hpp              #   Binary operation node (+, -, *, /, ^)
+│   │   └── equation.hpp            #   Equation node (lhs = rhs)
+│   ├── lexer/                      # Tokenizer
+│   │   ├── token.hpp               #   Token types and struct
+│   │   └── lexer.hpp               #   Character-level scanner
+│   ├── parser/                     # Recursive descent parser
+│   │   ├── parser.hpp              #   Parser class definition
+│   │   └── parser.cpp              #   Parsing implementation
+│   ├── eval/                       # Expression evaluator
+│   │   ├── context.hpp             #   Variable storage (name -> value)
+│   │   ├── evaluator.hpp           #   Evaluator class (Visitor)
+│   │   └── evaluator.cpp           #   Evaluation logic
+│   ├── solve/                      # Equation solving and simplification
+│   │   ├── linear_collector.hpp    #   Collect linear coefficients from AST
+│   │   ├── solver.hpp              #   Linear equation solver
+│   │   └── simplify.hpp            #   Canonical form simplifier
+│   └── common/                     # Shared utilities
+│       ├── command.hpp             #   REPL command implementations
+│       ├── config.hpp              #   Persistent JSON configuration
+│       ├── environment.hpp         #   Environment save/load
+│       ├── error.hpp               #   Error types with source spans
+│       ├── color.hpp               #   ANSI color codes
+│       ├── fraction.hpp            #   Fraction formatting
+│       ├── replxx.hpp              #   Replxx setup (completions, hints)
+│       ├── suggest.hpp             #   Fuzzy suggestion for typos
+│       ├── span.hpp                #   Source position tracking
+│       └── utils.hpp               #   String utilities
 ├── .vscode/                        # VS Code configuration
 │   ├── settings.json               #   clangd + clang-format settings
 │   └── extensions.json             #   Recommended extensions
