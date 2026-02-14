@@ -16,7 +16,11 @@ bin/
 lib/
 
 # IDE and editor files
-.vscode/
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/extensions.json
+
 .idea/
 *.swp
 *.swo

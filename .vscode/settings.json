@@ -1,0 +1,24 @@
+{
+    "C_Cpp.intelliSenseEngine": "disabled",
+    "clangd.arguments": [
+        "--compile-commands-dir=build",
+        "--background-index",
+        "--clang-tidy",
+        "--all-scopes-completion",
+        "--cross-file-rename",
+        "--pch-storage=memory"
+    ],
+    "editor.formatOnSave": true,
+    "[cpp]": {
+        "editor.defaultFormatter": "xaver.clang-format"
+    },
+    "clang-format.executable": "clang-format",
+    "files.exclude": {
+        "**/.git": true,
+        "**/.DS_Store": true
+    },
+    "files.watcherExclude": {
+        "**/.git/**": true,
+        "**/build/**": true
+    }
+}
