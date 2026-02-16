@@ -1,11 +1,14 @@
-#include "parser.hpp"
-#include "../ast/binary.hpp"
-#include "../ast/expr.hpp"
-#include "../ast/number.hpp"
-#include "../ast/variable.hpp"
+#include "math_parser.hpp"
+#include "ast/binary.hpp"
+#include "ast/expr.hpp"
+#include "ast/number.hpp"
+#include "ast/variable.hpp"
+
+#include <memory>
 
 namespace math_solver {
 
+    // Private parsing functions (precedence climbing)
     ExprPtr Parser::parse_primary() {
         if (current_.type == TokenType::LParen) {
             Span start_span = current_.span;
@@ -128,6 +131,80 @@ namespace math_solver {
         return left;
     }
 
-    ExprPtr Parser::parse_expression() { return parse_additive(); }
+    ExprPtr            Parser::parse_expression() { return parse_additive(); }
+
+    // Public interface
+    const std::string& Parser::input() const { return input_; }
+
+    // Parse a simple expression (no equation)
+    ExprPtr            Parser::parse() {
+        auto expr = parse_expression();
+        if (current_.type != TokenType::End) {
+            throw ParseError("unexpected input after expression", current_.span,
+                                        input_);
+        }
+        return expr;
+    }
+
+    // Parse either an equation (lhs = rhs) or a simple expression
+    // Returns: pair<ExprPtr, EquationPtr> where exactly one is non-null
+    std::pair<ExprPtr, EquationPtr> Parser::parse_expression_or_equation() {
+        auto lhs = parse_expression();
+
+        if (current_.type == TokenType::Equals) {
+            Span equals_span = current_.span;
+            advance();
+
+            if (current_.type == TokenType::End) {
+                throw ParseError("expected expression after '='", equals_span,
+                                 input_);
+            }
+
+            auto rhs = parse_expression();
+
+            if (current_.type != TokenType::End) {
+                throw ParseError("unexpected input after equation",
+                                 current_.span, input_);
+            }
+
+            Span eq_span = lhs->span().merge(rhs->span());
+            return {nullptr, std::make_unique<Equation>(
+                                 std::move(lhs), std::move(rhs), eq_span)};
+        }
+
+        if (current_.type != TokenType::End) {
+            throw ParseError("unexpected input after expression", current_.span,
+                             input_);
+        }
+
+        return {std::move(lhs), nullptr};
+    }
+
+    // Parse equation only (throws if not an equation)
+    EquationPtr Parser::parse_equation() {
+        auto lhs = parse_expression();
+
+        if (current_.type != TokenType::Equals) {
+            throw ParseError("expected '=' for equation", current_.span,
+                             input_);
+        }
+
+        Span equals_span = current_.span;
+        advance();
+
+        if (current_.type == TokenType::End) {
+            throw ParseError("expected expression after '='", equals_span,
+                             input_);
+        }
+
+        auto rhs = parse_expression();
+
+        if (current_.type != TokenType::End) {
+            throw ParseError("unexpected input after equation", current_.span,
+                             input_);
+        }
+
+        return std::make_unique<Equation>(std::move(lhs), std::move(rhs));
+    };
 
 } // namespace math_solver

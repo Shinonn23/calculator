@@ -1,10 +1,10 @@
 #ifndef SIMPLIFY_H
 #define SIMPLIFY_H
 
-#include "../ast/equation.hpp"
-#include "../ast/expr.hpp"
-#include "../common/fraction.hpp"
-#include "../eval/context.hpp"
+#include "ast/equation.hpp"
+#include "ast/expr.hpp"
+#include "common/fraction.hpp"
+#include "eval/context.hpp"
 #include "linear_collector.hpp"
 #include <algorithm>
 #include <cmath>

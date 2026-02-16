@@ -1,7 +1,7 @@
 #ifndef EXPR_H
 #define EXPR_H
 
-#include "../common/span.hpp"
+#include "common/span.hpp"
 #include <memory>
 #include <string>
 

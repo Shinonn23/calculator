@@ -1,8 +1,8 @@
 #ifndef LEXER_H
 #define LEXER_H
 
-#include "../common/error.hpp"
-#include "../common/span.hpp"
+#include "common/error.hpp"
+#include "common/span.hpp"
 #include "token.hpp"
 #include <cctype>
 #include <string>

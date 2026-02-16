@@ -7,7 +7,9 @@
 #include "common/utils.hpp"
 #include "eval/context.hpp"
 #include "eval/evaluator.hpp"
-#include "parser/parser.hpp"
+#include "parser/cli/cli_parser.hpp"
+#include "parser/cli/dispatcher.hpp"
+#include "parser/math/math_parser.hpp"
 #include <cerrno>
 #include <iostream>
 #include <replxx.hxx>
@@ -33,99 +35,13 @@ static string  build_prompt() {
 }
 
 // ============================================================================
-// REPL dispatch — processes a single input line
+// REPL dispatch — parse_cli() always returns a CommandAST, dispatch matches it.
 // Returns false if the REPL should exit.
 // ============================================================================
 
-bool dispatch(const string& input) {
-    // Exit commands
-    if (input == "exit" || input == "quit" || input == "q")
-        return false;
-
-    // :help
-    if (input == ":help" || input == ":h") {
-        print_help();
-        return true;
-    }
-
-    // :set
-    if (starts_with(input, ":set ")) {
-        cmd_set(input.substr(5), g_ctx, g_config);
-        return true;
-    }
-
-    // :unset
-    if (starts_with(input, ":unset ")) {
-        cmd_unset(input.substr(7), g_ctx);
-        return true;
-    }
-
-    // :clear
-    if (input == ":clear" || input == ":cls") {
-        cmd_clear(g_ctx);
-        return true;
-    }
-
-    // :vars
-    if (input == ":vars") {
-        cmd_vars(g_ctx, g_config);
-        return true;
-    }
-
-    // :config
-    if (input == ":config" || starts_with(input, ":config ")) {
-        string args = (input.size() > 8) ? trim(input.substr(8)) : "";
-        cmd_config(args, g_config);
-        return true;
-    }
-
-    // :env
-    if (input == ":env" || starts_with(input, ":env ")) {
-        string args = (input.size() > 5) ? trim(input.substr(5)) : "";
-        cmd_env(args, g_current_env, g_config, g_ctx);
-        return true;
-    }
-
-    // solve
-    if (starts_with(input, "solve ")) {
-        cmd_solve(input.substr(6), g_ctx, g_config);
-        return true;
-    }
-
-    // simplify
-    if (starts_with(input, "simplify ")) {
-        cmd_simplify(input.substr(9), g_config, g_ctx);
-        return true;
-    }
-
-    // expand
-    if (starts_with(input, "expand ")) {
-        cmd_expand(input.substr(7));
-        return true;
-    }
-
-    // factor
-    if (starts_with(input, "factor ")) {
-        cmd_factor(input.substr(7));
-        return true;
-    }
-
-    // Catch bare commands without colon prefix — suggest colon version
-    if (starts_with(input, "set ") || starts_with(input, "unset ") ||
-        input == "clear" || input == "cls" || input == "vars" ||
-        input == "help" || input == "h" || starts_with(input, "config ") ||
-        input == "config" || starts_with(input, "env ") || input == "env") {
-        string first_word = split(input)[0];
-        cout << ansi::dim << "  Did you mean " << ansi::reset << ansi::bold
-             << ":" << first_word << ansi::reset << ansi::dim << "?"
-             << ansi::reset << "\n";
-        return true;
-    }
-
-    // Default: evaluate expression or equation
-    cmd_evaluate(input, g_ctx, g_config);
-
-    return true;
+bool dispatch(const string& raw_input) {
+    CommandAST ast = parse_cli(raw_input);
+    return dispatch_command(ast, g_ctx, g_config, g_current_env);
 }
 
 int main(int argc, char* argv[]) {
@@ -170,7 +86,8 @@ int main(int argc, char* argv[]) {
                 try {
                     double val = std::stod(expr_str);
                     g_ctx.set(name, val);
-                } catch (...) {}
+                } catch (...) {
+                }
             }
         }
         g_current_env = auto_env;
@@ -186,7 +103,8 @@ int main(int argc, char* argv[]) {
                     try {
                         double val = std::stod(expr_str);
                         g_ctx.set(name, val);
-                    } catch (...) {}
+                    } catch (...) {
+                    }
                 }
             }
         }

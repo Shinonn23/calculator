@@ -1,18 +1,19 @@
 #ifndef COMMAND_H
 #define COMMAND_H
 
-#include "../eval/context.hpp"
-#include "../eval/evaluator.hpp"
-#include "../eval/expander.hpp"
-#include "../lexer/token.hpp"
-#include "../parser/parser.hpp"
-#include "../poly/expand.hpp"
-#include "../poly/factor.hpp"
-#include "../solve/simplify.hpp"
-#include "../solve/solver.hpp"
-#include "color.hpp"
-#include "config.hpp"
-#include "environment.hpp"
+#include "ui/color.hpp"
+#include "core/config.hpp"
+#include "runtime/environment.hpp"
+#include "eval/context.hpp"
+#include "eval/evaluator.hpp"
+#include "eval/expander.hpp"
+#include "lexer/token.hpp"
+#include "parser/math/math_parser.hpp"
+#include "parser/cli/command_ast.hpp"
+#include "poly/ast_to_poly.hpp"
+#include "poly/factor.hpp"
+#include "solve/simplify.hpp"
+#include "solve/solver.hpp"
 #include "suggest.hpp"
 #include "utils.hpp"
 
@@ -24,41 +25,13 @@
 using namespace std;
 
 namespace math_solver {
-    struct CommandFlags {
-        vector<string> vars;
-        bool           isolated = false;
-        bool           fraction = false;
-        string         expression;
-    };
-
-    inline CommandFlags parse_flags(const string& input) {
-        CommandFlags flags;
-        size_t       flag_start = input.find(" --");
-        if (flag_start == string::npos) {
-            flags.expression = input;
-            return flags;
-        }
-        flags.expression         = trim(input.substr(0, flag_start));
-        string         flag_part = input.substr(flag_start);
-        vector<string> tokens    = split(flag_part);
-        for (size_t i = 0; i < tokens.size(); ++i) {
-            if (tokens[i] == "--vars") {
-                while (i + 1 < tokens.size() &&
-                       !starts_with(tokens[i + 1], "--"))
-                    flags.vars.push_back(tokens[++i]);
-            } else if (tokens[i] == "--isolated") {
-                flags.isolated = true;
-            } else if (tokens[i] == "--fraction") {
-                flags.fraction = true;
-            }
-        }
-        return flags;
-    }
+    // Command rule: CLI parser produces CommandAST, handlers consume it.
 
     static const vector<string> ALL_COMMANDS = {
-        ":set",    ":unset", ":clear",   ":vars", ":help",   ":config",
-        ":env",    "solve",  "simplify", "expand", "factor", "exit",
-        "quit",
+        ":",     ":set",  ":unset", ":rm",    ":cls",   ":clear",
+        ":ls",   ":h",    ":help",  ":conf",  ":config", ":env",
+        ":solve", ":simplify", ":expand", ":factor",
+        "exit",  "quit",
     };
 
     static const vector<string> CONFIG_SUBCOMMANDS = {
@@ -69,14 +42,13 @@ namespace math_solver {
         "list", "load", "save", "new", "delete",
     };
 
-    inline void cmd_set(const string& args, Context& g_ctx, Config& g_config) {
-        vector<string> parts = split(args);
-        if (parts.size() < 2) {
+    inline void cmd_set(const CommandAST& ast, Context& g_ctx, Config& g_config) {
+        if (ast.args.empty()) {
             cout << "  Usage: :set <variable> <value>\n";
             return;
         }
 
-        string var_name = parts[0];
+        const string& var_name = ast.args[0];
 
         if (var_name.empty() || !(isalpha(var_name[0]) || var_name[0] == '_')) {
             cout << ansi::red << "  Error: " << ansi::reset
@@ -96,30 +68,26 @@ namespace math_solver {
             return;
         }
 
-        string value_str;
-        for (size_t i = 1; i < parts.size(); ++i) {
-            if (i > 1)
-                value_str += " ";
-            value_str += parts[i];
+        if (!ast.value) {
+            cout << "  Usage: :set <variable> <value>\n";
+            return;
         }
 
-        // :set <var> solve <equation> — solve and store result in <var>
-        if (starts_with(value_str, "solve ")) {
-            string eq_str = value_str.substr(6);
+        const auto& vn = *ast.value;
+
+        // :set <var> solve <equation>
+        if (vn.kind == ValueNode::SolveExpr) {
             try {
-                Parser  parser(eq_str);
+                Parser  parser(vn.payload);
                 auto    eq = parser.parse_equation();
 
-                // Build a temp context excluding var_name so that if the
-                // target variable appears in the equation it is treated
-                // as the unknown to solve for (not substituted).
                 Context temp_ctx;
                 for (const auto& [name, expr] : g_ctx.all()) {
                     if (name != var_name)
                         temp_ctx.set(name, *expr);
                 }
 
-                EquationSolver solver(&temp_ctx, eq_str);
+                EquationSolver solver(&temp_ctx, vn.payload);
                 SolveResult    result = solver.solve(*eq);
                 if (result.has_solution) {
                     g_ctx.set(var_name, result.value);
@@ -144,24 +112,64 @@ namespace math_solver {
             return;
         }
 
-        // Store the expression symbolically
+        // :set <var> expand <expr>
+        if (vn.kind == ValueNode::ExpandExpr) {
+            try {
+                Parser          parser(vn.payload);
+                auto            expr = parser.parse();
+                ASTToPolynomial converter(vn.payload);
+                Polynomial      poly = converter.convert(*expr);
+                // Store expanded value as expression
+                Parser store_parser(poly.to_string());
+                auto   store_expr = store_parser.parse();
+                g_ctx.set(var_name, std::move(store_expr));
+                cout << "  " << var_name << " = " << poly.to_string() << "\n";
+            } catch (const MathError& e) {
+                cout << e.format() << "\n";
+            } catch (const exception& e) {
+                cout << ansi::red << "  Error: " << ansi::reset << e.what()
+                     << "\n";
+            }
+            return;
+        }
+
+        // :set <var> factor <expr>
+        if (vn.kind == ValueNode::FactorExpr) {
+            try {
+                Parser          parser(vn.payload);
+                auto            expr = parser.parse();
+                ASTToPolynomial converter(vn.payload);
+                Polynomial      poly     = converter.convert(*expr);
+                FactoredForm    factored = factor_polynomial(poly);
+                Parser store_parser(factored.to_string());
+                auto   store_expr = store_parser.parse();
+                g_ctx.set(var_name, std::move(store_expr));
+                cout << "  " << var_name << " = " << factored.to_string()
+                     << "\n";
+            } catch (const MathError& e) {
+                cout << e.format() << "\n";
+            } catch (const exception& e) {
+                cout << ansi::red << "  Error: " << ansi::reset << e.what()
+                     << "\n";
+            }
+            return;
+        }
+
+        // :set <var> <raw expr> — store symbolically
         try {
-            Parser parser(value_str);
+            Parser parser(vn.payload);
             auto   expr = parser.parse();
 
-            // Store the parsed expression
             g_ctx.set(var_name, std::move(expr));
 
-            // Try to evaluate numerically for display
             double val;
             if (g_ctx.try_get(var_name, val)) {
-                cout << "  " << var_name << " = " << fmt(val, g_config)
-                     << "\n";
+                cout << "  " << var_name << " = " << fmt(val, g_config) << "\n";
             } else {
-                // Show symbolic representation
                 Expander expanded_vis(g_ctx);
                 try {
-                    auto expanded = expanded_vis.expand(g_ctx.get_expr(var_name));
+                    auto expanded =
+                        expanded_vis.expand(g_ctx.get_expr(var_name));
                     cout << "  " << var_name << " = " << expanded->to_string()
                          << "\n";
                 } catch (...) {
@@ -172,8 +180,7 @@ namespace math_solver {
         } catch (const MathError& e) {
             cout << e.format() << "\n";
         } catch (const exception& e) {
-            cout << ansi::red << "  Error: " << ansi::reset << e.what()
-                 << "\n";
+            cout << ansi::red << "  Error: " << ansi::reset << e.what() << "\n";
         }
     }
 
@@ -228,18 +235,20 @@ namespace math_solver {
         }
     }
 
-    inline void cmd_solve(const string& args, Context& g_ctx, Config& g_config) {
+    inline void cmd_solve(const string& args, Context& g_ctx,
+                          Config& g_config) {
         if (args.empty()) {
             cout << "  Usage: solve <lhs> = <rhs>\n";
             return;
         }
         try {
-            Parser          parser(args);
-            auto            eq = parser.parse_equation();
+            Parser                parser(args);
+            auto                  eq = parser.parse_equation();
 
             // Find unknown variables by collecting with context substitution.
             // This correctly handles cases like `a*x` where a=3 (linear in x).
-            // Fall back to isolated collection if substituted form is non-linear.
+            // Fall back to isolated collection if substituted form is
+            // non-linear.
             std::set<std::string> eq_vars;
             try {
                 LinearCollector var_finder(&g_ctx, args, false);
@@ -257,8 +266,8 @@ namespace math_solver {
                 eq_vars                  = combined.variables();
             }
 
-            Context         temp_ctx;
-            const Context*  solve_ctx = &g_ctx;
+            Context        temp_ctx;
+            const Context* solve_ctx = &g_ctx;
             if (eq_vars.size() == 1) {
                 string target = *eq_vars.begin();
                 if (g_ctx.has(target)) {
@@ -292,34 +301,36 @@ namespace math_solver {
         }
     }
 
-    inline void cmd_simplify(const string& args, Config& g_config, Context& g_ctx) {
-        if (args.empty()) {
-            cout << "  Usage: simplify <lhs> = <rhs> [--vars x y] [--isolated] "
-                    "[--fraction]\n";
+    inline void cmd_simplify(const string& payload, const CommandAST& ast,
+                             Config& g_config, Context& g_ctx) {
+        if (payload.empty()) {
+            cout << "  Usage: simplify <lhs> = <rhs> [-vars x y] [-isolated] "
+                    "[-fraction]\n";
             return;
         }
 
-        CommandFlags flags = parse_flags(args);
-        if (flags.expression.empty()) {
-            cout << "  Usage: simplify <lhs> = <rhs> [--vars x y] [--isolated] "
-                    "[--fraction]\n";
-            return;
+        // Extract flags from CommandAST
+        bool has_isolated = false;
+        bool has_fraction = false;
+        for (auto f : ast.flags) {
+            if (f == FlagType::Isolated) has_isolated = true;
+            if (f == FlagType::Fraction) has_fraction = true;
         }
 
         // Apply default fraction mode from config
-        if (!flags.fraction && g_config.settings().fraction_mode)
-            flags.fraction = true;
+        if (!has_fraction && g_config.settings().fraction_mode)
+            has_fraction = true;
 
         try {
-            Parser          parser(flags.expression);
+            Parser          parser(payload);
             auto            eq = parser.parse_equation();
 
             SimplifyOptions opts;
-            opts.var_order   = flags.vars;
-            opts.isolated    = flags.isolated;
-            opts.as_fraction = flags.fraction;
+            opts.var_order   = ast.flag_vars;
+            opts.isolated    = has_isolated;
+            opts.as_fraction = has_fraction;
 
-            Simplifier     simplifier(&g_ctx, flags.expression);
+            Simplifier     simplifier(&g_ctx, payload);
             SimplifyResult result = simplifier.simplify(*eq, opts);
 
             for (const auto& warning : result.warnings) {
@@ -345,7 +356,55 @@ namespace math_solver {
         }
     }
 
-    inline void cmd_evaluate(const string& input, Context& g_ctx, Config& g_config) {
+    inline void cmd_expand(const std::string& args) {
+        if (args.empty()) {
+            std::cout << "  Usage: expand <expression>\n";
+            return;
+        }
+
+        try {
+            Parser          parser(args);
+            auto            expr = parser.parse();
+
+            ASTToPolynomial converter(args);
+            Polynomial      poly = converter.convert(*expr);
+
+            std::cout << "  " << poly.to_string() << "\n";
+        } catch (const MathError& e) {
+            std::cout << e.format() << "\n";
+        } catch (const std::exception& e) {
+            std::cout << ansi::red << "  Error: " << ansi::reset << e.what()
+                      << "\n";
+        }
+    }
+
+    inline void cmd_factor(const std::string& args) {
+        if (args.empty()) {
+            std::cout << "  Usage: factor <polynomial>\n";
+            return;
+        }
+
+        try {
+            Parser          parser(args);
+            auto            expr = parser.parse();
+
+            ASTToPolynomial converter(args);
+            Polynomial      poly     = converter.convert(*expr);
+
+            FactoredForm    factored = factor_polynomial(poly);
+            std::string     output   = factored.to_string();
+
+            std::cout << "  " << output << "\n";
+        } catch (const MathError& e) {
+            std::cout << e.format() << "\n";
+        } catch (const std::exception& e) {
+            std::cout << ansi::red << "  Error: " << ansi::reset << e.what()
+                      << "\n";
+        }
+    }
+
+    inline void cmd_evaluate(const string& input, Context& g_ctx,
+                             Config& g_config) {
         try {
             Parser parser(input);
             auto [expr, eq] = parser.parse_expression_or_equation();
@@ -381,8 +440,8 @@ namespace math_solver {
                              << ce.what() << "\n";
                     }
                 } catch (const CircularDependencyError& e) {
-                    cout << ansi::red << "  Error: " << ansi::reset
-                         << e.what() << "\n";
+                    cout << ansi::red << "  Error: " << ansi::reset << e.what()
+                         << "\n";
                 }
             }
         } catch (const MathError& e) {
@@ -402,7 +461,7 @@ namespace math_solver {
 
         const string& sub = parts[0];
 
-        if (sub == "list") {
+        if (sub == "list" || sub == "ls") {
             cout << "  " << ansi::bold << "Settings" << ansi::reset << "\n";
             for (const auto& key : Settings::all_keys()) {
                 string val = g_config.settings().get(key);
@@ -488,8 +547,8 @@ namespace math_solver {
         maybe_suggest_subcommand(sub, CONFIG_SUBCOMMANDS);
     }
 
-    inline void cmd_env(const string& args, string& g_current_env, Config& g_config,
-                 Context& g_ctx) {
+    inline void cmd_env(const string& args, string& g_current_env,
+                        Config& g_config, Context& g_ctx) {
         vector<string> parts = split(args);
 
         // :env with no args — show current env
@@ -501,7 +560,7 @@ namespace math_solver {
 
         const string& sub = parts[0];
 
-        if (sub == "list") {
+        if (sub == "list" || sub == "ls") {
             auto envs = g_config.list_envs();
             cout << "  " << ansi::bold << "Environments" << ansi::reset << "\n";
             for (const auto& name : envs) {
@@ -544,7 +603,7 @@ namespace math_solver {
             if (parts.size() >= 3) {
                 // Save only specified variables
                 unordered_map<string, string> selected;
-                vector<string>               not_found;
+                vector<string>                not_found;
                 for (size_t i = 2; i < parts.size(); ++i) {
                     const string& var = parts[i];
                     if (g_ctx.has(var)) {
@@ -661,24 +720,26 @@ namespace math_solver {
         cout << ansi::bold << "Variables" << ansi::reset << "\n";
         cout << "  :set <var> <value>        Set variable\n";
         cout << "  :set <var> solve <eq>     Solve and store in <var>\n";
+        cout << "  :set <var> expand <expr>  Expand and store in <var>\n";
+        cout << "  :set <var> factor <expr>  Factor and store in <var>\n";
         cout << "  :unset <var>              Remove variable\n";
         cout << "  :clear                    Clear all variables\n";
-        cout << "  :vars                     Show all variables\n\n";
+        cout << "  :ls                       Show all variables\n\n";
 
         cout << ansi::bold << "Equations" << ansi::reset << "\n";
-        cout << "  solve <lhs> = <rhs>       Solve equation (auto-saves "
+        cout << "  :solve <lhs> = <rhs>      Solve equation (auto-saves "
                 "result)\n";
-        cout << "  simplify <lhs> = <rhs>    Simplify to canonical form\n";
-        cout << "    --vars x y              Variable order\n";
-        cout << "    --isolated              Don't substitute context vars\n";
-        cout << "    --fraction              Display as fractions\n\n";
+        cout << "  :simplify <lhs> = <rhs>   Simplify to canonical form\n";
+        cout << "    -vars x y               Variable order\n";
+        cout << "    -isolated               Don't substitute context vars\n";
+        cout << "    -fraction               Display as fractions\n\n";
 
         cout << ansi::bold << "Polynomial" << ansi::reset << "\n";
-        cout << "  expand <expression>       Expand to canonical form\n";
-        cout << "  factor <polynomial>       Factor a polynomial\n\n";
+        cout << "  :expand <expression>      Expand to canonical form\n";
+        cout << "  :factor <polynomial>      Factor a polynomial\n\n";
 
         cout << ansi::bold << "Config" << ansi::reset << "\n";
-        cout << "  :config list              Show all settings\n";
+        cout << "  :config list | ls         Show all settings\n";
         cout << "  :config get <key>         Show setting value\n";
         cout << "  :config set <key> <val>   Update setting\n";
         cout << "  :config path              Show config file path\n";
@@ -686,7 +747,7 @@ namespace math_solver {
 
         cout << ansi::bold << "Environments" << ansi::reset << "\n";
         cout << "  :env                      Show current environment\n";
-        cout << "  :env list                 List all environments\n";
+        cout << "  :env list | ls            List all environments\n";
         cout << "  :env load <name>          Switch to environment\n";
         cout << "  :env save [name] [vars]   Save variables to env\n";
         cout << "  :env new <name>           Create new environment\n";

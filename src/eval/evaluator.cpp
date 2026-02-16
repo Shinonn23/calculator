@@ -1,8 +1,8 @@
 #include "evaluator.hpp"
-#include "../ast/binary.hpp"
-#include "../ast/number.hpp"
-#include "../ast/variable.hpp"
-#include "../common/error.hpp"
+#include "ast/binary.hpp"
+#include "ast/number.hpp"
+#include "ast/variable.hpp"
+#include "common/error.hpp"
 #include <cmath>
 
 namespace math_solver {

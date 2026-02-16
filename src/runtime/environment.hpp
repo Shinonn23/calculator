@@ -1,7 +1,7 @@
 #ifndef ENVIRONMENT_H
 #define ENVIRONMENT_H
-#include "../eval/context.hpp"
-#include "../parser/parser.hpp"
+#include "eval/context.hpp"
+#include "parser/math/math_parser.hpp"
 #include "color.hpp"
 #include "config.hpp"
 #include "suggest.hpp"

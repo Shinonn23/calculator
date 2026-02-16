@@ -44,6 +44,7 @@ FetchContent_MakeAvailable(json replxx)
 add_library(math_core
     src/eval/evaluator.cpp
     src/parser/parser.cpp
+    src/parser/cli/cli_parser.cpp
 )
 
 target_include_directories(math_core

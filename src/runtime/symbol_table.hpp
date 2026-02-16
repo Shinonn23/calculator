@@ -1,11 +1,11 @@
 #ifndef CONTEXT_H
 #define CONTEXT_H
 
-#include "../ast/binary.hpp"
-#include "../ast/expr.hpp"
-#include "../ast/number.hpp"
-#include "../ast/variable.hpp"
-#include "../common/error.hpp"
+#include "ast/binary.hpp"
+#include "ast/expr.hpp"
+#include "ast/number.hpp"
+#include "ast/variable.hpp"
+#include "common/error.hpp"
 #include <cmath>
 #include <stdexcept>
 #include <string>

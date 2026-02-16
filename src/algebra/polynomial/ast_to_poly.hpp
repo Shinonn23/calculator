@@ -1,11 +1,11 @@
 #ifndef AST_TO_POLY_H
 #define AST_TO_POLY_H
 
-#include "../ast/binary.hpp"
-#include "../ast/expr.hpp"
-#include "../ast/number.hpp"
-#include "../ast/variable.hpp"
-#include "../common/error.hpp"
+#include "ast/binary.hpp"
+#include "ast/expr.hpp"
+#include "ast/number.hpp"
+#include "ast/variable.hpp"
+#include "common/error.hpp"
 #include "polynomial.hpp"
 #include <cmath>
 

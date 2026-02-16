@@ -114,9 +114,9 @@ namespace math_solver {
             }
 
             // simplify flags
-            if (starts_with(trimmed, "simplify ") &&
-                starts_with(last_word, "--")) {
-                vector<string> flags = {"--vars", "--isolated", "--fraction"};
+            if (starts_with(trimmed, ":simplify ") &&
+                starts_with(last_word, "-")) {
+                vector<string> flags = {"-vars", "-isolated", "-fraction"};
                 for (const auto& f : flags) {
                     if (starts_with(f, last_word))
                         completions.emplace_back(f);
@@ -150,15 +150,15 @@ namespace math_solver {
                         hints.emplace_back(" <variable> <value | solve <eq>>");
                     else if (trimmed == ":unset")
                         hints.emplace_back(" <variable>");
-                    else if (trimmed == "solve")
+                    else if (trimmed == ":solve")
                         hints.emplace_back(" <lhs> = <rhs>");
-                    else if (trimmed == "simplify")
+                    else if (trimmed == ":simplify")
                         hints.emplace_back(
-                            " <lhs> = <rhs> [--vars x y] [--isolated] "
-                            "[--fraction]");
-                    else if (trimmed == "expand")
+                            " <lhs> = <rhs> [-vars x y] [-isolated] "
+                            "[-fraction]");
+                    else if (trimmed == ":expand")
                         hints.emplace_back(" <expression>");
-                    else if (trimmed == "factor")
+                    else if (trimmed == ":factor")
                         hints.emplace_back(" <polynomial>");
                     else if (trimmed == ":config")
                         hints.emplace_back(" <list|get|set|path|reset>");

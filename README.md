@@ -116,19 +116,19 @@ Environments allow saving and loading named sets of variables. They are serializ
 | `:set <var> <value>`        | Set a variable to a value or expression   |
 | `:set <var> solve <eq>`     | Solve and store the result in a variable  |
 | `:unset <var>`              | Remove a variable                         |
-| `:vars`                     | List all defined variables                |
+| `:ls`                       | List all defined variables                |
 | `:clear`                    | Clear all variables                       |
 | `:config list`              | Show all settings                         |
 | `:config get <key>`         | Get a setting value                       |
 | `:config set <key> <value>` | Change a setting                          |
 | `:config reset`             | Reset settings to defaults                |
-| `:env list`                 | List saved environments                   |
+| `:env list                  | ls`                                       | List saved environments |
 | `:env save <name>`          | Save current variables as an environment  |
 | `:env load <name>`          | Load an environment                       |
 | `:env new <name>`           | Create a new empty environment            |
 | `:env delete <name>`        | Delete an environment                     |
 | `:help`                     | Show help                                 |
-| `exit` / `quit`             | Exit the program                          |
+| `:exit` / `:quit` / `:q`    | Exit the program                          |
 
 ### Simplify Flags
 
@@ -217,15 +217,15 @@ Dependencies are fetched automatically via CMake `FetchContent` during configura
 
 Detailed implementation walkthroughs for each feature are available in the [`docs/`](docs/) folder:
 
-| Feature | Documentation |
-|---------|---------------|
-| Dispatch Overview | [`docs/dispatch_overview.md`](docs/dispatch_overview.md) |
-| `evaluate` | [`docs/evaluate_command.md`](docs/evaluate_command.md) |
-| `solve` | [`docs/solve_command.md`](docs/solve_command.md) |
-| `simplify` | [`docs/simplify_command.md`](docs/simplify_command.md) |
-| `expand` | [`docs/expand_command.md`](docs/expand_command.md) |
-| `factor` | [`docs/factor_command.md`](docs/factor_command.md) |
-| `:set` / `:unset` | [`docs/set_command.md`](docs/set_command.md) |
+| Feature            | Documentation                                            |
+| ------------------ | -------------------------------------------------------- |
+| Dispatch Overview  | [`docs/dispatch_overview.md`](docs/dispatch_overview.md) |
+| `evaluate`         | [`docs/evaluate_command.md`](docs/evaluate_command.md)   |
+| `solve`            | [`docs/solve_command.md`](docs/solve_command.md)         |
+| `simplify`         | [`docs/simplify_command.md`](docs/simplify_command.md)   |
+| `expand`           | [`docs/expand_command.md`](docs/expand_command.md)       |
+| `factor`           | [`docs/factor_command.md`](docs/factor_command.md)       |
+| `:set` / `:unset`  | [`docs/set_command.md`](docs/set_command.md)             |
 | `:vars` / `:clear` | [`docs/variable_commands.md`](docs/variable_commands.md) |
-| `:config` | [`docs/config_command.md`](docs/config_command.md) |
-| `:env` | [`docs/env_command.md`](docs/env_command.md) |
+| `:config`          | [`docs/config_command.md`](docs/config_command.md)       |
+| `:env`             | [`docs/env_command.md`](docs/env_command.md)             |

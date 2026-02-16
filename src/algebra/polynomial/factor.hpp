@@ -1,9 +1,9 @@
 #ifndef FACTOR_H
 #define FACTOR_H
 
-#include "../common/color.hpp"
-#include "../common/error.hpp"
-#include "../parser/parser.hpp"
+#include "common/color.hpp"
+#include "common/error.hpp"
+#include "parser/math/math_parser.hpp"
 #include "ast_to_poly.hpp"
 #include "polynomial.hpp"
 #include <algorithm>
@@ -298,31 +298,6 @@ namespace math_solver {
         // Step 4: No further factoring — return as-is
         result.factors.push_back({working, 1});
         return result;
-    }
-
-    inline void cmd_factor(const std::string& args) {
-        if (args.empty()) {
-            std::cout << "  Usage: factor <polynomial>\n";
-            return;
-        }
-
-        try {
-            Parser          parser(args);
-            auto            expr = parser.parse();
-
-            ASTToPolynomial converter(args);
-            Polynomial      poly     = converter.convert(*expr);
-
-            FactoredForm    factored = factor_polynomial(poly);
-            std::string     output   = factored.to_string();
-
-            std::cout << "  " << output << "\n";
-        } catch (const MathError& e) {
-            std::cout << e.format() << "\n";
-        } catch (const std::exception& e) {
-            std::cout << ansi::red << "  Error: " << ansi::reset << e.what()
-                      << "\n";
-        }
     }
 
 } // namespace math_solver
