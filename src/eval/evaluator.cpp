@@ -16,7 +16,19 @@ namespace math_solver {
         if (!context_->has(node.name())) {
             throw UndefinedVariableError(node.name(), node.span(), input_);
         }
-        result_ = context_->get(node.name());
+
+        const std::string& name = node.name();
+
+        // Cycle detection
+        if (visited_.count(name)) {
+            throw CircularDependencyError(name, node.span(), input_);
+        }
+
+        // Recursively evaluate the stored expression
+        visited_.insert(name);
+        const Expr& stored = context_->get_expr(name);
+        stored.accept(*this);
+        visited_.erase(name);
     }
 
     void Evaluator::visit(const BinaryOp& node) {

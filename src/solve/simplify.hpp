@@ -67,20 +67,27 @@ namespace math_solver {
             SimplifyResult result;
 
             // First pass: collect all variables without substitution
-            // to detect shadowing
+            // to detect shadowing. May fail for expressions like a*x
+            // where a is a context variable (non-linear without context).
             if (context_ && !opts.isolated) {
-                LinearCollector shadow_check(nullptr, input_, true);
-                LinearForm      lhs_vars = shadow_check.collect(eq.lhs());
-                LinearForm      rhs_vars = shadow_check.collect(eq.rhs());
-                LinearForm      all_vars = lhs_vars - rhs_vars;
+                try {
+                    LinearCollector shadow_check(nullptr, input_, true);
+                    LinearForm      lhs_vars = shadow_check.collect(eq.lhs());
+                    LinearForm      rhs_vars = shadow_check.collect(eq.rhs());
+                    LinearForm      all_vars = lhs_vars - rhs_vars;
 
-                for (const auto& var : all_vars.variables()) {
-                    if (context_->has(var)) {
-                        result.warnings.insert(
-                            "'" + var +
-                            "' in expression shadows context variable "
-                            "(use --isolated to keep as variable)");
+                    for (const auto& var : all_vars.variables()) {
+                        if (context_->has(var)) {
+                            result.warnings.insert(
+                                "'" + var +
+                                "' in expression shadows context variable "
+                                "(use --isolated to keep as variable)");
+                        }
                     }
+                } catch (...) {
+                    // If shadow check fails (e.g., a*x where a is a context
+                    // var), skip it — the main collector with context will
+                    // handle it correctly.
                 }
             }
 

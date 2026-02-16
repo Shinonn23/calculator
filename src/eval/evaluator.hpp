@@ -3,14 +3,16 @@
 
 #include "../ast/expr.hpp"
 #include "context.hpp"
+#include <unordered_set>
 
 namespace math_solver {
 
     class Evaluator : public ExprVisitor {
         private:
-        double         result_;
-        const Context* context_;
-        std::string    input_; // For error formatting
+        double                          result_;
+        const Context*                  context_;
+        std::string                     input_; // For error formatting
+        std::unordered_set<std::string> visited_; // Cycle detection
 
         public:
         Evaluator() : result_(0.0), context_(nullptr), input_() {}
@@ -24,6 +26,7 @@ namespace math_solver {
         void   set_input(const std::string& input) { input_ = input; }
 
         double evaluate(const Expr& expr) {
+            visited_.clear();
             expr.accept(*this);
             return result_;
         }

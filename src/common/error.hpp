@@ -127,6 +127,22 @@ namespace math_solver {
                         input) {}
     };
 
+    // Circular variable dependency detected
+    class CircularDependencyError : public MathError {
+        private:
+        std::string var_name_;
+
+        public:
+        CircularDependencyError(const std::string& var_name,
+                                const Span&        span  = Span(),
+                                const std::string& input = "")
+            : MathError("circular variable dependency on '" + var_name + "'",
+                        span, input),
+              var_name_(var_name) {}
+
+        const std::string& var_name() const { return var_name_; }
+    };
+
 } // namespace math_solver
 
 #endif

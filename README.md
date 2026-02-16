@@ -1,7 +1,7 @@
 
 # Math Solver
 
-An interactive command-line math tool built in C++17. It can evaluate arithmetic expressions, store variables, solve linear equations, simplify equations to canonical form, expand polynomial expressions, and factor polynomials — all from a REPL with history, completions, and color output.
+An interactive command-line math tool built in C++17. It can evaluate arithmetic expressions, store variables (including symbolic expressions), solve linear equations, simplify equations to canonical form, expand polynomial expressions, and factor polynomials — all from a REPL with history, completions, and color output.
 
 ---
 
@@ -70,9 +70,9 @@ Output
    - `BinaryOp` — a binary operation (`+`, `-`, `*`, `/`, `^`) with left and right children
    - `Equation` — two expressions representing `lhs = rhs`
 
-4. **Evaluator** (`core/eval/`) — Walks the AST using the Visitor pattern and computes a numeric result. Variables are resolved from a `Context` (a name-to-value map).
+4. **Evaluator** (`core/eval/`) — Walks the AST using the Visitor pattern and computes a numeric result. Variables are resolved from a `Context` by recursively evaluating their stored expressions. An `Expander` visitor can be used to fully expand variable references into their symbolic form for display.
 
-5. **Solver** (`core/solve/solver.hpp`) — Solves linear equations with one unknown. Collects coefficients from both sides into a `LinearForm` (`ax + b = 0`), then solves for `x = -b/a`.
+5. **Solver** (`core/solve/solver.hpp`) — Solves linear equations with one unknown. Collects coefficients from both sides into a `LinearForm` (`ax + b = 0`), then solves for `x = -b/a`. Context variables are substituted during coefficient collection.
 
 6. **Simplifier** (`core/solve/simplify.hpp`) — Reduces equations to canonical linear form (e.g. `2x + 3y = 7`). Supports fraction display, variable ordering, and context-aware simplification.
 
@@ -80,7 +80,17 @@ Output
 
 ### Context and Variables
 
-The `Context` class stores variable bindings as a `map<string, double>`. Variables can be set via `:set`, solved equations are automatically stored, and the context persists across the session.
+The `Context` class stores variable bindings as symbolic expressions (`map<string, ExprPtr>`). Variables can hold:
+
+- **Numeric values**: `:set x 5` stores `Number(5)`
+- **Symbolic expressions**: `:set a x + 2` stores `BinaryOp(Variable("x"), Number(2), Add)`
+- **Composed expressions**: `:set b a * 3` references `a`, which references `x`
+
+**Lazy evaluation**: Expressions are only evaluated to numeric values when needed. Setting `a = x + 2` and then later setting `x = 5` means `a` evaluates to `7` — variable bindings are always resolved at evaluation time.
+
+**Circular dependency detection**: If `a` references `b` and `b` references `a`, evaluating either will throw a `CircularDependencyError`.
+
+Variables can be set via `:set`, solved equations are automatically stored, and the context persists across the session.
 
 ### Environments
 
@@ -158,9 +168,10 @@ math-solver/
 │   │   ├── parser.hpp              #   Parser class definition
 │   │   └── parser.cpp              #   Parsing implementation
 │   ├── eval/                       # Expression evaluator
-│   │   ├── context.hpp             #   Variable storage (name -> value)
+│   │   ├── context.hpp             #   Variable storage (name → ExprPtr)
 │   │   ├── evaluator.hpp           #   Evaluator class (Visitor)
-│   │   └── evaluator.cpp           #   Evaluation logic
+│   │   ├── evaluator.cpp           #   Evaluation logic
+│   │   └── expander.hpp            #   Symbolic expression expander (Visitor)
 │   ├── solve/                      # Equation solving and simplification
 │   │   ├── linear_collector.hpp    #   Collect linear coefficients from AST
 │   │   ├── solver.hpp              #   Linear equation solver

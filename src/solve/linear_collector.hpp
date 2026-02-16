@@ -144,7 +144,9 @@ namespace math_solver {
 
             // Check if we should substitute from context
             if (context_ && context_->has(name) && !isolated_) {
-                result_ = LinearForm(context_->get(name));
+                // Recursively collect from the stored expression
+                const Expr& stored = context_->get_expr(name);
+                stored.accept(*this);
                 return;
             }
 

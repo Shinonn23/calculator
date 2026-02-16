@@ -1,6 +1,7 @@
 #ifndef ENVIRONMENT_H
 #define ENVIRONMENT_H
 #include "../eval/context.hpp"
+#include "../parser/parser.hpp"
 #include "color.hpp"
 #include "config.hpp"
 #include "suggest.hpp"
@@ -15,10 +16,11 @@ namespace math_solver {
     inline void save_current_env_to_config(Config&       g_config,
                                     const string& g_current_env,
                                     Context&      g_ctx) {
-        g_config.save_env_variables(g_current_env, g_ctx.all());
+        g_config.save_env_variables(g_current_env, g_ctx.all_as_strings());
     }
 
-    // Load an environment's variables into the context
+    // Load an environment's variables into the context.
+    // Parses stored expression strings back into AST nodes.
     inline void load_env_into_context(const string& env_name, Context& g_ctx,
                                Config& g_config, string& g_current_env) {
         if (!g_config.env_exists(env_name)) {
@@ -39,8 +41,20 @@ namespace math_solver {
         // Clear and load new env
         g_ctx.clear();
         const auto& env = g_config.get_env(env_name);
-        for (const auto& [name, value] : env.variables) {
-            g_ctx.set(name, value);
+        for (const auto& [name, expr_str] : env.variables) {
+            try {
+                Parser parser(expr_str);
+                auto   expr = parser.parse();
+                g_ctx.set(name, std::move(expr));
+            } catch (...) {
+                // If parsing fails, store as a number if possible
+                try {
+                    double val = std::stod(expr_str);
+                    g_ctx.set(name, val);
+                } catch (...) {
+                    // Skip invalid entries
+                }
+            }
         }
         g_current_env = env_name;
     }

@@ -110,16 +110,16 @@ namespace math_solver {
     };
 
     struct Environment {
-        std::string                             name;
-        std::unordered_map<std::string, double> variables;
+        std::string                                      name;
+        std::unordered_map<std::string, std::string>     variables;
 
-        json                                    to_json() const {
+        json                                             to_json() const {
             json vars = json::object();
             for (const auto& [k, v] : variables) {
                 vars[k] = v;
             }
             return json{
-                                                   {"variables", vars}
+                                                             {"variables", vars}
             };
         }
 
@@ -128,8 +128,21 @@ namespace math_solver {
             env.name = name;
             if (j.contains("variables") && j["variables"].is_object()) {
                 for (auto& [k, v] : j["variables"].items()) {
-                    if (v.is_number()) {
-                        env.variables[k] = v.get<double>();
+                    if (v.is_string()) {
+                        env.variables[k] = v.get<std::string>();
+                    } else if (v.is_number()) {
+                        // Backward compatibility: convert numeric values
+                        double      num     = v.get<double>();
+                        std::string num_str = std::to_string(num);
+                        size_t dot_pos = num_str.find('.');
+                        if (dot_pos != std::string::npos) {
+                            num_str.erase(
+                                num_str.find_last_not_of('0') + 1,
+                                std::string::npos);
+                            if (num_str.back() == '.')
+                                num_str.pop_back();
+                        }
+                        env.variables[k] = num_str;
                     }
                 }
             }
@@ -202,8 +215,8 @@ namespace math_solver {
 
         // Save the current variables from Context into an environment
         void save_env_variables(
-            const std::string&                             env_name,
-            const std::unordered_map<std::string, double>& variables) {
+            const std::string&                                        env_name,
+            const std::unordered_map<std::string, std::string>& variables) {
             auto it = envs_.find(env_name);
             if (it == envs_.end()) {
                 Environment env;
@@ -336,9 +349,9 @@ namespace math_solver {
         void create_default_env() {
             Environment env;
             env.name             = "default";
-            env.variables["pi"]  = 3.14159265358979;
-            env.variables["e"]   = 2.71828182845905;
-            env.variables["tau"] = 6.28318530717959;
+            env.variables["pi"]  = "3.14159265358979";
+            env.variables["e"]   = "2.71828182845905";
+            env.variables["tau"] = "6.28318530717959";
             envs_["default"]     = std::move(env);
         }
     };

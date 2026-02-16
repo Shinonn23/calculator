@@ -3,6 +3,7 @@
 
 #include "../eval/context.hpp"
 #include "../eval/evaluator.hpp"
+#include "../eval/expander.hpp"
 #include "../lexer/token.hpp"
 #include "../parser/parser.hpp"
 #include "../poly/expand.hpp"
@@ -113,9 +114,9 @@ namespace math_solver {
                 // target variable appears in the equation it is treated
                 // as the unknown to solve for (not substituted).
                 Context temp_ctx;
-                for (const auto& [name, value] : g_ctx.all()) {
+                for (const auto& [name, expr] : g_ctx.all()) {
                     if (name != var_name)
-                        temp_ctx.set(name, value);
+                        temp_ctx.set(name, *expr);
                 }
 
                 EquationSolver solver(&temp_ctx, eq_str);
@@ -143,17 +144,36 @@ namespace math_solver {
             return;
         }
 
+        // Store the expression symbolically
         try {
-            Parser    parser(value_str);
-            auto      expr = parser.parse();
-            Evaluator eval(&g_ctx, value_str);
-            double    value = eval.evaluate(*expr);
-            g_ctx.set(var_name, value);
-            cout << "  " << var_name << " = " << fmt(value, g_config) << "\n";
+            Parser parser(value_str);
+            auto   expr = parser.parse();
+
+            // Store the parsed expression
+            g_ctx.set(var_name, std::move(expr));
+
+            // Try to evaluate numerically for display
+            double val;
+            if (g_ctx.try_get(var_name, val)) {
+                cout << "  " << var_name << " = " << fmt(val, g_config)
+                     << "\n";
+            } else {
+                // Show symbolic representation
+                Expander expanded_vis(g_ctx);
+                try {
+                    auto expanded = expanded_vis.expand(g_ctx.get_expr(var_name));
+                    cout << "  " << var_name << " = " << expanded->to_string()
+                         << "\n";
+                } catch (...) {
+                    cout << "  " << var_name << " = "
+                         << g_ctx.get_expr(var_name).to_string() << "\n";
+                }
+            }
         } catch (const MathError& e) {
             cout << e.format() << "\n";
         } catch (const exception& e) {
-            cout << ansi::red << "  Error: " << ansi::reset << e.what() << "\n";
+            cout << ansi::red << "  Error: " << ansi::reset << e.what()
+                 << "\n";
         }
     }
 
@@ -192,11 +212,19 @@ namespace math_solver {
         for (const auto& [name, _] : g_ctx.all())
             max_len = max(max_len, name.size());
 
-        for (const auto& [name, value] : g_ctx.all()) {
+        for (const auto& [name, expr] : g_ctx.all()) {
             cout << "  " << name;
             for (size_t i = name.size(); i < max_len; ++i)
                 cout << ' ';
-            cout << " = " << fmt(value, g_config) << "\n";
+
+            // Try numeric display
+            double val;
+            if (g_ctx.try_get(name, val)) {
+                cout << " = " << fmt(val, g_config) << "\n";
+            } else {
+                // Show symbolic expression
+                cout << " = " << expr->to_string() << "\n";
+            }
         }
     }
 
@@ -209,23 +237,34 @@ namespace math_solver {
             Parser          parser(args);
             auto            eq = parser.parse_equation();
 
-            // Find all variables in the equation (without context substitution)
-            // If exactly one variable, exclude it from context so that solve
-            // always treats it as the unknown — even if it's already defined.
-            LinearCollector var_finder(nullptr, args, true);
-            LinearForm      lhs_form = var_finder.collect(eq->lhs());
-            LinearForm      rhs_form = var_finder.collect(eq->rhs());
-            LinearForm      combined = lhs_form - rhs_form;
-            auto            eq_vars  = combined.variables();
+            // Find unknown variables by collecting with context substitution.
+            // This correctly handles cases like `a*x` where a=3 (linear in x).
+            // Fall back to isolated collection if substituted form is non-linear.
+            std::set<std::string> eq_vars;
+            try {
+                LinearCollector var_finder(&g_ctx, args, false);
+                LinearForm      lhs_form = var_finder.collect(eq->lhs());
+                LinearForm      rhs_form = var_finder.collect(eq->rhs());
+                LinearForm      combined = lhs_form - rhs_form;
+                eq_vars                  = combined.variables();
+            } catch (...) {
+                // If context-substituted form is non-linear, fall back to
+                // isolated analysis (all vars are unknowns)
+                LinearCollector var_finder(nullptr, args, true);
+                LinearForm      lhs_form = var_finder.collect(eq->lhs());
+                LinearForm      rhs_form = var_finder.collect(eq->rhs());
+                LinearForm      combined = lhs_form - rhs_form;
+                eq_vars                  = combined.variables();
+            }
 
             Context         temp_ctx;
             const Context*  solve_ctx = &g_ctx;
             if (eq_vars.size() == 1) {
                 string target = *eq_vars.begin();
                 if (g_ctx.has(target)) {
-                    for (const auto& [name, value] : g_ctx.all()) {
+                    for (const auto& [name, expr] : g_ctx.all()) {
                         if (name != target)
-                            temp_ctx.set(name, value);
+                            temp_ctx.set(name, *expr);
                     }
                     solve_ctx = &temp_ctx;
                 }
@@ -326,9 +365,25 @@ namespace math_solver {
                          << "\n";
                 }
             } else {
-                Evaluator eval(&g_ctx, input);
-                double    result = eval.evaluate(*expr);
-                cout << "  = " << fmt(result, g_config) << "\n";
+                // Try numeric evaluation first
+                try {
+                    Evaluator eval(&g_ctx, input);
+                    double    result = eval.evaluate(*expr);
+                    cout << "  = " << fmt(result, g_config) << "\n";
+                } catch (const UndefinedVariableError&) {
+                    // Symbolic fallback: expand and display
+                    Expander expander(g_ctx);
+                    try {
+                        auto expanded = expander.expand(*expr);
+                        cout << "  = " << expanded->to_string() << "\n";
+                    } catch (const CircularDependencyError& ce) {
+                        cout << ansi::red << "  Error: " << ansi::reset
+                             << ce.what() << "\n";
+                    }
+                } catch (const CircularDependencyError& e) {
+                    cout << ansi::red << "  Error: " << ansi::reset
+                         << e.what() << "\n";
+                }
             }
         } catch (const MathError& e) {
             cout << e.format() << "\n";
@@ -488,12 +543,12 @@ namespace math_solver {
             // Check if specific variable names are provided (3rd arg onward)
             if (parts.size() >= 3) {
                 // Save only specified variables
-                unordered_map<string, double> selected;
-                vector<string>                not_found;
+                unordered_map<string, string> selected;
+                vector<string>               not_found;
                 for (size_t i = 2; i < parts.size(); ++i) {
                     const string& var = parts[i];
                     if (g_ctx.has(var)) {
-                        selected[var] = g_ctx.all().at(var);
+                        selected[var] = g_ctx.get_expr(var).to_string();
                     } else {
                         not_found.push_back(var);
                     }
@@ -526,7 +581,7 @@ namespace math_solver {
                      << name << "'\n";
             } else {
                 // Save all variables
-                g_config.save_env_variables(name, g_ctx.all());
+                g_config.save_env_variables(name, g_ctx.all_as_strings());
                 g_config.save();
                 cout << "  Saved " << g_ctx.size() << " variable(s) to '"
                      << name << "'\n";

@@ -161,14 +161,34 @@ int main(int argc, char* argv[]) {
     const string& auto_env = g_config.settings().auto_load_env;
     if (g_config.env_exists(auto_env)) {
         const auto& env = g_config.get_env(auto_env);
-        for (const auto& [name, value] : env.variables)
-            g_ctx.set(name, value);
+        for (const auto& [name, expr_str] : env.variables) {
+            try {
+                Parser parser(expr_str);
+                auto   expr = parser.parse();
+                g_ctx.set(name, std::move(expr));
+            } catch (...) {
+                try {
+                    double val = std::stod(expr_str);
+                    g_ctx.set(name, val);
+                } catch (...) {}
+            }
+        }
         g_current_env = auto_env;
     } else {
         if (g_config.env_exists("default")) {
             const auto& env = g_config.get_env("default");
-            for (const auto& [name, value] : env.variables)
-                g_ctx.set(name, value);
+            for (const auto& [name, expr_str] : env.variables) {
+                try {
+                    Parser parser(expr_str);
+                    auto   expr = parser.parse();
+                    g_ctx.set(name, std::move(expr));
+                } catch (...) {
+                    try {
+                        double val = std::stod(expr_str);
+                        g_ctx.set(name, val);
+                    } catch (...) {}
+                }
+            }
         }
         g_current_env = "default";
     }
