@@ -156,6 +156,10 @@ namespace math_solver {
                         hints.emplace_back(
                             " <lhs> = <rhs> [--vars x y] [--isolated] "
                             "[--fraction]");
+                    else if (trimmed == "expand")
+                        hints.emplace_back(" <expression>");
+                    else if (trimmed == "factor")
+                        hints.emplace_back(" <polynomial>");
                     else if (trimmed == ":config")
                         hints.emplace_back(" <list|get|set|path|reset>");
                     else if (trimmed == ":env")

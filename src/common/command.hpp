@@ -5,6 +5,8 @@
 #include "../eval/evaluator.hpp"
 #include "../lexer/token.hpp"
 #include "../parser/parser.hpp"
+#include "../poly/expand.hpp"
+#include "../poly/factor.hpp"
 #include "../solve/simplify.hpp"
 #include "../solve/solver.hpp"
 #include "color.hpp"
@@ -53,8 +55,9 @@ namespace math_solver {
     }
 
     static const vector<string> ALL_COMMANDS = {
-        ":set", ":unset", ":clear",   ":vars", ":help", ":config",
-        ":env", "solve",  "simplify", "exit",  "quit",
+        ":set",    ":unset", ":clear",   ":vars", ":help",   ":config",
+        ":env",    "solve",  "simplify", "expand", "factor", "exit",
+        "quit",
     };
 
     static const vector<string> CONFIG_SUBCOMMANDS = {
@@ -614,6 +617,10 @@ namespace math_solver {
         cout << "    --vars x y              Variable order\n";
         cout << "    --isolated              Don't substitute context vars\n";
         cout << "    --fraction              Display as fractions\n\n";
+
+        cout << ansi::bold << "Polynomial" << ansi::reset << "\n";
+        cout << "  expand <expression>       Expand to canonical form\n";
+        cout << "  factor <polynomial>       Factor a polynomial\n\n";
 
         cout << ansi::bold << "Config" << ansi::reset << "\n";
         cout << "  :config list              Show all settings\n";

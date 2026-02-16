@@ -69,7 +69,7 @@ namespace math_solver {
         return name == "simplify" || name == "solve" || name == "set" ||
                name == "unset" || name == "clear" || name == "help" ||
                name == "exit" || name == "quit" || name == "config" ||
-               name == "env";
+               name == "env" || name == "expand" || name == "factor";
     }
 
 } // namespace math_solver

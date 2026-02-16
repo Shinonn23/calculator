@@ -98,6 +98,18 @@ bool dispatch(const string& input) {
         return true;
     }
 
+    // expand
+    if (starts_with(input, "expand ")) {
+        cmd_expand(input.substr(7));
+        return true;
+    }
+
+    // factor
+    if (starts_with(input, "factor ")) {
+        cmd_factor(input.substr(7));
+        return true;
+    }
+
     // Catch bare commands without colon prefix — suggest colon version
     if (starts_with(input, "set ") || starts_with(input, "unset ") ||
         input == "clear" || input == "cls" || input == "vars" ||

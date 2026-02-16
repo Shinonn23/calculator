@@ -1,7 +1,7 @@
 
 # Math Solver
 
-An interactive command-line math tool built in C++17. It can evaluate arithmetic expressions, store variables, solve linear equations, and simplify equations to canonical form — all from a REPL with history, completions, and color output.
+An interactive command-line math tool built in C++17. It can evaluate arithmetic expressions, store variables, solve linear equations, simplify equations to canonical form, expand polynomial expressions, and factor polynomials — all from a REPL with history, completions, and color output.
 
 ---
 
@@ -52,7 +52,7 @@ Input string
 [ Parser ] --- build an Abstract Syntax Tree (AST) from tokens
   |
   v
-[ Evaluator / Solver / Simplifier ] --- compute result, solve equation, or simplify
+[ Evaluator / Solver / Simplifier / Polynomial ] --- compute, solve, simplify, expand, or factor
   |
   v
 Output
@@ -75,6 +75,8 @@ Output
 5. **Solver** (`core/solve/solver.hpp`) — Solves linear equations with one unknown. Collects coefficients from both sides into a `LinearForm` (`ax + b = 0`), then solves for `x = -b/a`.
 
 6. **Simplifier** (`core/solve/simplify.hpp`) — Reduces equations to canonical linear form (e.g. `2x + 3y = 7`). Supports fraction display, variable ordering, and context-aware simplification.
+
+7. **Polynomial Engine** (`core/poly/`) — Symbolic polynomial algebra. Converts AST to a `Polynomial` representation (`Map<Monomial, Coefficient>`), supports expand (distribute and combine like terms) and factor (common factor extraction, quadratic factorization, special patterns).
 
 ### Context and Variables
 
@@ -99,6 +101,8 @@ Environments allow saving and loading named sets of variables. They are serializ
 | `<lhs> = <rhs>`             | Check if equation is true or false        |
 | `solve <lhs> = <rhs>`       | Solve a linear equation for the unknown   |
 | `simplify <eq> [flags]`     | Simplify equation to canonical form       |
+| `expand <expression>`       | Expand to canonical polynomial form       |
+| `factor <polynomial>`       | Factor a polynomial expression            |
 | `:set <var> <value>`        | Set a variable to a value or expression   |
 | `:set <var> solve <eq>`     | Solve and store the result in a variable  |
 | `:unset <var>`              | Remove a variable                         |
@@ -161,6 +165,11 @@ math-solver/
 │   │   ├── linear_collector.hpp    #   Collect linear coefficients from AST
 │   │   ├── solver.hpp              #   Linear equation solver
 │   │   └── simplify.hpp            #   Canonical form simplifier
+│   ├── poly/                       # Polynomial algebra engine
+│   │   ├── polynomial.hpp          #   Monomial & Polynomial data structures
+│   │   ├── ast_to_poly.hpp         #   AST → Polynomial converter
+│   │   ├── expand.hpp              #   Expand command (distribute & combine)
+│   │   └── factor.hpp              #   Factor command (GCD, quadratic, patterns)
 │   └── common/                     # Shared utilities
 │       ├── command.hpp             #   REPL command implementations
 │       ├── config.hpp              #   Persistent JSON configuration
@@ -190,3 +199,22 @@ math-solver/
 | [replxx](https://github.com/AmokHuginnsson/replxx) | v0.0.4  | Interactive CLI input |
 
 Dependencies are fetched automatically via CMake `FetchContent` during configuration. No manual installation needed.
+
+---
+
+## Documentation
+
+Detailed implementation walkthroughs for each feature are available in the [`docs/`](docs/) folder:
+
+| Feature | Documentation |
+|---------|---------------|
+| Dispatch Overview | [`docs/dispatch_overview.md`](docs/dispatch_overview.md) |
+| `evaluate` | [`docs/evaluate_command.md`](docs/evaluate_command.md) |
+| `solve` | [`docs/solve_command.md`](docs/solve_command.md) |
+| `simplify` | [`docs/simplify_command.md`](docs/simplify_command.md) |
+| `expand` | [`docs/expand_command.md`](docs/expand_command.md) |
+| `factor` | [`docs/factor_command.md`](docs/factor_command.md) |
+| `:set` / `:unset` | [`docs/set_command.md`](docs/set_command.md) |
+| `:vars` / `:clear` | [`docs/variable_commands.md`](docs/variable_commands.md) |
+| `:config` | [`docs/config_command.md`](docs/config_command.md) |
+| `:env` | [`docs/env_command.md`](docs/env_command.md) |
