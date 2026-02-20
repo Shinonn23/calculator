@@ -26,6 +26,7 @@ FetchContent_Declare(
     json
     GIT_REPOSITORY https://github.com/nlohmann/json.git
     GIT_TAG v3.11.3
+    GIT_SHALLOW TRUE
 )
 
 # Replxx
@@ -33,6 +34,7 @@ FetchContent_Declare(
     replxx
     GIT_REPOSITORY https://github.com/AmokHuginnsson/replxx.git
     GIT_TAG release-0.0.4
+    GIT_SHALLOW TRUE
 )
 
 set(REPLXX_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
@@ -43,8 +45,9 @@ FetchContent_MakeAvailable(json replxx)
 # ===== Core Library =====
 add_library(math_core
     src/eval/evaluator.cpp
-    src/parser/parser.cpp
-    src/parser/cli/cli_parser.cpp
+    src/runtime/context/context.cpp
+    src/parser/cmd/cli_parser.cpp
+    src/parser/math/math_parser.cpp
 )
 
 target_include_directories(math_core

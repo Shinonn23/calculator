@@ -1,9 +1,9 @@
 #ifndef PARSER_H
 #define PARSER_H
 
-#include "ast/equation.hpp"
-#include "ast/expr.hpp"
-#include "common/error.hpp"
+#include "ast/math/equation_expr.hpp"
+#include "ast/math/expr.hpp"
+#include "core/error.hpp"
 #include "lexer/lexer.hpp"
 #include "lexer/token.hpp"
 #include <string>

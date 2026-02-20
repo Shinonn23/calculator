@@ -1,14 +1,9 @@
 #ifndef FACTOR_H
 #define FACTOR_H
 
-#include "common/color.hpp"
-#include "common/error.hpp"
-#include "parser/math/math_parser.hpp"
-#include "ast_to_poly.hpp"
 #include "polynomial.hpp"
 #include <algorithm>
 #include <cmath>
-#include <iostream>
 #include <string>
 #include <vector>
 

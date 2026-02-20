@@ -1,11 +1,11 @@
 #ifndef SIMPLIFY_H
 #define SIMPLIFY_H
 
-#include "ast/equation.hpp"
-#include "ast/expr.hpp"
-#include "common/fraction.hpp"
-#include "eval/context.hpp"
-#include "linear_collector.hpp"
+#include "algebra/linear/linear_collector.hpp"
+#include "ast/core/expr_base.hpp"
+#include "ast/math/expr_equation.hpp"
+#include "core/fraction.hpp"
+#include "runtime/context/context.hpp"
 #include <algorithm>
 #include <cmath>
 #include <set>

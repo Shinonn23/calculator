@@ -1,7 +1,7 @@
 #ifndef TOKEN_H
 #define TOKEN_H
 
-#include "common/span.hpp"
+#include "core/span.hpp"
 #include <string>
 
 namespace math_solver {

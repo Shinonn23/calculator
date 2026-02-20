@@ -110,16 +110,16 @@ namespace math_solver {
     };
 
     struct Environment {
-        std::string                                      name;
-        std::unordered_map<std::string, std::string>     variables;
+        std::string                                  name;
+        std::unordered_map<std::string, std::string> variables;
 
-        json                                             to_json() const {
+        json                                         to_json() const {
             json vars = json::object();
             for (const auto& [k, v] : variables) {
                 vars[k] = v;
             }
             return json{
-                                                             {"variables", vars}
+                                                        {"variables", vars}
             };
         }
 
@@ -134,11 +134,10 @@ namespace math_solver {
                         // Backward compatibility: convert numeric values
                         double      num     = v.get<double>();
                         std::string num_str = std::to_string(num);
-                        size_t dot_pos = num_str.find('.');
+                        size_t      dot_pos = num_str.find('.');
                         if (dot_pos != std::string::npos) {
-                            num_str.erase(
-                                num_str.find_last_not_of('0') + 1,
-                                std::string::npos);
+                            num_str.erase(num_str.find_last_not_of('0') + 1,
+                                          std::string::npos);
                             if (num_str.back() == '.')
                                 num_str.pop_back();
                         }
@@ -215,7 +214,7 @@ namespace math_solver {
 
         // Save the current variables from Context into an environment
         void save_env_variables(
-            const std::string&                                        env_name,
+            const std::string&                                  env_name,
             const std::unordered_map<std::string, std::string>& variables) {
             auto it = envs_.find(env_name);
             if (it == envs_.end()) {

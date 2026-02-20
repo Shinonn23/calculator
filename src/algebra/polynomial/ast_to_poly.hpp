@@ -1,11 +1,11 @@
 #ifndef AST_TO_POLY_H
 #define AST_TO_POLY_H
 
-#include "ast/binary.hpp"
-#include "ast/expr.hpp"
-#include "ast/number.hpp"
-#include "ast/variable.hpp"
-#include "common/error.hpp"
+#include "ast/math/expr_visitor.hpp"
+#include "ast/math/binary_expr.hpp"
+#include "ast/math/number_expr.hpp"
+#include "ast/math/variable_expr.hpp"
+#include "core/error.hpp"
 #include "polynomial.hpp"
 #include <cmath>
 
@@ -32,7 +32,8 @@ namespace math_solver {
         std::string input_;
 
         public:
-        explicit ASTToPolynomial(const std::string& input = "") : input_(input) {}
+        explicit ASTToPolynomial(const std::string& input = "")
+            : input_(input) {}
 
         Polynomial convert(const Expr& expr) {
             expr.accept(*this);

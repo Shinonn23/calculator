@@ -8,7 +8,7 @@
 #include <vector>
 
 #include "color.hpp"
-#include "config.hpp"
+#include "config/config.hpp"
 
 using namespace std;
 

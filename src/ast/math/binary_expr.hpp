@@ -1,7 +1,7 @@
 #ifndef BINARY_H
 #define BINARY_H
 
-#include "expr.hpp"
+#include "ast/math/expr.hpp"
 #include <memory>
 #include <string>
 
