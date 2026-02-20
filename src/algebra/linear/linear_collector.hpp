@@ -1,23 +1,33 @@
 #ifndef LINEAR_COLLECTOR_H
 #define LINEAR_COLLECTOR_H
 
-#include "ast/math/binary_expr.hpp"
-#include "ast/math/expr.hpp"
-#include "ast/math/number_expr.hpp"
-#include "ast/math/variable_expr.hpp"
-#include "core/error.hpp"
-#include "runtime/context/context.hpp"
 #include <cmath>
 #include <map>
 #include <set>
 #include <string>
 
+#include "ast/math/binary_expr.hpp"
+#include "ast/math/expr.hpp"
+#include "ast/math/expr_visitor.hpp"
+#include "ast/math/number_expr.hpp"
+#include "ast/math/variable_expr.hpp"
+#include "core/error.hpp"
+#include "runtime/context/context.hpp"
+
 namespace math_solver {
 
-    // Represents a linear form: sum of (coeff * var) + constant
-    // Example: 3x + 2y - 5 is represented as coeffs={x:3, y:2}, constant=-5
+    // LinearForm represents affine expressions of the form:
+    //   sum_i (coeffs[var_i] * var_i) + constant
+    //
+    // Invariants:
+    // - coeffs only contains variables with non-negligible coefficients (see
+    // simplify()).
+    // - constant is always zeroed if sufficiently close to zero.
+    //
+    // Used as an intermediate representation for extracting linear structure
+    // from ASTs.
     struct LinearForm {
-        std::map<std::string, double> coeffs; // variable -> coefficient
+        std::map<std::string, double> coeffs;
         double                        constant = 0.0;
 
         LinearForm()                           = default;
@@ -28,13 +38,11 @@ namespace math_solver {
             coeffs[var] = coeff;
         }
 
-        // Get coefficient for a variable (0 if not present)
         double get_coeff(const std::string& var) const {
             auto it = coeffs.find(var);
             return it != coeffs.end() ? it->second : 0.0;
         }
 
-        // Get all variable names
         std::set<std::string> variables() const {
             std::set<std::string> vars;
             for (const auto& pair : coeffs) {
@@ -45,10 +53,12 @@ namespace math_solver {
             return vars;
         }
 
-        // Check if this is just a constant (no variables)
+        // Returns true if the form is a constant (no variables with significant
+        // coefficients).
         bool       is_constant() const { return variables().empty(); }
 
-        // Add two linear forms
+        // Addition and subtraction are defined pointwise on coefficients and
+        // constants.
         LinearForm operator+(const LinearForm& other) const {
             LinearForm result = *this;
             result.constant += other.constant;
@@ -58,7 +68,6 @@ namespace math_solver {
             return result;
         }
 
-        // Subtract linear forms
         LinearForm operator-(const LinearForm& other) const {
             LinearForm result = *this;
             result.constant -= other.constant;
@@ -68,7 +77,7 @@ namespace math_solver {
             return result;
         }
 
-        // Multiply by a scalar
+        // Scalar multiplication is only valid for real scalars.
         LinearForm operator*(double scalar) const {
             LinearForm result;
             result.constant = constant * scalar;
@@ -78,10 +87,11 @@ namespace math_solver {
             return result;
         }
 
-        // Negate
         LinearForm operator-() const { return (*this) * (-1.0); }
 
-        // Clean up near-zero coefficients
+        // Prunes coefficients and constant that are numerically insignificant.
+        // This is necessary to avoid spurious variables due to floating-point
+        // error.
         void       simplify(double epsilon = 1e-12) {
             for (auto it = coeffs.begin(); it != coeffs.end();) {
                 if (std::abs(it->second) < epsilon) {
@@ -96,16 +106,33 @@ namespace math_solver {
         }
     };
 
-    // Visitor that collects linear coefficients from an expression
-    // Detects non-linear terms and throws NonLinearError
+    // LinearCollector traverses an Expr AST and attempts to extract a
+    // LinearForm.
+    //
+    // Correctness:
+    // - Throws NonLinearError if a non-linear term is encountered (e.g., var *
+    // var, var^n for n != 1).
+    // - Substitutes variables from context unless isolated_ is set.
+    // - Tracks variables that shadow context bindings when isolated_ is true.
+    //
+    // Performance:
+    // - Recursively traverses the AST; substitution from context may cause deep
+    // recursion.
+    // - No memoization of context lookups; repeated variables may be
+    // recomputed.
+    //
+    // Subtlety:
+    // - Division and exponentiation are only allowed if the divisor/exponent is
+    // constant.
+    // - Floating-point comparisons use epsilon to avoid false negatives due to
+    // rounding.
     class LinearCollector : public ExprVisitor {
         private:
-        LinearForm     result_;
-        const Context* context_;
-        std::string    input_;
-        bool           isolated_; // If true, don't substitute from context
+        LinearForm            result_;
+        const Context*        context_;
+        std::string           input_;
+        bool                  isolated_;
 
-        // Track variables we've seen but haven't substituted
         std::set<std::string> shadowed_vars_;
 
         public:
@@ -114,14 +141,16 @@ namespace math_solver {
         explicit LinearCollector(const Context* ctx, bool isolated = false)
             : context_(ctx), input_(), isolated_(isolated) {}
 
-        LinearCollector(const Context* ctx, const std::string& input,
-                        bool isolated = false)
+        LinearCollector(const Context*     ctx,
+                        const std::string& input,
+                        bool               isolated = false)
             : context_(ctx), input_(input), isolated_(isolated) {}
 
         void       set_input(const std::string& input) { input_ = input; }
         void       set_isolated(bool isolated) { isolated_ = isolated; }
 
-        // Collect linear form from expression
+        // Entry point: collects a LinearForm from the given expression.
+        // Resets internal state for each call.
         LinearForm collect(const Expr& expr) {
             result_ = LinearForm();
             shadowed_vars_.clear();
@@ -130,7 +159,8 @@ namespace math_solver {
             return result_;
         }
 
-        // Get variables that were in context but not substituted (shadowed)
+        // Returns variables that were present in the context but not
+        // substituted due to isolation.
         const std::set<std::string>& shadowed_variables() const {
             return shadowed_vars_;
         }
@@ -142,25 +172,23 @@ namespace math_solver {
         void visit(const Variable& node) override {
             const std::string& name = node.name();
 
-            // Check if we should substitute from context
+            // Substitution from context is only performed if not isolated.
+            // If isolated, variables that shadow context bindings are tracked
+            // for diagnostics.
             if (context_ && context_->has(name) && !isolated_) {
-                // Recursively collect from the stored expression
                 const Expr& stored = context_->get_expr(name);
                 stored.accept(*this);
                 return;
             }
 
-            // Track if this variable shadows a context variable
             if (context_ && context_->has(name) && isolated_) {
                 shadowed_vars_.insert(name);
             }
 
-            // Keep as variable
             result_ = LinearForm(name, 1.0);
         }
 
         void visit(const BinaryOp& node) override {
-            // Collect from children
             node.left().accept(*this);
             LinearForm left = result_;
 
@@ -177,60 +205,67 @@ namespace math_solver {
                 break;
 
             case BinaryOpType::Mul:
-                // For linearity, at least one side must be constant
+                // Only allow multiplication if at least one operand is
+                // constant. Otherwise, the term is non-linear and must be
+                // rejected.
                 if (left.is_constant()) {
                     result_ = right * left.constant;
                 } else if (right.is_constant()) {
                     result_ = left * right.constant;
                 } else {
-                    // var * var = non-linear
                     throw NonLinearError(
                         "non-linear term: multiplication of variables",
-                        node.span(), input_);
+                        node.span(),
+                        input_);
                 }
                 break;
 
             case BinaryOpType::Div:
-                // For linearity, divisor must be constant
+                // Division is only linear if the divisor is constant and
+                // nonzero.
                 if (!right.is_constant()) {
                     throw NonLinearError(
-                        "non-linear term: division by variable", node.span(),
+                        "non-linear term: division by variable",
+                        node.span(),
                         input_);
                 }
                 if (std::abs(right.constant) < 1e-12) {
-                    throw MathError("division by zero", node.right().span(),
-                                    input_);
+                    throw MathError(
+                        "division by zero", node.right().span(), input_);
                 }
                 result_ = left * (1.0 / right.constant);
                 break;
 
             case BinaryOpType::Pow:
-                // For linearity, exponent must be constant
+                // Exponentiation is only linear if the exponent is constant and
+                // equals 1.
                 if (!right.is_constant()) {
                     throw NonLinearError("non-linear term: variable exponent",
-                                         node.span(), input_);
+                                         node.span(),
+                                         input_);
                 }
 
                 double exp = right.constant;
 
-                // x^0 = 1
+                // x^0 is always 1, regardless of x.
                 if (std::abs(exp) < 1e-12) {
                     result_ = LinearForm(1.0);
                     break;
                 }
 
-                // x^1 = x (linear)
+                // x^1 is linear in x.
                 if (std::abs(exp - 1.0) < 1e-12) {
                     result_ = left;
                     break;
                 }
 
-                // For x^n where n != 0, 1: only valid if x is constant
+                // For all other exponents, only allow if base is constant.
                 if (!left.is_constant()) {
                     throw NonLinearError(
                         "non-linear term: variable raised to power " +
                             std::to_string(static_cast<int>(exp)),
-                        node.span(), input_);
+                        node.span(),
+                        input_);
                 }
 
                 result_ = LinearForm(std::pow(left.constant, exp));

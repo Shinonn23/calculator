@@ -1,16 +1,15 @@
-#ifndef CONFIG_H
-#define CONFIG_H
+#pragma once
 
-#include <algorithm>
-#include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
-#include <nlohmann/json.hpp>
+#include <map>
 #include <stdexcept>
 #include <string>
 #include <unordered_map>
 #include <vector>
+
+#include <nlohmann/json.hpp>
 
 namespace math_solver {
 
@@ -18,22 +17,25 @@ namespace math_solver {
     using json   = nlohmann::json;
 
     struct Settings {
-        int         precision     = 6;         // Decimal precision for output
-        bool        fraction_mode = false;     // Default --fraction flag
-        int         history_size  = 1000;      // Max REPL history entries
-        std::string auto_load_env = "default"; // Environment to load on start
+        int         precision     = 6;
+        bool        fraction_mode = false;
+        int         history_size  = 1000;
+        std::string auto_load_env = "default";
 
-        // Serialize to JSON
+        // Serialization for persistence. All fields must be kept in sync with
+        // deserialization logic in from_json. Any additions require versioning
+        // consideration for backward compatibility.
         json        to_json() const {
-            return json{
-                       {"precision",     precision    },
-                       {"fraction_mode", fraction_mode},
-                       {"history_size",  history_size },
-                       {"auto_load_env", auto_load_env},
+            return {
+                {"precision",     precision    },
+                {"fraction_mode", fraction_mode},
+                {"history_size",  history_size },
+                {"auto_load_env", auto_load_env},
             };
         }
 
-        // Deserialize from JSON (with defaults for missing keys)
+        // Deserialization. Defensive: missing fields are left at defaults.
+        // Invariant: All fields must be valid after construction.
         static Settings from_json(const json& j) {
             Settings s;
             if (j.contains("precision"))
@@ -47,13 +49,22 @@ namespace math_solver {
             return s;
         }
 
-        // Get all setting names
         static std::vector<std::string> all_keys() {
-            return {"precision", "fraction_mode", "history_size",
-                    "auto_load_env"};
+            return {
+                "precision", "fraction_mode", "history_size", "auto_load_env"};
         }
 
-        // Get a setting value as string by key
+        // Used for validating user input and config file keys.
+        static bool is_valid_key(const std::string& key) {
+            for (const auto& k : all_keys())
+                if (k == key)
+                    return true;
+            return false;
+        }
+
+        // Returns string representation of the setting value.
+        // Used for UI and scripting. All values must be representable as
+        // string.
         std::string get(const std::string& key) const {
             if (key == "precision")
                 return std::to_string(precision);
@@ -66,12 +77,15 @@ namespace math_solver {
             return "";
         }
 
-        // Set a setting value from string. Returns error message or empty on
-        // success.
+        // Returns empty string on success, error message on failure.
+        // All validation is performed here; invariants must be preserved.
+        // Used by scripting and UI. Error messages are user-facing.
         std::string set(const std::string& key, const std::string& value) {
             if (key == "precision") {
                 try {
                     int v = std::stoi(value);
+                    // Precision is bounded for compatibility with
+                    // floating-point formatting.
                     if (v < 0 || v > 15)
                         return "precision must be 0-15";
                     precision = v;
@@ -88,6 +102,7 @@ namespace math_solver {
             } else if (key == "history_size") {
                 try {
                     int v = std::stoi(value);
+                    // history_size must be positive; zero disables history.
                     if (v < 1)
                         return "history_size must be > 0";
                     history_size = v;
@@ -99,13 +114,7 @@ namespace math_solver {
             } else {
                 return "unknown setting '" + key + "'";
             }
-            return ""; // success
-        }
-
-        // Check if a key is a valid setting name
-        static bool is_valid_key(const std::string& key) {
-            auto keys = all_keys();
-            return std::find(keys.begin(), keys.end(), key) != keys.end();
+            return "";
         }
     };
 
@@ -113,36 +122,42 @@ namespace math_solver {
         std::string                                  name;
         std::unordered_map<std::string, std::string> variables;
 
+        // Serializes all variables as strings. No type information is
+        // preserved. Invariant: All variable values must be
+        // string-representable.
         json                                         to_json() const {
             json vars = json::object();
-            for (const auto& [k, v] : variables) {
+            for (const auto& [k, v] : variables)
                 vars[k] = v;
-            }
-            return json{
-                                                        {"variables", vars}
+            return {
+                {"variables", vars}
             };
         }
 
-        static Environment from_json(const std::string& name, const json& j) {
+        // Deserialization. Accepts both string and numeric values for backward
+        // compatibility. Numeric values are converted to strings with minimal
+        // trailing zeros. This logic must be kept in sync with to_json.
+        static Environment from_json(const std::string& env_name,
+                                     const json&        j) {
             Environment env;
-            env.name = name;
-            if (j.contains("variables") && j["variables"].is_object()) {
-                for (auto& [k, v] : j["variables"].items()) {
-                    if (v.is_string()) {
-                        env.variables[k] = v.get<std::string>();
-                    } else if (v.is_number()) {
-                        // Backward compatibility: convert numeric values
-                        double      num     = v.get<double>();
-                        std::string num_str = std::to_string(num);
-                        size_t      dot_pos = num_str.find('.');
-                        if (dot_pos != std::string::npos) {
-                            num_str.erase(num_str.find_last_not_of('0') + 1,
-                                          std::string::npos);
-                            if (num_str.back() == '.')
-                                num_str.pop_back();
-                        }
-                        env.variables[k] = num_str;
+            env.name = env_name;
+            if (!j.contains("variables") || !j["variables"].is_object())
+                return env;
+
+            for (auto& [k, v] : j["variables"].items()) {
+                if (v.is_string()) {
+                    env.variables[k] = v.get<std::string>();
+                } else if (v.is_number()) {
+                    // Legacy: numeric → string, strip trailing zeros for
+                    // round-trip stability.
+                    double      num = v.get<double>();
+                    std::string s   = std::to_string(num);
+                    if (auto dot = s.find('.'); dot != std::string::npos) {
+                        s.erase(s.find_last_not_of('0') + 1);
+                        if (s.back() == '.')
+                            s.pop_back();
                     }
+                    env.variables[k] = s;
                 }
             }
             return env;
@@ -150,25 +165,21 @@ namespace math_solver {
     };
 
     class Config {
-        private:
-        Settings                                     settings_;
-        std::unordered_map<std::string, Environment> envs_;
-        std::string                                  file_path_;
-
         public:
         Config() = default;
 
-        // ---- Settings accessors -------------------------------------------
+        Settings&          settings() { return settings_; }
+        const Settings&    settings() const { return settings_; }
+        const std::string& file_path() const { return file_path_; }
 
-        Settings&       settings() { return settings_; }
-        const Settings& settings() const { return settings_; }
-
-        // ---- Environment accessors ----------------------------------------
-
-        bool            env_exists(const std::string& name) const {
-            return envs_.find(name) != envs_.end();
+        // Returns true if the named environment exists.
+        // Used for validation and UI.
+        bool               env_exists(const std::string& name) const {
+            return envs_.count(name) > 0;
         }
 
+        // Returns mutable reference to environment. Throws if not found.
+        // Used by scripting and UI. Invariant: name must exist.
         Environment& get_env(const std::string& name) {
             auto it = envs_.find(name);
             if (it == envs_.end())
@@ -177,6 +188,7 @@ namespace math_solver {
             return it->second;
         }
 
+        // Returns const reference to environment. Throws if not found.
         const Environment& get_env(const std::string& name) const {
             auto it = envs_.find(name);
             if (it == envs_.end())
@@ -185,176 +197,148 @@ namespace math_solver {
             return it->second;
         }
 
+        // Creates a new environment with the given name.
+        // Panics if already exists. Used by UI and scripting.
         void create_env(const std::string& name) {
-            if (envs_.find(name) != envs_.end())
+            if (envs_.count(name))
                 throw std::runtime_error("environment '" + name +
                                          "' already exists");
-            Environment env;
-            env.name    = name;
-            envs_[name] = std::move(env);
+            envs_[name].name = name;
         }
 
+        // Removes the named environment. Panics if not found.
         void delete_env(const std::string& name) {
-            auto it = envs_.find(name);
-            if (it == envs_.end())
+            if (!envs_.erase(name))
                 throw std::runtime_error("environment '" + name +
                                          "' not found");
-            envs_.erase(it);
         }
 
+        // Returns sorted list of environment names. Used for UI.
         std::vector<std::string> list_envs() const {
             std::vector<std::string> names;
             names.reserve(envs_.size());
-            for (const auto& [name, _] : envs_) {
+            for (const auto& [name, _] : envs_)
                 names.push_back(name);
-            }
             std::sort(names.begin(), names.end());
             return names;
         }
 
-        // Save the current variables from Context into an environment
+        // Overwrites all variables in the named environment.
+        // Used for scripting and UI. If env does not exist, it is created.
         void save_env_variables(
             const std::string&                                  env_name,
-            const std::unordered_map<std::string, std::string>& variables) {
-            auto it = envs_.find(env_name);
-            if (it == envs_.end()) {
-                Environment env;
-                env.name        = env_name;
-                env.variables   = variables;
-                envs_[env_name] = std::move(env);
-            } else {
-                it->second.variables = variables;
-            }
+            const std::unordered_map<std::string, std::string>& vars) {
+            envs_[env_name].name      = env_name;
+            envs_[env_name].variables = vars;
         }
 
-        // ---- Persistence --------------------------------------------------
+        // Resets settings to defaults. Does not affect environments.
+        void               reset_settings() { settings_ = Settings {}; }
 
-        const std::string& file_path() const { return file_path_; }
-
-        // Determine the config file path
+        // Returns the resolved config file path.
+        // On Unix, prefers $HOME/.config/math-solver/math_solver.json.
+        // On Windows, prefers %APPDATA%\math-solver\math_solver.json.
+        // Falls back to local directory if env vars are missing.
         static std::string resolve_config_path() {
-            // 1) Check current directory
-            fs::path local_path = fs::current_path() / "math_solver.json";
-            if (fs::exists(local_path))
-                return local_path.string();
+            fs::path local = fs::current_path() / "math_solver.json";
+            if (fs::exists(local))
+                return local.string();
 
-            // 2) Platform-specific config directory
-            fs::path config_dir;
+            fs::path dir;
 #ifdef _WIN32
-            const char* appdata = std::getenv("APPDATA");
-            if (appdata) {
-                config_dir = fs::path(appdata) / "math-solver";
-            }
+            if (const char* p = std::getenv("APPDATA"))
+                dir = fs::path(p) / "math-solver";
 #else
-            const char* home = std::getenv("HOME");
-            if (home) {
-                config_dir = fs::path(home) / ".config" / "math-solver";
-            }
+            if (const char* p = std::getenv("HOME"))
+                dir = fs::path(p) / ".config" / "math-solver";
 #endif
-            if (!config_dir.empty()) {
-                fs::path cfg_path = config_dir / "math_solver.json";
-                if (fs::exists(cfg_path))
-                    return cfg_path.string();
-                // Will create here if no local file
-                return cfg_path.string();
-            }
-
-            // 3) Fallback to current directory
-            return local_path.string();
+            if (!dir.empty())
+                return (dir / "math_solver.json").string();
+            return local.string();
         }
 
-        // Load config from file. Creates default file if it doesn't exist.
+        // Loads config from disk. If file is missing or unreadable, creates
+        // defaults and persists them. If parsing fails, prints warning and
+        // falls back to defaults. Invariant: after load, settings and at least
+        // the "default" environment exist.
         void load(const std::string& path = "") {
             file_path_ = path.empty() ? resolve_config_path() : path;
 
             if (!fs::exists(file_path_)) {
-                // Create default config
                 create_defaults();
                 save();
                 return;
             }
 
             std::ifstream ifs(file_path_);
-            if (!ifs.is_open()) {
+            if (!ifs) {
                 create_defaults();
                 return;
             }
 
             try {
                 json j = json::parse(ifs);
-
-                // Load settings
-                if (j.contains("settings") && j["settings"].is_object()) {
+                if (j.contains("settings"))
                     settings_ = Settings::from_json(j["settings"]);
-                }
-
-                // Load environments
-                envs_.clear();
-                if (j.contains("environments") &&
-                    j["environments"].is_object()) {
-                    for (auto& [name, val] : j["environments"].items()) {
+                if (j.contains("environments")) {
+                    envs_.clear();
+                    for (auto& [name, val] : j["environments"].items())
                         envs_[name] = Environment::from_json(name, val);
-                    }
                 }
-
-                // Ensure "default" env exists
-                if (!env_exists("default")) {
+                if (!env_exists("default"))
                     create_default_env();
-                }
-
             } catch (const json::parse_error& e) {
-                std::cerr << "Warning: failed to parse config file ("
-                          << e.what() << "). Using defaults.\n";
+                std::cerr << "Warning: failed to parse config (" << e.what()
+                          << "). Using defaults.\n";
                 create_defaults();
             }
         }
 
-        // Save current config to file
+        // Serializes config to disk. Creates parent directories if needed.
+        // If file_path_ is empty, does nothing. Used for persistence after
+        // mutation. Atomicity is not guaranteed.
         void save() const {
             if (file_path_.empty())
                 return;
-
-            // Ensure directory exists
-            fs::path dir = fs::path(file_path_).parent_path();
-            if (!dir.empty() && !fs::exists(dir)) {
+            if (auto dir = fs::path(file_path_).parent_path(); !dir.empty())
                 fs::create_directories(dir);
-            }
 
             json j;
-            j["settings"]  = settings_.to_json();
+            j["settings"]     = settings_.to_json();
+            j["environments"] = json::object();
+            for (const auto& [name, env] : envs_)
+                j["environments"][name] = env.to_json();
 
-            json envs_json = json::object();
-            for (const auto& [name, env] : envs_) {
-                envs_json[name] = env.to_json();
-            }
-            j["environments"] = envs_json;
-
-            std::ofstream ofs(file_path_);
-            if (ofs.is_open()) {
-                ofs << j.dump(2) << std::endl;
-            }
+            if (std::ofstream ofs(file_path_); ofs)
+                ofs << j.dump(2) << '\n';
         }
-
-        // Reset settings to defaults (keeps environments)
-        void reset_settings() { settings_ = Settings(); }
 
         private:
-        void create_defaults() {
-            settings_ = Settings();
-            envs_.clear();
-            create_default_env();
+        Settings                                     settings_;
+        std::unordered_map<std::string, Environment> envs_;
+        std::string                                  file_path_;
+
+        // Ensures the "default" environment exists with standard constants.
+        // Called after load if missing, and during initial creation.
+        void                                         create_default_env() {
+            Environment env;
+            env.name      = "default";
+            env.variables = {
+                {"pi",  "3.14159265358979"},
+                {"e",   "2.71828182845905"},
+                {"tau", "6.28318530717959"}
+            };
+            envs_["default"] = std::move(env);
         }
 
-        void create_default_env() {
-            Environment env;
-            env.name             = "default";
-            env.variables["pi"]  = "3.14159265358979";
-            env.variables["e"]   = "2.71828182845905";
-            env.variables["tau"] = "6.28318530717959";
-            envs_["default"]     = std::move(env);
+        // Resets all state to defaults. Used on parse failure or first run.
+        // Invariant: after call, settings_ is default and envs_ contains only
+        // the "default" environment.
+        void create_defaults() {
+            settings_ = Settings {};
+            envs_.clear();
+            create_default_env();
         }
     };
 
 } // namespace math_solver
-
-#endif

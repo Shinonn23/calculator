@@ -44,10 +44,20 @@ FetchContent_MakeAvailable(json replxx)
 
 # ===== Core Library =====
 add_library(math_core
+    src/commands/registry.cpp
     src/eval/evaluator.cpp
-    src/runtime/context/context.cpp
-    src/parser/cmd/cli_parser.cpp
+    src/algebra/linear/linear_collector.cpp
+    src/algebra/linear/simplify.cpp
+    src/algebra/polynomial/ast_to_poly.cpp
+    src/algebra/polynomial/factor.cpp
+    src/algebra/solver/solver.cpp
+    src/parser/command/command_parser.cpp
     src/parser/math/math_parser.cpp
+    src/runtime/context/context.cpp
+    src/runtime/context/resolver.cpp
+    src/runtime/context/validator.cpp
+    src/runtime/runtime.cpp
+    src/ui/repl/repl.cpp
 )
 
 target_include_directories(math_core
@@ -58,6 +68,7 @@ target_compile_features(math_core PUBLIC cxx_std_17)
 
 target_link_libraries(math_core
     PUBLIC nlohmann_json::nlohmann_json
+    PUBLIC replxx::replxx
 )
 
 # Apply warnings ONLY to project targets

@@ -9,36 +9,38 @@
 
 namespace math_solver {
 
-    // ========================================================================
-    // FactoredForm — represents a polynomial as a product of factors
-    //   numeric_factor * product_of( (factor_poly, exponent) )
-    // ========================================================================
     struct FactoredForm {
         double                                  numeric_factor = 1.0;
         Monomial                                common_monomial;
-        std::vector<std::pair<Polynomial, int>> factors; // (poly, exp)
+        std::vector<std::pair<Polynomial, int>> factors;
 
-        // Check if nothing was actually factored (irreducible)
-        bool is_trivial() const {
+        // Invariant: is_trivial() iff the factored form is a degenerate
+        // representation of the original polynomial (i.e., no actual factoring
+        // occurred). Used to avoid unnecessary wrapping in output and to
+        // preserve canonical forms.
+        bool                                    is_trivial() const {
             return std::abs(numeric_factor - 1.0) < 1e-9 &&
                    common_monomial.is_constant() && factors.size() == 1 &&
                    factors[0].second == 1;
         }
 
+        // to_string() must preserve sign and structure for round-tripping
+        // through parsing and printing. Handles edge cases such as -1 and
+        // ensures minimal parentheses for readability. Assumes factors are
+        // already normalized.
         std::string to_string() const {
-            // If nothing was factored, return plain polynomial string
             if (is_trivial()) {
                 return factors[0].first.to_string();
             }
 
             std::string result;
 
-            // Numeric coefficient
-            bool has_numeric = std::abs(numeric_factor - 1.0) > 1e-9 &&
+            bool        has_numeric = std::abs(numeric_factor - 1.0) > 1e-9 &&
                                std::abs(numeric_factor + 1.0) > 1e-9;
             bool is_negative = numeric_factor < 0;
 
-            // Handle -1 case with no other factors
+            // Special-case: output "-1" for negative unit with no other
+            // factors.
             if (std::abs(numeric_factor + 1.0) < 1e-9 &&
                 common_monomial.is_constant() && factors.empty()) {
                 return "-1";
@@ -62,13 +64,11 @@ namespace math_solver {
                 result += "-";
             }
 
-            // Common monomial (e.g. xy in xy(x - 3))
             std::string mono_str = common_monomial.to_string();
             if (!mono_str.empty()) {
                 result += mono_str;
             }
 
-            // Factors
             for (const auto& [poly, exp] : factors) {
                 std::string pstr = poly.to_string();
                 result += "(" + pstr + ")";
@@ -81,21 +81,25 @@ namespace math_solver {
         }
     };
 
-    // ========================================================================
-    // Factoring engine
-    // ========================================================================
-
-    // Try to factor a quadratic ax^2 + bx + c over integers
-    // Returns true if factored, fills factors
+    // Attempts to factor a quadratic polynomial with integer coefficients.
+    // Returns true and populates `factors` if successful.
+    //
+    // Correctness relies on:
+    // - All coefficients being integral (checked explicitly).
+    // - Discriminant being a perfect square (ensures rational roots).
+    // - Only produces integer-coefficient linear factors.
+    //
+    // Performance: O(sqrt(|a|) * sqrt(|c|)), dominated by divisor enumeration.
+    // Early exit on first valid factorization.
     inline bool
-    try_factor_quadratic(const Polynomial& poly, const std::string& var,
+    try_factor_quadratic(const Polynomial&                        poly,
+                         const std::string&                       var,
                          std::vector<std::pair<Polynomial, int>>& factors) {
 
         double a = poly.coeff_of_degree(2);
         double b = poly.coeff_of_degree(1);
         double c = poly.coeff_of_degree(0);
 
-        // Check all coefficients are integers
         if (std::abs(a - std::round(a)) > 1e-9 ||
             std::abs(b - std::round(b)) > 1e-9 ||
             std::abs(c - std::round(c)) > 1e-9) {
@@ -109,28 +113,21 @@ namespace math_solver {
         if (ia == 0)
             return false;
 
-        // Discriminant
         int64_t disc = ib * ib - 4 * ia * ic;
         if (disc < 0)
             return false;
 
-        // Check if discriminant is a perfect square
         int64_t sqrt_disc = static_cast<int64_t>(
             std::round(std::sqrt(static_cast<double>(std::abs(disc)))));
         if (sqrt_disc * sqrt_disc != disc)
             return false;
 
-        // Roots: (-b ± sqrt(disc)) / (2a)
-        // We need integer or rational roots that produce integer factors
-        // For ax^2 + bx + c, we find p, q, r, s such that
-        //   ax^2 + bx + c = a/a * (px + q)(rx + s)
-        //   where p*r = a, q*s = c, p*s + q*r = b
-
-        // Try all factor pairs of a and c
+        // The following search is exhaustive over all possible integer
+        // factorizations of the quadratic, using divisor enumeration.
+        // Early exit is used for the first valid decomposition.
         bool    found  = false;
         int64_t best_p = 0, best_q = 0, best_r = 0, best_s = 0;
 
-        // Generate divisors of |a| and |c|
         auto    get_divisors = [](int64_t n) -> std::vector<int64_t> {
             std::vector<int64_t> divs;
             n = std::abs(n);
@@ -159,7 +156,8 @@ namespace math_solver {
                 int64_t s = (ic == 0) ? 0 : ic / q;
                 if (q * s != ic)
                     continue;
-                // Try all sign combinations
+                // All sign combinations must be checked to avoid missing
+                // negative factors. This is necessary for correctness.
                 for (int sp : {1, -1}) {
                     for (int sq : {1, -1}) {
                         for (int sr : {1, -1}) {
@@ -170,8 +168,8 @@ namespace math_solver {
                                 int64_t ts = s * ss;
                                 if (tp * tr == ia && tq * ts == ic &&
                                     tp * ts + tq * tr == ib) {
-                                    // Normalize: make leading coefficients
-                                    // positive
+                                    // Normalization: prefer positive leading
+                                    // coefficients for output stability.
                                     if (tp < 0) {
                                         tp = -tp;
                                         tq = -tq;
@@ -198,19 +196,18 @@ namespace math_solver {
         if (!found)
             return false;
 
-        // Build factor polynomials: (px + q) and (rx + s)
         Polynomial f1(static_cast<double>(best_p), var, 1);
         f1 = f1 + Polynomial(static_cast<double>(best_q));
 
         Polynomial f2(static_cast<double>(best_r), var, 1);
         f2 = f2 + Polynomial(static_cast<double>(best_s));
 
-        // Check if f1 == f2 (perfect square)
+        // If both factors are identical, emit as a square for canonicalization.
         if (f1.to_string() == f2.to_string()) {
             factors.push_back({f1, 2});
         } else {
-            // Order: factor with smaller leading coeff first, then smaller
-            // constant
+            // Ordering: ensure deterministic output by sorting on leading
+            // coefficient and constant term.
             std::string s1 = f1.to_string();
             std::string s2 = f2.to_string();
             if (best_p > best_r || (best_p == best_r && best_q > best_s)) {
@@ -223,7 +220,19 @@ namespace math_solver {
         return true;
     }
 
-    // Main factoring function
+    // Entry point for polynomial factorization.
+    //
+    // Invariants:
+    // - Resulting FactoredForm is normalized: numeric_factor absorbs all
+    //   constant scaling, common_monomial absorbs all monomial GCDs, and
+    //   factors are irreducible under implemented heuristics.
+    // - For zero or constant input, factors is empty.
+    //
+    // Subtlety: The factoring logic is intentionally conservative; only
+    // quadratic univariate polynomials are fully factored. Multivariate and
+    // higher-degree cases are left as-is for now.
+    //
+    // Performance: Dominated by monomial GCD and quadratic factoring.
     inline FactoredForm factor_polynomial(const Polynomial& poly) {
         FactoredForm result;
 
@@ -232,7 +241,6 @@ namespace math_solver {
             return result;
         }
 
-        // If it's a constant, just return it
         if (poly.is_constant()) {
             result.numeric_factor = poly.constant_value();
             return result;
@@ -240,21 +248,23 @@ namespace math_solver {
 
         Polynomial working     = poly;
 
-        // Step 1: Extract common monomial factor
+        // Extract maximal monomial GCD. This is required for normalization
+        // and to enable further coefficient GCD extraction.
         Monomial   common_mono = working.monomial_gcd();
         if (!common_mono.is_constant()) {
             working                = working.divide_by_monomial(common_mono);
             result.common_monomial = common_mono;
         }
 
-        // Step 2: Extract GCD of coefficients
+        // Extract GCD of all coefficients. This is necessary to ensure
+        // subsequent factoring operates on primitive polynomials.
         double coeff_gcd = working.coefficient_gcd();
         if (coeff_gcd > 1.0 + 1e-9) {
             working               = working / coeff_gcd;
             result.numeric_factor = coeff_gcd;
         }
 
-        // Check sign: if leading coefficient is negative, factor out -1
+        // Ensure leading coefficient is non-negative for canonicalization.
         if (!working.terms().empty()) {
             auto first_coeff = working.terms().begin()->second;
             if (first_coeff < -1e-9) {
@@ -263,23 +273,23 @@ namespace math_solver {
             }
         }
 
-        // If after extraction we have a constant, done
         if (working.is_constant()) {
             result.numeric_factor *= working.constant_value();
             return result;
         }
 
-        // If single term, no further factoring needed —
-        // but the monomial part should be in common_monomial
+        // If only a single term remains, absorb into numeric_factor and
+        // common_monomial. This avoids spurious factorization of monomials.
         if (working.num_terms() == 1) {
             auto& [m, c] = *working.terms().begin();
             result.numeric_factor *= c;
-            // Merge the monomial into common_monomial
             result.common_monomial = result.common_monomial * m;
             return result;
         }
 
-        // Step 3: Try quadratic factorization (univariate degree 2)
+        // Only attempt full factorization for univariate quadratics.
+        // This is a deliberate limitation to avoid combinatorial explosion
+        // and to keep the factoring logic tractable.
         auto vars = working.variables();
         if (working.is_univariate() && working.degree() == 2) {
             std::string var = working.single_variable();
@@ -290,7 +300,7 @@ namespace math_solver {
             }
         }
 
-        // Step 4: No further factoring — return as-is
+        // Fallback: treat as irreducible for now.
         result.factors.push_back({working, 1});
         return result;
     }

@@ -11,6 +11,8 @@ namespace math_solver {
         int64_t numerator;
         int64_t denominator;
 
+        // Invariant: denominator is always positive after construction.
+        // Fraction is always stored in reduced form.
         Fraction(int64_t num = 0, int64_t den = 1)
             : numerator(num), denominator(den) {
             if (denominator < 0) {
@@ -20,6 +22,8 @@ namespace math_solver {
             simplify();
         }
 
+        // Ensures the fraction is reduced and denominator is positive.
+        // If denominator is zero, normalizes to 0/1 to avoid UB elsewhere.
         void simplify() {
             if (denominator == 0) {
                 numerator   = 0;
@@ -49,6 +53,8 @@ namespace math_solver {
         bool is_integer() const { return denominator == 1; }
 
         private:
+        // Euclidean algorithm for GCD.
+        // Precondition: a, b >= 0.
         static int64_t gcd(int64_t a, int64_t b) {
             while (b != 0) {
                 int64_t t = b;
@@ -59,10 +65,16 @@ namespace math_solver {
         }
     };
 
-    // Convert double to fraction using continued fractions algorithm
-    // Returns a fraction that approximates the value within tolerance
-    // max_denominator limits the denominator to avoid huge fractions
-    inline Fraction double_to_fraction(double value, double tolerance = 1e-9,
+    // Converts a floating-point value to a rational approximation.
+    // Uses continued fractions to minimize denominator, subject to
+    // max_denominator.
+    // - Returns 0/1 for NaN or Inf to avoid propagating invalid state.
+    // - Tolerance controls approximation error; tight tolerance may yield large
+    // denominators.
+    // - Algorithm terminates early for values close to integers or if
+    // denominator bound is hit.
+    inline Fraction double_to_fraction(double  value,
+                                       double  tolerance       = 1e-9,
                                        int64_t max_denominator = 10000) {
         if (std::isnan(value) || std::isinf(value)) {
             return Fraction(0, 1);
@@ -71,7 +83,6 @@ namespace math_solver {
         bool negative  = value < 0;
         value          = std::abs(value);
 
-        // Check if it's close to an integer
         double rounded = std::round(value);
         if (std::abs(value - rounded) < tolerance) {
             return Fraction(negative ? -static_cast<int64_t>(rounded)
@@ -79,11 +90,12 @@ namespace math_solver {
                             1);
         }
 
-        // Continued fractions algorithm
         int64_t h0 = 0, h1 = 1;
         int64_t k0 = 1, k1 = 0;
         double  x = value;
 
+        // Main loop: builds up convergents until denominator bound or tolerance
+        // is met.
         while (true) {
             int64_t a  = static_cast<int64_t>(std::floor(x));
             int64_t h2 = a * h1 + h0;
@@ -109,7 +121,7 @@ namespace math_solver {
             }
             x = 1.0 / remainder;
 
-            // Prevent infinite loop for irrational numbers
+            // Defensive: avoid infinite loop for pathological inputs.
             if (x > 1e10) {
                 break;
             }
@@ -118,13 +130,16 @@ namespace math_solver {
         return Fraction(negative ? -h1 : h1, k1);
     }
 
-    // Format a coefficient for display
-    // show_one: whether to show "1" explicitly (e.g., "1x" vs "x")
-    // as_fraction: whether to display as fraction
-    inline std::string format_coefficient(double coeff, bool show_one = false,
-                                          bool as_fraction = false) {
+    // Formats a coefficient for display, supporting both decimal and rational
+    // output.
+    // - show_one: disables elision of unit coefficients (e.g., "1x" vs "x").
+    // - as_fraction: emits rational form, otherwise decimal.
+    // - Handles sign elision for ±1 coefficients for cleaner output.
+    // - Fractional output is parenthesized to avoid ambiguity in expressions.
+    inline std::string format_coefficient(double coeff,
+                                          bool   show_one    = false,
+                                          bool   as_fraction = false) {
         if (!as_fraction) {
-            // Decimal format
             if (!show_one && std::abs(coeff - 1.0) < 1e-9) {
                 return "";
             }
@@ -132,7 +147,6 @@ namespace math_solver {
                 return "-";
             }
 
-            // Format nicely without trailing zeros
             std::string str     = std::to_string(coeff);
             size_t      dot_pos = str.find('.');
             if (dot_pos != std::string::npos) {
@@ -144,7 +158,6 @@ namespace math_solver {
             return str;
         }
 
-        // Fraction format
         Fraction frac = double_to_fraction(coeff);
 
         if (!show_one && frac.numerator == 1 && frac.denominator == 1) {

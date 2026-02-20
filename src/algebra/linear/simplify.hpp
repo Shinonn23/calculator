@@ -2,8 +2,8 @@
 #define SIMPLIFY_H
 
 #include "algebra/linear/linear_collector.hpp"
-#include "ast/core/expr_base.hpp"
-#include "ast/math/expr_equation.hpp"
+#include "ast/math/equation_expr.hpp"
+#include "ast/math/expr.hpp"
 #include "core/fraction.hpp"
 #include "runtime/context/context.hpp"
 #include <algorithm>
@@ -15,36 +15,38 @@
 
 namespace math_solver {
 
-    // Options for simplification
     struct SimplifyOptions {
-        std::vector<std::string> var_order; // Order of variables (empty = auto)
-        bool                     isolated;  // Ignore context
-        bool as_fraction;                   // Display coefficients as fractions
-        bool show_zero_coeffs;              // Show 0x terms
+        std::vector<std::string> var_order;
+        bool                     isolated;
+        bool                     as_fraction;
+        bool                     show_zero_coeffs;
 
         SimplifyOptions()
             : isolated(false), as_fraction(false), show_zero_coeffs(false) {}
     };
 
-    // Result of simplification
     struct SimplifyResult {
-        LinearForm               form;      // Canonical linear form
-        std::vector<std::string> var_order; // Variable ordering used
-        std::string              canonical; // Formatted string
-        std::set<std::string>    warnings;  // Any warnings
+        LinearForm               form;
+        std::vector<std::string> var_order;
+        std::string              canonical;
+        std::set<std::string>    warnings;
 
+        // Returns true if the equation is unsatisfiable (0 = c, c != 0).
         bool                     is_no_solution() const {
-            // 0 = c where c != 0
             return form.is_constant() && std::abs(form.constant) > 1e-12;
         }
 
+        // Returns true if the equation is tautological (0 = 0).
         bool is_infinite_solutions() const {
-            // 0 = 0
             return form.is_constant() && std::abs(form.constant) < 1e-12;
         }
     };
 
-    // Simplifies equations to canonical linear form
+    // Entry point for canonicalization and normalization of linear equations
+    // and expressions.
+    // - Handles context-aware variable resolution and shadowing detection.
+    // - Maintains variable ordering for deterministic output.
+    // - Responsible for formatting output in canonical form.
     class Simplifier {
         private:
         const Context* context_;
@@ -60,16 +62,26 @@ namespace math_solver {
 
         void set_input(const std::string& input) { input_ = input; }
 
-        // Simplify an equation to canonical form: Ax + By + Cz = D
+        // Canonicalizes a linear equation to the form Ax + By + Cz = D.
+        // - If context is provided and not isolated, performs a shadowing check
+        // to warn
+        //   about variable name collisions with context bindings. This is
+        //   best-effort and may fail for non-linear expressions involving
+        //   context variables.
+        // - Variable ordering is either user-specified or lexicographically
+        // sorted for determinism.
+        // - The result is normalized such that all variable terms are on the
+        // left and the constant on the right.
         SimplifyResult
         simplify(const Equation&        eq,
                  const SimplifyOptions& opts = SimplifyOptions()) {
             SimplifyResult result;
 
-            // First pass: collect all variables without substitution
-            // to detect shadowing. May fail for expressions like a*x
-            // where a is a context variable (non-linear without context).
             if (context_ && !opts.isolated) {
+                // Shadowing detection: warn if any variable in the equation
+                // collides with a context variable. This is a best-effort pass
+                // and may not catch all cases if the expression is not purely
+                // linear.
                 try {
                     LinearCollector shadow_check(nullptr, input_, true);
                     LinearForm      lhs_vars = shadow_check.collect(eq.lhs());
@@ -85,61 +97,60 @@ namespace math_solver {
                         }
                     }
                 } catch (...) {
-                    // If shadow check fails (e.g., a*x where a is a context
-                    // var), skip it — the main collector with context will
-                    // handle it correctly.
+                    // Shadowing check is intentionally best-effort and may fail
+                    // for non-linear or context-dependent expressions.
                 }
             }
 
-            // Collect linear forms (with or without context)
-            LinearCollector collector(opts.isolated ? nullptr : context_,
-                                      input_,
-                                      false // not isolated for collector itself
-            );
+            // Main collection pass: context is used unless isolated is
+            // requested.
+            LinearCollector collector(
+                opts.isolated ? nullptr : context_, input_, false);
 
             LinearForm lhs        = collector.collect(eq.lhs());
             LinearForm rhs        = collector.collect(eq.rhs());
 
-            // Normalize: lhs - rhs = 0, so lhs = rhs becomes coeffs = -constant
+            // Normalize: move all terms to the left, so the equation is of the
+            // form (lhs - rhs) = 0. This ensures canonicalization for
+            // downstream consumers.
             LinearForm normalized = lhs - rhs;
             normalized.simplify();
 
-            // Store result form (variables on left, constant on right)
             result.form = normalized;
 
-            // Determine variable order
+            // Variable ordering: deterministic output is required for
+            // reproducibility.
             if (!opts.var_order.empty()) {
                 result.var_order = opts.var_order;
             } else {
-                // Auto-detect: alphabetical order
                 auto vars = normalized.variables();
                 result.var_order =
                     std::vector<std::string>(vars.begin(), vars.end());
                 std::sort(result.var_order.begin(), result.var_order.end());
             }
 
-            // Format canonical string
             result.canonical =
                 format_canonical(normalized, result.var_order, opts);
 
             return result;
         }
 
-        // Simplify a single expression (not an equation)
+        // Canonicalizes a single linear expression (not an equation).
+        // - Variable ordering and formatting logic mirrors that of equations.
+        // - Constant terms are preserved in the output.
         SimplifyResult
         simplify_expr(const Expr&            expr,
                       const SimplifyOptions& opts = SimplifyOptions()) {
             SimplifyResult  result;
 
-            LinearCollector collector(opts.isolated ? nullptr : context_,
-                                      input_, opts.isolated);
+            LinearCollector collector(
+                opts.isolated ? nullptr : context_, input_, opts.isolated);
 
             LinearForm form = collector.collect(expr);
             form.simplify();
 
             result.form = form;
 
-            // Determine variable order
             if (!opts.var_order.empty()) {
                 result.var_order = opts.var_order;
             } else {
@@ -149,14 +160,19 @@ namespace math_solver {
                 std::sort(result.var_order.begin(), result.var_order.end());
             }
 
-            // Format as expression (not equation)
             result.canonical = format_expression(form, result.var_order, opts);
 
             return result;
         }
 
         private:
-        // Format as: Ax + By + Cz = D
+        // Formats a normalized linear form as "Ax + By + Cz = D".
+        // - Variable terms are ordered as specified.
+        // - Zero coefficients are omitted unless explicitly requested.
+        // - Coefficient formatting (fractional/decimal) is controlled by
+        // options.
+        // - The right-hand side constant is always negated to match the
+        // canonical form.
         std::string format_canonical(const LinearForm&               form,
                                      const std::vector<std::string>& var_order,
                                      const SimplifyOptions&          opts) {
@@ -164,16 +180,13 @@ namespace math_solver {
 
             bool               first = true;
 
-            // Left side: all variable terms
             for (const auto& var : var_order) {
                 double coeff = form.get_coeff(var);
 
-                // Skip zero coefficients unless requested
                 if (std::abs(coeff) < 1e-12 && !opts.show_zero_coeffs) {
                     continue;
                 }
 
-                // Handle sign and spacing
                 if (!first) {
                     if (coeff >= 0) {
                         oss << " + ";
@@ -188,7 +201,6 @@ namespace math_solver {
                     }
                 }
 
-                // Format coefficient
                 std::string coeff_str;
                 if (opts.as_fraction) {
                     coeff_str = format_coefficient(coeff, false, true);
@@ -196,7 +208,6 @@ namespace math_solver {
                     coeff_str = format_coefficient(coeff, false, false);
                 }
 
-                // Special handling for coefficient of 0
                 if (std::abs(form.get_coeff(var)) < 1e-12) {
                     oss << "0" << var;
                 } else if (coeff_str.empty()) {
@@ -208,16 +219,13 @@ namespace math_solver {
                 first = false;
             }
 
-            // If no variable terms were written
             if (first) {
                 oss << "0";
             }
 
-            // Right side: constant (negated because we have coeffs - constant =
-            // 0)
             double rhs = -form.constant;
 
-            // Fix -0 display
+            // Avoid negative zero in output.
             if (std::abs(rhs) < 1e-12) {
                 rhs = 0.0;
             }
@@ -228,7 +236,6 @@ namespace math_solver {
                 Fraction frac = double_to_fraction(rhs);
                 oss << frac.to_string();
             } else {
-                // Format constant
                 std::string rhs_str = std::to_string(rhs);
                 size_t      dot_pos = rhs_str.find('.');
                 if (dot_pos != std::string::npos) {
@@ -243,7 +250,11 @@ namespace math_solver {
             return oss.str();
         }
 
-        // Format as expression (no = D part)
+        // Formats a linear expression as "Ax + By + C".
+        // - Variable ordering and coefficient formatting mirror
+        // format_canonical.
+        // - Constant term is always included if nonzero or if there are no
+        // variable terms.
         std::string format_expression(const LinearForm&               form,
                                       const std::vector<std::string>& var_order,
                                       const SimplifyOptions&          opts) {
@@ -251,7 +262,6 @@ namespace math_solver {
 
             bool               first = true;
 
-            // Variable terms
             for (const auto& var : var_order) {
                 double coeff = form.get_coeff(var);
 
@@ -289,7 +299,8 @@ namespace math_solver {
                 first = false;
             }
 
-            // Constant term
+            // Constant term: always included if nonzero or if there are no
+            // variable terms.
             if (std::abs(form.constant) > 1e-12 || first) {
                 double c = form.constant;
                 if (!first) {

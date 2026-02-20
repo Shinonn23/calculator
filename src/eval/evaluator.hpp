@@ -1,18 +1,42 @@
 #ifndef EVALUATOR_H
 #define EVALUATOR_H
 
-#include "ast/expr_base.hpp"
-#include "context.hpp"
+#include "ast/math/binary_expr.hpp"
+#include "ast/math/expr_visitor.hpp"
+#include "ast/math/number_expr.hpp"
+#include "ast/math/variable_expr.hpp"
+#include "runtime/context/context.hpp"
 #include <unordered_set>
 
 namespace math_solver {
 
+    // Evaluator is responsible for traversing the AST and computing the result
+    // of an expression.
+    //
+    // - The evaluation is stateless except for `visited_`, which is used to
+    // detect cycles in variable references.
+    // - `context_` provides variable bindings; must remain valid for the
+    // lifetime of the Evaluator.
+    // - `input_` is used for diagnostics or error reporting, not for evaluation
+    // logic.
+    // - Assumes the AST is well-formed and does not mutate it.
+    // - Not thread-safe; intended for single-threaded use.
+    //
+    // Performance: The use of `unordered_set` for `visited_` is O(1) per
+    // insertion, but may be a bottleneck
+    //   if evaluating deeply recursive or cyclic expressions. Consider
+    //   alternatives if performance becomes critical.
+    //
+    // Invariants:
+    // - `result_` is only valid after a call to `evaluate`.
+    // - `visited_` is cleared at the start of each evaluation.
+    // - No side effects on `context_` or the AST.
     class Evaluator : public ExprVisitor {
         private:
         double                          result_;
         const Context*                  context_;
-        std::string                     input_; // For error formatting
-        std::unordered_set<std::string> visited_; // Cycle detection
+        std::string                     input_;
+        std::unordered_set<std::string> visited_;
 
         public:
         Evaluator() : result_(0.0), context_(nullptr), input_() {}
@@ -25,17 +49,24 @@ namespace math_solver {
 
         void   set_input(const std::string& input) { input_ = input; }
 
+        // Entry point for evaluation. The caller must ensure that `expr` is
+        // valid for the duration of the call. Returns the computed value. Side
+        // effects: resets `visited_` and updates `result_`.
         double evaluate(const Expr& expr) {
             visited_.clear();
             expr.accept(*this);
             return result_;
         }
 
+        // The following visit methods implement the core evaluation logic for
+        // each AST node type. They must update `result_` with the computed
+        // value.
         void visit(const Number& node) override;
         void visit(const BinaryOp& node) override;
         void visit(const Variable& node) override;
+        // Equation nodes are not handled here; see solver logic for details.
     };
 
 } // namespace math_solver
 
-#endif
+#endif // EVALUATOR_H

@@ -7,8 +7,22 @@
 
 namespace math_solver {
 
-    // Represents an equation: lhs = rhs
-    // Note: Equation is not an Expr (cannot be nested in expressions)
+    // Equation represents a top-level equality constraint between two Exprs.
+    //
+    // Invariant: lhs_ and rhs_ are always non-null after construction.
+    // Equation is intentionally *not* an Expr; this prevents accidental
+    // nesting of equations within expressions, which would break solver
+    // assumptions elsewhere in the pipeline.
+    //
+    // The span_ field is computed as the merged span of lhs_ and rhs_ unless
+    // explicitly provided. This is relied upon by diagnostics and error
+    // reporting to accurately reflect the source range of the equation.
+    //
+    // Ownership: Equation owns its lhs_ and rhs_ expressions. take_lhs() and
+    // take_rhs() transfer ownership out, leaving the respective pointer null.
+    // Callers must not use lhs() or rhs() after take_*() has been called.
+    //
+    // Cloning: clone() performs a deep copy of the equation and its subtrees.
     class Equation {
         private:
         ExprPtr lhs_;
@@ -30,7 +44,6 @@ namespace math_solver {
         const Expr& rhs() const { return *rhs_; }
         const Span& span() const { return span_; }
 
-        // Move ownership out
         ExprPtr     take_lhs() { return std::move(lhs_); }
         ExprPtr     take_rhs() { return std::move(rhs_); }
 
@@ -39,8 +52,8 @@ namespace math_solver {
         }
 
         std::unique_ptr<Equation> clone() const {
-            return std::make_unique<Equation>(lhs_->clone(), rhs_->clone(),
-                                              span_);
+            return std::make_unique<Equation>(
+                lhs_->clone(), rhs_->clone(), span_);
         }
     };
 

@@ -11,13 +11,24 @@
 
 namespace math_solver {
 
-    // ========================================================================
-    // Monomial — represents a product of variables raised to integer powers
-    // e.g. x^2 * y^1  =>  {x:2, y:1}
-    // ========================================================================
+    // Monomial: models a product of variables with integer exponents.
+    //
+    // Invariants:
+    // - Exponents are always nonzero; zero exponents are omitted from vars_.
+    // - The empty map denotes the constant monomial 1.
+    //
+    // Correctness relies on:
+    // - All algebraic manipulations must preserve the nonzero-exponent
+    // invariant.
+    // - Used as a key in maps; operator< must be consistent and total.
+    // - Variable names are case-sensitive and must be stable across the
+    // codebase.
+    //
+    // Performance: vars_ is a std::map, so monomial operations are O(n log n)
+    // in the number of variables.
     class Monomial {
         private:
-        std::map<std::string, int> vars_; // variable -> exponent
+        std::map<std::string, int> vars_;
 
         public:
         Monomial() = default;
@@ -36,7 +47,7 @@ namespace math_solver {
 
         const std::map<std::string, int>& vars() const { return vars_; }
 
-        int total_degree() const {
+        int                               total_degree() const {
             int deg = 0;
             for (const auto& [_, e] : vars_)
                 deg += e;
@@ -48,9 +59,8 @@ namespace math_solver {
             return (it != vars_.end()) ? it->second : 0;
         }
 
-        bool is_constant() const { return vars_.empty(); }
+        bool                     is_constant() const { return vars_.empty(); }
 
-        // All variable names appearing in this monomial
         std::vector<std::string> variable_names() const {
             std::vector<std::string> names;
             for (const auto& [v, _] : vars_)
@@ -58,7 +68,7 @@ namespace math_solver {
             return names;
         }
 
-        // Multiply two monomials: add exponents
+        // Multiplication merges exponents; zero exponents are pruned.
         Monomial operator*(const Monomial& other) const {
             Monomial result = *this;
             for (const auto& [v, e] : other.vars_) {
@@ -69,8 +79,7 @@ namespace math_solver {
             return result;
         }
 
-        // Divide monomial by another: subtract exponents
-        // Returns nullopt if result has negative exponents
+        // Division subtracts exponents; zero exponents are pruned.
         Monomial operator/(const Monomial& other) const {
             Monomial result = *this;
             for (const auto& [v, e] : other.vars_) {
@@ -81,7 +90,8 @@ namespace math_solver {
             return result;
         }
 
-        // Check if this monomial is divisible by another
+        // Returns true if this monomial is divisible by 'other' (all exponents
+        // >=).
         bool divisible_by(const Monomial& other) const {
             for (const auto& [v, e] : other.vars_) {
                 auto it = vars_.find(v);
@@ -91,7 +101,7 @@ namespace math_solver {
             return true;
         }
 
-        // Raise monomial to a power
+        // Exponentiation: raises all exponents to n.
         Monomial pow(int n) const {
             if (n == 0)
                 return Monomial();
@@ -102,34 +112,27 @@ namespace math_solver {
             return result;
         }
 
-        // Comparison for use as map key
-        // Graded lexicographic order:
-        //   1. Higher total degree first
-        //   2. Same total degree: higher power of lexicographically earlier
-        //      variable comes first (e.g. x^2 < xy < y^2 in this ordering)
+        // Ordering: graded lexicographic (degree first, then variable order).
+        // Used for canonicalization and as map key.
         bool operator<(const Monomial& other) const {
             int d1 = total_degree();
             int d2 = other.total_degree();
             if (d1 != d2)
-                return d1 > d2; // higher degree first
+                return d1 > d2;
 
-            // Same total degree: compare variable exponents
-            // Collect all variable names from both monomials
             std::set<std::string> all_vars;
             for (const auto& [v, _] : vars_)
                 all_vars.insert(v);
             for (const auto& [v, _] : other.vars_)
                 all_vars.insert(v);
 
-            // Compare exponent of each variable in alphabetical order
-            // Higher exponent of the earlier variable wins (comes first)
             for (const auto& v : all_vars) {
                 int e1 = degree_of(v);
                 int e2 = other.degree_of(v);
                 if (e1 != e2)
-                    return e1 > e2; // higher exponent of earlier var first
+                    return e1 > e2;
             }
-            return false; // equal
+            return false;
         }
 
         bool operator==(const Monomial& other) const {
@@ -140,13 +143,12 @@ namespace math_solver {
             return !(*this == other);
         }
 
-        // Format monomial for display (without coefficient)
-        // e.g. "x^2y" or "xy^2" or "" (for constants)
+        // Returns a compact string representation; used for diagnostics and
+        // pretty-printing.
         std::string to_string() const {
             if (vars_.empty())
                 return "";
 
-            // Sort variables alphabetically for consistent output
             std::vector<std::pair<std::string, int>> sorted(vars_.begin(),
                                                             vars_.end());
             std::sort(sorted.begin(), sorted.end());
@@ -162,16 +164,28 @@ namespace math_solver {
         }
     };
 
-    // ========================================================================
-    // Polynomial — a sum of (coefficient * monomial) terms
-    // Stored as map<Monomial, double> — automatically combines like terms
-    // ========================================================================
+    // Polynomial: sum of (coefficient * monomial) terms.
+    //
+    // Invariants:
+    // - Zero coefficients are pruned from terms_.
+    // - terms_ is always sorted by Monomial::operator<.
+    //
+    // Correctness relies on:
+    // - All algebraic operations must maintain canonical form (no zero terms,
+    // no duplicate monomials).
+    // - Coefficients are double; beware of floating-point precision when
+    // checking for zero.
+    // - Used for symbolic manipulation; correctness of term merging is
+    // critical.
+    //
+    // Performance: All term lookups and insertions are O(log n) in the number
+    // of terms.
     class Polynomial {
         private:
         std::map<Monomial, double> terms_;
 
-        // Remove zero-coefficient terms
-        void cleanup() {
+        // Removes zero-coefficient terms. Called after all mutating operations.
+        void                       cleanup() {
             for (auto it = terms_.begin(); it != terms_.end();) {
                 if (std::abs(it->second) < 1e-12)
                     it = terms_.erase(it);
@@ -183,19 +197,16 @@ namespace math_solver {
         public:
         Polynomial() = default;
 
-        // Constant polynomial
         explicit Polynomial(double constant) {
             if (std::abs(constant) >= 1e-12)
                 terms_[Monomial()] = constant;
         }
 
-        // Single variable polynomial: coeff * var^exp
         Polynomial(double coeff, const std::string& var, int exp = 1) {
             if (std::abs(coeff) >= 1e-12)
                 terms_[Monomial(var, exp)] = coeff;
         }
 
-        // Single monomial term
         Polynomial(double coeff, const Monomial& mono) {
             if (std::abs(coeff) >= 1e-12)
                 terms_[mono] = coeff;
@@ -205,12 +216,14 @@ namespace math_solver {
 
         bool is_zero() const { return terms_.empty(); }
 
+        // Returns true if the polynomial is a constant (possibly zero).
         bool is_constant() const {
             if (terms_.empty())
                 return true;
             return terms_.size() == 1 && terms_.begin()->first.is_constant();
         }
 
+        // Returns the constant term, or zero if absent.
         double constant_value() const {
             if (terms_.empty())
                 return 0;
@@ -218,7 +231,7 @@ namespace math_solver {
             return (it != terms_.end()) ? it->second : 0;
         }
 
-        // Get coefficient of a specific monomial
+        // Returns the coefficient for a given monomial, or zero if absent.
         double coefficient(const Monomial& m) const {
             auto it = terms_.find(m);
             return (it != terms_.end()) ? it->second : 0.0;
@@ -226,15 +239,15 @@ namespace math_solver {
 
         size_t num_terms() const { return terms_.size(); }
 
-        // Total degree of the polynomial
-        int degree() const {
+        // Returns the maximal total degree among all terms.
+        int    degree() const {
             int max_deg = 0;
             for (const auto& [m, _] : terms_)
                 max_deg = std::max(max_deg, m.total_degree());
             return max_deg;
         }
 
-        // All variable names in the polynomial
+        // Returns all variable names present in any term.
         std::vector<std::string> variables() const {
             std::map<std::string, bool> seen;
             for (const auto& [m, _] : terms_) {
@@ -247,16 +260,17 @@ namespace math_solver {
             return result;
         }
 
-        // Check if the polynomial is univariate
-        bool is_univariate() const { return variables().size() <= 1; }
+        // Returns true if the polynomial involves at most one variable.
+        bool        is_univariate() const { return variables().size() <= 1; }
 
-        // Get the single variable name (only valid if univariate)
+        // Returns the name of the single variable, or "x" if none.
         std::string single_variable() const {
             auto vars = variables();
             return vars.empty() ? "x" : vars[0];
         }
 
-        // Get coefficient of x^n for univariate polynomial
+        // Returns the coefficient of the term with total degree n, or zero if
+        // absent.
         double coeff_of_degree(int n) const {
             for (const auto& [m, c] : terms_) {
                 if (m.total_degree() == n)
@@ -265,10 +279,7 @@ namespace math_solver {
             return 0.0;
         }
 
-        // ====================================================================
-        // Arithmetic operations
-        // ====================================================================
-
+        // Addition: merges terms, combining like monomials.
         Polynomial operator+(const Polynomial& other) const {
             Polynomial result = *this;
             for (const auto& [m, c] : other.terms_)
@@ -277,6 +288,7 @@ namespace math_solver {
             return result;
         }
 
+        // Subtraction: merges terms, combining like monomials.
         Polynomial operator-(const Polynomial& other) const {
             Polynomial result = *this;
             for (const auto& [m, c] : other.terms_)
@@ -292,6 +304,7 @@ namespace math_solver {
             return result;
         }
 
+        // Multiplication: distributes over all pairs of terms.
         Polynomial operator*(const Polynomial& other) const {
             Polynomial result;
             for (const auto& [m1, c1] : terms_) {
@@ -304,7 +317,7 @@ namespace math_solver {
             return result;
         }
 
-        // Scalar multiplication
+        // Scalar multiplication.
         Polynomial operator*(double scalar) const {
             if (std::abs(scalar) < 1e-12)
                 return Polynomial();
@@ -315,19 +328,17 @@ namespace math_solver {
             return result;
         }
 
-        // Division by scalar
         Polynomial operator/(double scalar) const {
             return *this * (1.0 / scalar);
         }
 
-        // Power (non-negative integer)
+        // Exponentiation by repeated squaring.
         Polynomial pow(int n) const {
             if (n == 0)
                 return Polynomial(1);
             if (n == 1)
                 return *this;
 
-            // Fast exponentiation
             Polynomial result(1);
             Polynomial base = *this;
             int        exp  = n;
@@ -340,16 +351,12 @@ namespace math_solver {
             return result;
         }
 
-        // ====================================================================
-        // Factoring helpers
-        // ====================================================================
-
-        // GCD of all coefficients
+        // Returns the GCD of all coefficients, if all are integral; otherwise
+        // returns 1.0.
         double coefficient_gcd() const {
             if (terms_.empty())
                 return 1.0;
 
-            // Check if all coefficients are integers
             bool all_integer = true;
             for (const auto& [_, c] : terms_) {
                 if (std::abs(c - std::round(c)) > 1e-9) {
@@ -369,18 +376,18 @@ namespace math_solver {
             return (g == 0) ? 1.0 : static_cast<double>(g);
         }
 
-        // GCD monomial — the monomial that divides all terms
+        // Returns the GCD of all monomials (intersection of variable
+        // exponents).
         Monomial monomial_gcd() const {
             if (terms_.empty())
                 return Monomial();
 
-            auto it = terms_.begin();
+            auto                       it     = terms_.begin();
             std::map<std::string, int> common = it->first.vars();
             ++it;
 
             for (; it != terms_.end(); ++it) {
                 const auto& vars = it->first.vars();
-                // Keep only variables present in both, with min exponent
                 for (auto cit = common.begin(); cit != common.end();) {
                     auto vit = vars.find(cit->first);
                     if (vit == vars.end()) {
@@ -398,7 +405,7 @@ namespace math_solver {
             return Monomial(common);
         }
 
-        // Divide every term by a monomial
+        // Divides all terms by the given monomial (exponents are subtracted).
         Polynomial divide_by_monomial(const Monomial& m) const {
             Polynomial result;
             for (const auto& [mono, c] : terms_) {
@@ -407,16 +414,10 @@ namespace math_solver {
             return result;
         }
 
-        // ====================================================================
-        // Output formatting
-        // ====================================================================
-
+        // Returns a human-readable string; not guaranteed to be parseable.
         std::string to_string() const {
             if (terms_.empty())
                 return "0";
-
-            // Terms are already sorted by Monomial::operator<
-            // (highest degree first, then lexicographic)
 
             std::string result;
             bool        first = true;
@@ -473,6 +474,7 @@ namespace math_solver {
         }
 
         private:
+        // Formats a double as a string, trimming trailing zeros.
         static std::string format_number(double val) {
             if (std::abs(val - std::round(val)) < 1e-9) {
                 return std::to_string(static_cast<int64_t>(std::round(val)));

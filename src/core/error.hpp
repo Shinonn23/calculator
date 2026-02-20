@@ -8,14 +8,20 @@
 
 namespace math_solver {
 
-    // Base class for all math solver errors with span information
+    // Base error type for all math_solver errors.
+    // - Carries source span and input context for diagnostics.
+    // - Invariant: span_ and input_ must correspond to the error site in the
+    // original input.
+    // - Used throughout the parser, type checker, and solver to propagate
+    // user-facing errors.
     class MathError : public std::runtime_error {
         protected:
         Span        span_;
         std::string input_;
 
         public:
-        MathError(const std::string& message, const Span& span = Span(),
+        MathError(const std::string& message,
+                  const Span&        span  = Span(),
                   const std::string& input = "")
             : std::runtime_error(message), span_(span), input_(input) {}
 
@@ -24,6 +30,9 @@ namespace math_solver {
 
         void        set_input(const std::string& input) { input_ = input; }
 
+        // Formats the error for user diagnostics.
+        // - If input_ is empty, falls back to a generic message.
+        // - Otherwise, emits a span-highlighted error.
         std::string format() const {
             if (input_.empty()) {
                 return std::string("Error: ") + what();
@@ -32,15 +41,22 @@ namespace math_solver {
         }
     };
 
-    // Lexer/Parser errors
+    // Raised for all lexer/parser failures.
+    // - Used to signal unrecoverable parse errors.
+    // - Invariant: Should only be constructed when the input cannot be parsed
+    // further.
     class ParseError : public MathError {
         public:
-        ParseError(const std::string& message, const Span& span = Span(),
+        ParseError(const std::string& message,
+                   const Span&        span  = Span(),
                    const std::string& input = "")
             : MathError(message, span, input) {}
     };
 
-    // Variable not found in context
+    // Raised when a variable is referenced but not present in the current
+    // context.
+    // - var_name_ must match the identifier as written in the input.
+    // - Used by the resolver and evaluation passes.
     class UndefinedVariableError : public MathError {
         private:
         std::string var_name_;
@@ -55,15 +71,20 @@ namespace math_solver {
         const std::string& var_name() const { return var_name_; }
     };
 
-    // Non-linear equation error
+    // Raised when the equation is detected to be non-linear.
+    // - Used to reject equations that cannot be handled by the linear solver.
+    // - Invariant: Only constructed after non-linearity is proven.
     class NonLinearError : public MathError {
         public:
-        NonLinearError(const std::string& message, const Span& span = Span(),
+        NonLinearError(const std::string& message,
+                       const Span&        span  = Span(),
                        const std::string& input = "")
             : MathError(message, span, input) {}
     };
 
-    // Multiple unknowns in solve
+    // Raised when more than one unknown is present in a solve request.
+    // - unknowns_ must be non-empty and contain all unknown identifiers.
+    // - Used to enforce single-unknown constraint in the solver.
     class MultipleUnknownsError : public MathError {
         private:
         std::vector<std::string> unknowns_;
@@ -78,6 +99,7 @@ namespace math_solver {
         const std::vector<std::string>& unknowns() const { return unknowns_; }
 
         private:
+        // Constructs a diagnostic message listing all unknowns.
         static std::string build_message(const std::vector<std::string>& vars) {
             std::string msg = "multiple unknowns in equation (";
             for (size_t i = 0; i < vars.size(); ++i) {
@@ -90,7 +112,8 @@ namespace math_solver {
         }
     };
 
-    // No solution exists
+    // Raised when the equation is unsatisfiable.
+    // - Used by the solver when contradiction is detected.
     class NoSolutionError : public MathError {
         public:
         NoSolutionError(const std::string& message = "equation has no solution",
@@ -99,16 +122,19 @@ namespace math_solver {
             : MathError(message, span, input) {}
     };
 
-    // Infinite solutions
+    // Raised when the equation admits infinitely many solutions.
+    // - Used by the solver when the system is underconstrained.
     class InfiniteSolutionsError : public MathError {
         public:
         InfiniteSolutionsError(
             const std::string& message = "equation has infinite solutions",
-            const Span& span = Span(), const std::string& input = "")
+            const Span&        span    = Span(),
+            const std::string& input   = "")
             : MathError(message, span, input) {}
     };
 
-    // Invalid equation format
+    // Raised when the input does not conform to the expected equation format.
+    // - Used by the parser and pre-solver validation.
     class InvalidEquationError : public MathError {
         public:
         InvalidEquationError(const std::string& message,
@@ -117,17 +143,20 @@ namespace math_solver {
             : MathError(message, span, input) {}
     };
 
-    // Reserved keyword used as identifier
+    // Raised when a reserved keyword is used as an identifier.
+    // - Used by the lexer and parser to enforce language constraints.
     class ReservedKeywordError : public MathError {
         public:
         ReservedKeywordError(const std::string& keyword,
                              const Span&        span  = Span(),
                              const std::string& input = "")
-            : MathError("'" + keyword + "' is a reserved keyword", span,
-                        input) {}
+            : MathError(
+                  "'" + keyword + "' is a reserved keyword", span, input) {}
     };
 
-    // Circular variable dependency detected
+    // Raised when a variable depends on itself, directly or transitively.
+    // - var_name_ must be the variable involved in the cycle.
+    // - Used by the dependency analysis pass.
     class CircularDependencyError : public MathError {
         private:
         std::string var_name_;
@@ -137,7 +166,8 @@ namespace math_solver {
                                 const Span&        span  = Span(),
                                 const std::string& input = "")
             : MathError("circular variable dependency on '" + var_name + "'",
-                        span, input),
+                        span,
+                        input),
               var_name_(var_name) {}
 
         const std::string& var_name() const { return var_name_; }

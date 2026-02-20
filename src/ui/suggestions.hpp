@@ -1,115 +1,125 @@
-#ifndef SUGGEST_H
-#define SUGGEST_H
+#pragma once
 
-#include <iostream>
+#include "config/config.hpp"
+#include "ui/color.hpp"
+
 #include <algorithm>
+#include <iostream>
 #include <optional>
 #include <string>
 #include <vector>
 
-#include "color.hpp"
-#include "config/config.hpp"
-
-using namespace std;
-
 namespace math_solver {
 
-    // Compute Levenshtein edit distance between two strings
+    // Computes the Levenshtein edit distance between two strings.
+    //
+    // - Assumes ASCII or single-byte characters; multi-byte encodings may yield
+    //   incorrect results.
+    // - O(m * n) time and O(n) space, where m and n are the string lengths.
+    // - Used for fuzzy matching in user-facing suggestion logic.
+    // - If performance becomes a bottleneck, consider bounded or early-exit
+    // variants.
     inline int edit_distance(const std::string& a, const std::string& b) {
-        size_t              m = a.size(), n = b.size();
-        std::vector<size_t> prev(n + 1), curr(n + 1);
-
+        const size_t     m = a.size(), n = b.size();
+        std::vector<int> prev(n + 1), curr(n + 1);
         for (size_t j = 0; j <= n; ++j)
-            prev[j] = j;
-
+            prev[j] = static_cast<int>(j);
         for (size_t i = 1; i <= m; ++i) {
-            curr[0] = i;
+            curr[0] = static_cast<int>(i);
             for (size_t j = 1; j <= n; ++j) {
-                size_t cost = (a[i - 1] == b[j - 1]) ? 0 : 1;
-                curr[j]     = std::min({
-                    prev[j] + 1,       // deletion
-                    curr[j - 1] + 1,   // insertion
-                    prev[j - 1] + cost // substitution
-                });
+                int cost = (a[i - 1] == b[j - 1]) ? 0 : 1;
+                curr[j]  = std::min(
+                    {prev[j] + 1, curr[j - 1] + 1, prev[j - 1] + cost});
             }
             std::swap(prev, curr);
         }
-
-        return static_cast<int>(prev[n]);
+        return prev[n];
     }
 
-    // Find the closest matching candidate within max_distance.
-    // Returns the best match, or nullopt if none is close enough.
+    // Returns the closest candidate to `input` within `max_distance`.
+    //
+    // - Returns std::nullopt if no candidate is within the threshold.
+    // - If multiple candidates are equally close, returns the first
+    // encountered.
+    // - Used for "did you mean" diagnostics; not intended for bulk queries.
     inline std::optional<std::string>
     suggest(const std::string&              input,
-            const std::vector<std::string>& candidates, int max_distance = 2) {
+            const std::vector<std::string>& candidates,
+            int                             max_distance = 2) {
         std::optional<std::string> best;
         int                        best_dist = max_distance + 1;
-
-        for (const auto& candidate : candidates) {
-            int dist = edit_distance(input, candidate);
-            if (dist < best_dist) {
-                best_dist = dist;
-                best      = candidate;
+        for (const auto& c : candidates) {
+            int d = edit_distance(input, c);
+            if (d < best_dist) {
+                best_dist = d;
+                best      = c;
             }
         }
-
         return best;
     }
 
-    // Find all candidates within max_distance, sorted by distance (ascending).
+    // Returns all candidates within `max_distance` of `input`, sorted by
+    // distance.
+    //
+    // - Excludes exact matches (distance == 0).
+    // - Sorting is stable with respect to candidate order for ties.
+    // - Intended for batch suggestion UIs; not optimized for large candidate
+    // sets.
     inline std::vector<std::string>
     suggest_all(const std::string&              input,
                 const std::vector<std::string>& candidates,
                 int                             max_distance = 2) {
-        // Pair: (distance, candidate)
         std::vector<std::pair<int, std::string>> matches;
-
-        for (const auto& candidate : candidates) {
-            int dist = edit_distance(input, candidate);
-            if (dist <= max_distance && dist > 0) {
-                matches.emplace_back(dist, candidate);
-            }
+        for (const auto& c : candidates) {
+            int d = edit_distance(input, c);
+            if (d <= max_distance && d > 0)
+                matches.emplace_back(d, c);
         }
-
         std::sort(matches.begin(), matches.end());
-
         std::vector<std::string> result;
-        result.reserve(matches.size());
-        for (auto& [d, c] : matches) {
+        for (auto& [_, c] : matches)
             result.push_back(std::move(c));
-        }
         return result;
     }
 
-    inline void maybe_suggest_command(const string& word, const vector<string>& all_commands) {
-        auto match = suggest(word, all_commands);
+    // Emits a "did you mean" suggestion to stdout if a close match exists.
+    //
+    // - Used in user-facing diagnostics for typos or unknown identifiers.
+    // - Relies on `ansi` formatting for output; assumes terminal supports ANSI
+    // escapes.
+    // - No output if no suitable suggestion is found.
+    inline void maybe_suggest(const std::string&              word,
+                              const std::vector<std::string>& candidates,
+                              int max_distance = 2) {
+        auto match = suggest(word, candidates, max_distance);
         if (match) {
-            cout << ansi::dim << "  Did you mean " << ansi::reset << ansi::bold
-                 << *match << ansi::reset << ansi::dim << "?" << ansi::reset
-                 << "\n";
+            std::cout << ansi::dim << "  Did you mean " << ansi::reset
+                      << ansi::bold << *match << ansi::reset << ansi::dim << "?"
+                      << ansi::reset << "\n";
         }
     }
 
-    inline void maybe_suggest_subcommand(const string&         word,
-                                  const vector<string>& subs) {
-        auto match = suggest(word, subs);
-        if (match) {
-            cout << ansi::dim << "  Did you mean " << ansi::reset << ansi::bold
-                 << *match << ansi::reset << ansi::dim << "?" << ansi::reset
-                 << "\n";
-        }
+    // Specialized suggestion for settings keys.
+    //
+    // - Relies on Settings::all_keys() to enumerate valid keys.
+    // - Used in diagnostics for unknown configuration keys.
+    inline void maybe_suggest_setting(const std::string& word) {
+        maybe_suggest(word, Settings::all_keys());
     }
 
-    inline void maybe_suggest_setting(const string& word) {
-        auto match = suggest(word, Settings::all_keys());
-        if (match) {
-            cout << ansi::dim << "  Did you mean " << ansi::reset << ansi::bold
-                 << *match << ansi::reset << ansi::dim << "?" << ansi::reset
-                 << "\n";
-        }
+    // Legacy aliases for command/subcommand suggestion.
+    //
+    // - Retained for compatibility with older code paths.
+    // - Prefer using maybe_suggest directly for new code.
+    inline void
+    maybe_suggest_command(const std::string&              word,
+                          const std::vector<std::string>& all_commands) {
+        maybe_suggest(word, all_commands);
+    }
+
+    inline void maybe_suggest_subcommand(const std::string&              word,
+                                         const std::vector<std::string>& subs) {
+        maybe_suggest(word, subs);
     }
 
 } // namespace math_solver
-
-#endif
