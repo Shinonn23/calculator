@@ -1,5 +1,4 @@
-#ifndef NUMBER_H
-#define NUMBER_H
+#pragma once
 
 #include "ast/math/expr.hpp"
 #include <string>
@@ -52,5 +51,3 @@ namespace math_solver {
     };
 
 } // namespace math_solver
-
-#endif

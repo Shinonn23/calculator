@@ -1,5 +1,4 @@
-#ifndef COLOR_H
-#define COLOR_H
+#pragma once
 
 namespace ansi {
     // These constants provide ANSI escape sequences for terminal color and
@@ -21,5 +20,3 @@ namespace ansi {
     inline const char* yellow = "\x1b[33m";
     inline const char* cyan   = "\x1b[36m";
 } // namespace ansi
-
-#endif // COLOR_H

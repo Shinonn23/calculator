@@ -1,5 +1,4 @@
-#ifndef CONFIG_COMMAND
-#define CONFIG_COMMAND
+#pragma once
 
 #include "command.hpp"
 #include "command_visitor.hpp"
@@ -50,5 +49,3 @@ namespace math_solver {
         }
     };
 } // namespace math_solver
-
-#endif

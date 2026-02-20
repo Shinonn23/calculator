@@ -4,29 +4,17 @@
 #include "completions.hpp"
 #include "hints.hpp"
 #include "history.hpp"
-#include "parser/command/command_parser.hpp"
+#include "runner.hpp"
 #include "ui/color.hpp"
-#include "utils/string_utils.hpp"
 
 #include <replxx.hxx>
 
-#include <cerrno>
 #include <iostream>
 #include <string>
 
 namespace math_solver {
 
     namespace {
-
-        // Constructs the REPL prompt. The prompt must reflect the current
-        // environment to avoid user confusion when switching contexts. Any
-        // change to the prompt format may impact completion/hint logic
-        // elsewhere.
-        std::string build_prompt(const std::string& env_name) {
-            return std::string(ansi::bold) + "[" + env_name + "]" +
-                   ansi::reset + " > ";
-        }
-
         // Prints the startup banner. The banner is intentionally minimal to
         // avoid excessive output in automated or embedded scenarios. The
         // environment name is included for clarity when running multiple
@@ -66,30 +54,8 @@ namespace math_solver {
         HandlerRegistry registry =
             build_handler_registry(g_ctx, g_config, g_current_env);
 
-        while (true) {
-            // Defensive: retry input if interrupted by signal (EAGAIN).
-            // This avoids spurious REPL termination on transient terminal
-            // errors.
-            const char* cinput;
-            do {
-                cinput = rx.input(build_prompt(g_current_env));
-            } while (cinput == nullptr && errno == EAGAIN);
-
-            if (cinput == nullptr)
-                break; // EOF / Ctrl-D
-
-            std::string line = trim(cinput);
-            if (line.empty())
-                continue;
-
-            add_history(rx, line);
-
-            CommandPtr cmd = parse_command(line);
-            // If dispatch returns false, this signals a request to exit (e.g.,
-            // "exit" command).
-            if (!registry.dispatch(*cmd))
-                break;
-        }
+        Runner runner(registry);
+        runner.run_interactive(rx, g_current_env);
 
         // On exit, persist all state. This is critical for correctness: failure
         // to save the environment or history may result in user data loss.

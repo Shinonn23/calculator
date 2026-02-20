@@ -16,26 +16,28 @@
 #include <unordered_map>
 
 namespace math_solver {
-    // Generic registry for mapping command keys to handler functions.
+
+    // Generic registry mapping command keys to handler functions.
+    //
     // - Key must be hashable and suitable for use in unordered_map.
-    // - Handler is responsible for all side effects; registry does not enforce
-    // any invariants on handler behavior.
-    // - No synchronization; intended for single-threaded use.
+    // - No synchronization; intended for single-threaded use only.
+    // - Handler lifetime is managed externally; registry does not own
+    // resources.
+    // - Overwrites on duplicate key are silent and intentional.
+    // - All valid keys must be registered before dispatch; missing keys are
+    // fatal.
+    // - Used as a building block for higher-level command dispatch.
     template <typename Cmd, typename Key> class CommandRegistry {
         public:
         using Handler = std::function<void(
             const Cmd&, Context&, Config&, std::string& /*current_env*/)>;
 
-        // Overwrites any existing handler for the given key.
         void add(Key key, Handler handler) {
             handlers_[key] = std::move(handler);
         }
 
-        // Dispatches to the registered handler for `key`.
-        // Panics (throws) if no handler is registered.
-        // - Assumes that all valid keys are registered before dispatch.
-        // - The error message includes the integer value of the key for
-        // diagnostics.
+        // Panics if key is not registered. This is a hard error: all valid keys
+        // must be registered prior to dispatch. No fallback or recovery.
         void dispatch(Key          key,
                       const Cmd&   cmd,
                       Context&     ctx,
@@ -48,21 +50,23 @@ namespace math_solver {
             it->second(cmd, ctx, config, current_env);
         }
 
-        // Returns true if a handler is registered for `key`.
         bool has(Key key) const { return handlers_.count(key) != 0; }
 
         private:
         std::unordered_map<Key, Handler> handlers_;
     };
 
-    // Central registry for all command handlers.
-    // - Maintains one registry per command kind.
-    // - Lifetime of referenced Context, Config, and current_env must outlive
-    // this registry.
-    // - Not thread-safe; all mutation and dispatch is expected to be
-    // single-threaded.
-    // - `should_exit_` is used to signal early termination (e.g., after an exit
-    // command).
+    class Runner;
+
+    // Centralized handler registry for all command kinds.
+    //
+    // - Each command kind has a dedicated registry instance.
+    // - Not thread-safe; all mutation and dispatch must be single-threaded.
+    // - Context, Config, and current_env references must outlive this registry.
+    // - should_exit_ is used for early termination signaling (e.g., after
+    // exit).
+    // - Interacts with Runner for commands that require orchestration.
+    // - Assumes that command accept() will invoke the correct visit() overload.
     class HandlerRegistry : public CommandVisitor {
         public:
         using SystemReg = CommandRegistry<SystemCommand, SystemCommand::Type>;
@@ -83,22 +87,22 @@ namespace math_solver {
         EnvReg&    env() { return env_reg_; }
         ConfigReg& config_reg() { return config_reg_; }
 
-        // Dispatches the given command to the appropriate handler.
-        // - Returns false if the command signals process exit (see
-        // should_exit_).
-        // - Assumes that the command's accept() will invoke the correct visit()
-        // overload.
+        // Returns false if the command signals process exit (see should_exit_).
+        // All command dispatches are expected to be side-effecting.
         bool       dispatch(const Command& cmd) {
             should_exit_ = false;
             cmd.accept(*this);
             return !should_exit_;
         }
 
+        void set_runner(Runner& runner) { runner_ = &runner; }
+
         void visit(const SystemCommand& cmd) override;
         void visit(const VarCommand& cmd) override;
         void visit(const MathCommand& cmd) override;
         void visit(const EnvCommand& cmd) override;
         void visit(const ConfigCommand& cmd) override;
+        void visit(const LoadCommand& cmd) override;
 
         private:
         Context&     ctx_;
@@ -111,11 +115,16 @@ namespace math_solver {
         MathReg      math_reg_;
         EnvReg       env_reg_;
         ConfigReg    config_reg_;
+
+        Runner*      runner_ = nullptr;
     };
 
     // Constructs a HandlerRegistry with all required dependencies.
-    // - The returned registry is expected to be further populated with handlers
-    // by the caller.
+    //
+    // - Registry is returned in an unpopulated state; caller is responsible for
+    //   registering all handlers before use.
+    // - Lifetime of ctx, config, and current_env must exceed that of the
+    // registry.
     HandlerRegistry build_handler_registry(Context&     ctx,
                                            Config&      config,
                                            std::string& current_env);

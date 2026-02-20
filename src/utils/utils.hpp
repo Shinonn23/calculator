@@ -1,5 +1,4 @@
-#ifndef UTILS_H
-#define UTILS_H
+#pragma once
 
 #include <cmath>
 #include <iomanip>
@@ -49,5 +48,3 @@ namespace math_solver {
     }
 
 } // namespace math_solver
-
-#endif // UTILS_H

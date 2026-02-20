@@ -1,5 +1,4 @@
-#ifndef REPL_HINTS_HPP
-#define REPL_HINTS_HPP
+#pragma once
 
 #include <replxx.hxx>
 #include <string>
@@ -86,5 +85,3 @@ namespace math_solver {
     }
 
 } // namespace math_solver
-
-#endif // REPL_HINTS_HPP

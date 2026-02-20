@@ -1,5 +1,4 @@
-#ifndef FRACTION_H
-#define FRACTION_H
+#pragma once
 
 #include <cmath>
 #include <cstdint>
@@ -175,5 +174,3 @@ namespace math_solver {
     }
 
 } // namespace math_solver
-
-#endif

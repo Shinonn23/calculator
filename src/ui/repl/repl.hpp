@@ -1,5 +1,4 @@
-#ifndef REPL_HPP
-#define REPL_HPP
+#pragma once
 
 #include "config/config.hpp"
 #include "runtime/context/context.hpp"
@@ -25,5 +24,3 @@ namespace math_solver {
     int run_repl(Config& g_config, Context& g_ctx, std::string& g_current_env);
 
 } // namespace math_solver
-
-#endif // REPL_HPP

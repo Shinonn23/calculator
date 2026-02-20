@@ -1,5 +1,4 @@
-#ifndef EXPR_H
-#define EXPR_H
+#pragma once
 
 #include "ast/math/expr_visitor.hpp"
 #include "core/span.hpp"
@@ -50,5 +49,3 @@ namespace math_solver {
     using ExprPtr = std::unique_ptr<Expr>;
 
 } // namespace math_solver
-
-#endif

@@ -1,5 +1,4 @@
-#ifndef REPL_COMPLETIONS_HPP
-#define REPL_COMPLETIONS_HPP
+#pragma once
 
 #include "config/config.hpp"
 #include "runtime/context/context.hpp"
@@ -205,5 +204,3 @@ namespace math_solver {
     }
 
 } // namespace math_solver
-
-#endif // REPL_COMPLETIONS_HPP

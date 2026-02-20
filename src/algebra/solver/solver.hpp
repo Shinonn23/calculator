@@ -1,5 +1,4 @@
-#ifndef SOLVER_H
-#define SOLVER_H
+#pragma once
 
 #include "algebra/linear/linear_collector.hpp"
 #include "ast/math/equation_expr.hpp"
@@ -179,5 +178,3 @@ namespace math_solver {
     };
 
 } // namespace math_solver
-
-#endif

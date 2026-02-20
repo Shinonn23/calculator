@@ -1,5 +1,4 @@
-#ifndef PARSER_H
-#define PARSER_H
+#pragma once
 
 #include "ast/math/equation_expr.hpp"
 #include "ast/math/expr.hpp"
@@ -66,5 +65,3 @@ namespace math_solver {
         EquationPtr                     parse_equation();
     };
 } // namespace math_solver
-
-#endif

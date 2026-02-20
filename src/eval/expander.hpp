@@ -1,5 +1,4 @@
-#ifndef EXPANDER_H
-#define EXPANDER_H
+#pragma once
 
 #include "ast/math/binary_expr.hpp"
 #include "ast/math/equation_expr.hpp"
@@ -95,5 +94,3 @@ namespace math_solver {
     };
 
 } // namespace math_solver
-
-#endif // EXPANDER_H

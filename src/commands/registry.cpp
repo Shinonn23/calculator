@@ -2,6 +2,7 @@
 
 #include "commands/handlers/config_handler.hpp"
 #include "commands/handlers/env_handler.hpp"
+#include "commands/handlers/load_handler.hpp"
 #include "commands/handlers/math_handler.hpp"
 #include "commands/handlers/system_handler.hpp"
 #include "commands/handlers/var_handler.hpp"
@@ -40,6 +41,20 @@ namespace math_solver {
     void HandlerRegistry::visit(const ConfigCommand& cmd) {
         // Config registry dispatches based on action; may mutate config.
         config_reg_.dispatch(cmd.action(), cmd, ctx_, cfg_, current_env_);
+    }
+
+    void HandlerRegistry::visit(const LoadCommand& cmd) {
+        // HandlerRegistry requires a runner to process LoadCommand.
+        // This is a hard requirement: absence of runner_ is a logic error and
+        // indicates misconfiguration at a higher layer. No fallback or
+        // recovery. LoadCommand is intentionally not dispatched by key; only a
+        // single action is supported. This avoids unnecessary indirection and
+        // preserves the invariant that visit() is the sole dispatch point.
+        if (!runner_) {
+            throw std::runtime_error(
+                "HandlerRegistry: Runner not set; cannot handle :load");
+        }
+        handlers::handle_load(cmd, *runner_);
     }
 
     HandlerRegistry build_handler_registry(Context&     ctx,

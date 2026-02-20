@@ -1,5 +1,4 @@
-#ifndef FACTOR_H
-#define FACTOR_H
+#pragma once
 
 #include "polynomial.hpp"
 #include <algorithm>
@@ -306,5 +305,3 @@ namespace math_solver {
     }
 
 } // namespace math_solver
-
-#endif

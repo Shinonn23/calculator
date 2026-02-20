@@ -14,23 +14,28 @@
 
 namespace math_solver {
     namespace handlers {
-        // Persists the current context's variables to the named environment.
-        // Assumes ctx is in a consistent state and env_name is valid for
-        // storage.
+
+        // Persists the current Context's variable state into the named
+        // environment.
+        // - Assumes ctx is in a valid, consistent state.
+        // - Used to ensure that switching environments does not lose local
+        // state.
         inline void save_current_env(Config&            config,
                                      const std::string& env_name,
                                      const Context&     ctx) {
             config.save_env_variables(env_name, ctx.all_as_strings());
         }
 
-        // Loads variables from the named environment into the given context.
-        // - If the environment does not exist, emits diagnostics and returns
-        // false.
-        // - On success, clears ctx and repopulates it from the environment.
-        // - Parsing failures are silently skipped (legacy: avoids hard errors
-        // on corrupt entries).
-        // - Invariant: ctx is always cleared before population to avoid stale
-        // state.
+        // Loads variables from the specified environment into ctx.
+        // - Returns false if the environment does not exist (diagnostics
+        // emitted).
+        // - Always clears ctx before population to avoid stale state.
+        // - Parsing failures for individual variables are ignored (legacy:
+        // avoids
+        //   hard errors on corrupt or legacy entries).
+        // - Invariant: ctx is always left in a cleared+repopulated state on
+        // success.
+        // - This function is performance-sensitive for large environments.
         inline bool load_env_into_context(Config&            config,
                                           const std::string& env_name,
                                           Context&           ctx) {
@@ -44,6 +49,9 @@ namespace math_solver {
             ctx.clear();
             const auto& env = config.get_env(env_name);
             for (const auto& [name, expr_str] : env.variables) {
+                // Attempt to parse as expression; fallback to double if parse
+                // fails. Malformed entries are skipped to avoid breaking the
+                // environment.
                 try {
                     Parser parser(expr_str);
                     ctx.set(name, parser.parse());
@@ -51,7 +59,7 @@ namespace math_solver {
                     try {
                         ctx.set(name, std::stod(expr_str));
                     } catch (...) {
-                        // Intentionally ignore malformed entries; see above.
+                        // Ignore malformed entries.
                     }
                 }
             }
@@ -65,6 +73,9 @@ namespace math_solver {
         // - Defensive against invalid or missing environment names.
         // - Interacts with Config for all persistent state; Context is always
         // local.
+        // - All mutations to environments must go through this entrypoint to
+        // avoid
+        //   violating invariants.
         inline void handle_env(const EnvCommand& cmd,
                                Context&          ctx,
                                Config&           config,
@@ -174,6 +185,167 @@ namespace math_solver {
                 } catch (const std::exception& e) {
                     std::cout << ansi::red << "  Error: " << ansi::reset
                               << e.what() << "\n";
+                }
+                break;
+            }
+
+            case EnvCommand::Action::Move: {
+                const auto& flags = cmd.flags();
+
+                if (flags.vars_mode) {
+                    // Moves a subset of variables from the current environment
+                    // to the target, removing them from the current environment
+                    // after transfer.
+                    // - Invariant: current_env remains valid after mutation.
+                    // - If a variable is missing, emits a warning but
+                    // continues.
+                    const std::string& dest = flags.to_env;
+                    if (dest.empty()) {
+                        std::cout << "  Usage: :env mv --vars x y --to "
+                                     "<target_env>\n";
+                        break;
+                    }
+                    if (!config.env_exists(dest)) {
+                        std::cout << ansi::red << "  Error: " << ansi::reset
+                                  << "environment '" << dest << "' not found\n";
+                        maybe_suggest(dest, config.list_envs());
+                        break;
+                    }
+
+                    auto all = ctx.all_as_strings();
+                    std::unordered_map<std::string, std::string> subset;
+
+                    for (const auto& v : cmd.vars_to_save()) {
+                        if (auto it = all.find(v); it != all.end()) {
+                            subset[v] = it->second;
+                            ctx.unset(v); // Remove from current env after move.
+                        } else {
+                            std::cout << ansi::yellow
+                                      << "  Warning: " << ansi::reset
+                                      << "variable '" << v
+                                      << "' not defined, skipped\n";
+                        }
+                    }
+
+                    config.save_env_variables(dest, subset);
+                    // Sync current env after mutation to maintain persistence
+                    // invariants.
+                    save_current_env(config, current_env, ctx);
+                    std::cout << "  Moved " << subset.size()
+                              << " variable(s) to '" << ansi::bold << dest
+                              << ansi::reset << "'\n";
+
+                } else {
+                    // Moves (renames) an entire environment.
+                    // - Disallowed for the currently active environment to
+                    // avoid
+                    //   invalidating current_env invariants.
+                    // - If dest exists, it is overwritten.
+                    // - Source is deleted after copy.
+                    const std::string& src  = cmd.source_env();
+                    const std::string& dest = cmd.target_env();
+
+                    if (src.empty() || dest.empty()) {
+                        std::cout
+                            << "  Usage: :env mv <source_env> <target_env>\n";
+                        break;
+                    }
+                    if (src == current_env) {
+                        std::cout << ansi::red << "  Error: " << ansi::reset
+                                  << "cannot move the active environment\n";
+                        break;
+                    }
+                    if (!config.env_exists(src)) {
+                        std::cout << ansi::red << "  Error: " << ansi::reset
+                                  << "environment '" << src << "' not found\n";
+                        maybe_suggest(src, config.list_envs());
+                        break;
+                    }
+
+                    try {
+                        config.create_env(dest);
+                        config.save_env_variables(
+                            dest, config.get_env(src).variables);
+                        config.delete_env(src);
+                        std::cout << "  Moved environment '" << src << "' → '"
+                                  << ansi::bold << dest << ansi::reset << "'\n";
+                    } catch (const std::exception& e) {
+                        std::cout << ansi::red << "  Error: " << ansi::reset
+                                  << e.what() << "\n";
+                    }
+                }
+                break;
+            }
+
+            case EnvCommand::Action::Copy: {
+                const auto& flags = cmd.flags();
+
+                if (flags.vars_mode) {
+                    // Copies a subset of variables from the current environment
+                    // to the target.
+                    // - Does not mutate the current environment.
+                    // - If a variable is missing, emits a warning but
+                    // continues.
+                    const std::string& dest = flags.to_env;
+                    if (dest.empty()) {
+                        std::cout << "  Usage: :env cp --vars x y --to "
+                                     "<target_env>\n";
+                        break;
+                    }
+                    if (!config.env_exists(dest)) {
+                        std::cout << ansi::red << "  Error: " << ansi::reset
+                                  << "environment '" << dest << "' not found\n";
+                        maybe_suggest(dest, config.list_envs());
+                        break;
+                    }
+
+                    auto all = ctx.all_as_strings();
+                    std::unordered_map<std::string, std::string> subset;
+
+                    for (const auto& v : cmd.vars_to_save()) {
+                        if (auto it = all.find(v); it != all.end())
+                            subset[v] = it->second;
+                        else
+                            std::cout << ansi::yellow
+                                      << "  Warning: " << ansi::reset
+                                      << "variable '" << v
+                                      << "' not defined, skipped\n";
+                    }
+
+                    config.save_env_variables(dest, subset);
+                    std::cout << "  Copied " << subset.size()
+                              << " variable(s) to '" << ansi::bold << dest
+                              << ansi::reset << "'\n";
+
+                } else {
+                    // Copies an entire environment to a new name.
+                    // - If dest exists, it is overwritten.
+                    // - Source is not mutated.
+                    const std::string& src  = cmd.source_env();
+                    const std::string& dest = cmd.target_env();
+
+                    if (src.empty() || dest.empty()) {
+                        std::cout
+                            << "  Usage: :env cp <source_env> <target_env>\n";
+                        break;
+                    }
+                    if (!config.env_exists(src)) {
+                        std::cout << ansi::red << "  Error: " << ansi::reset
+                                  << "environment '" << src << "' not found\n";
+                        maybe_suggest(src, config.list_envs());
+                        break;
+                    }
+
+                    try {
+                        config.create_env(dest);
+                        config.save_env_variables(
+                            dest, config.get_env(src).variables);
+                        std::cout << "  Copied environment '" << src << "' → '"
+                                  << ansi::bold << dest << ansi::reset << "'\n";
+                    } catch (const std::exception& e) {
+                        std::cout << ansi::red << "  Error: " << ansi::reset
+                                  << e.what() << "\n";
+                    }
                 }
                 break;
             }

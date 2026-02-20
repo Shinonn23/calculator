@@ -44,20 +44,28 @@ FetchContent_MakeAvailable(json replxx)
 
 # ===== Core Library =====
 add_library(math_core
-    src/commands/registry.cpp
-    src/eval/evaluator.cpp
     src/algebra/linear/linear_collector.cpp
     src/algebra/linear/simplify.cpp
     src/algebra/polynomial/ast_to_poly.cpp
     src/algebra/polynomial/factor.cpp
     src/algebra/solver/solver.cpp
+    src/commands/registry.cpp
+    src/eval/evaluator.cpp
+    src/lexer/command/command_token_stream.cpp
     src/parser/command/command_parser.cpp
+    src/parser/command/command_parser_registry.cpp
+    src/parser/command/subparsers/config_command_parser.cpp
+    src/parser/command/subparsers/env_command_parser.cpp
+    src/parser/command/subparsers/math_command_parser.cpp
+    src/parser/command/subparsers/system_command_parser.cpp
+    src/parser/command/subparsers/var_command_parser.cpp
     src/parser/math/math_parser.cpp
     src/runtime/context/context.cpp
     src/runtime/context/resolver.cpp
     src/runtime/context/validator.cpp
     src/runtime/runtime.cpp
     src/ui/repl/repl.cpp
+    src/ui/repl/runner.cpp
 )
 
 target_include_directories(math_core

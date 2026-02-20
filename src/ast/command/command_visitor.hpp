@@ -1,5 +1,4 @@
-#ifndef CLI_VISITOR
-#define CLI_VISITOR
+#pragma once
 
 namespace math_solver {
 
@@ -21,6 +20,7 @@ namespace math_solver {
     class MathCommand;
     class EnvCommand;
     class ConfigCommand;
+    class LoadCommand;
 
     class CommandVisitor {
         public:
@@ -31,7 +31,6 @@ namespace math_solver {
         virtual void visit(const MathCommand& cmd)   = 0;
         virtual void visit(const EnvCommand& cmd)    = 0;
         virtual void visit(const ConfigCommand& cmd) = 0;
+        virtual void visit(const LoadCommand& cmd)   = 0;
     };
 } // namespace math_solver
-
-#endif // MATH_SOLVER_CLI_VISITOR_HPP

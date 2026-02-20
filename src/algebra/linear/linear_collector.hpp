@@ -1,5 +1,4 @@
-#ifndef LINEAR_COLLECTOR_H
-#define LINEAR_COLLECTOR_H
+#pragma once
 
 #include <cmath>
 #include <map>
@@ -275,5 +274,3 @@ namespace math_solver {
     };
 
 } // namespace math_solver
-
-#endif

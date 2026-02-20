@@ -1,5 +1,4 @@
-#ifndef BINARY_H
-#define BINARY_H
+#pragma once
 
 #include "ast/math/expr.hpp"
 #include <memory>
@@ -91,5 +90,3 @@ namespace math_solver {
     };
 
 } // namespace math_solver
-
-#endif

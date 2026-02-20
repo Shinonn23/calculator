@@ -1,5 +1,4 @@
-#ifndef MATH_SOLVER_RUNTIME_HPP
-#define MATH_SOLVER_RUNTIME_HPP
+#pragma once
 
 #include "config/config.hpp"
 #include "context/context.hpp"
@@ -54,5 +53,3 @@ namespace math_solver {
     };
 
 } // namespace math_solver
-
-#endif // MATH_SOLVER_RUNTIME_HPP

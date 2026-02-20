@@ -1,5 +1,4 @@
-#ifndef REPL_HISTORY_HPP
-#define REPL_HISTORY_HPP
+#pragma once
 
 #include "config/config.hpp"
 #include "utils/path_utils.hpp"
@@ -42,5 +41,3 @@ namespace math_solver {
     }
 
 } // namespace math_solver
-
-#endif // REPL_HISTORY_HPP

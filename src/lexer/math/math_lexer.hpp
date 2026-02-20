@@ -1,5 +1,4 @@
-#ifndef LEXER_H
-#define LEXER_H
+#pragma once
 
 #include "core/error.hpp"
 #include "core/span.hpp"
@@ -145,5 +144,3 @@ namespace math_solver {
     };
 
 } // namespace math_solver
-
-#endif

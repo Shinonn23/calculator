@@ -1,5 +1,4 @@
-#ifndef POLYNOMIAL_H
-#define POLYNOMIAL_H
+#pragma once
 
 #include <algorithm>
 #include <cmath>
@@ -488,5 +487,3 @@ namespace math_solver {
     };
 
 } // namespace math_solver
-
-#endif

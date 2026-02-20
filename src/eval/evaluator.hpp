@@ -1,5 +1,4 @@
-#ifndef EVALUATOR_H
-#define EVALUATOR_H
+#pragma once
 
 #include "ast/math/binary_expr.hpp"
 #include "ast/math/expr_visitor.hpp"
@@ -68,5 +67,3 @@ namespace math_solver {
     };
 
 } // namespace math_solver
-
-#endif // EVALUATOR_H

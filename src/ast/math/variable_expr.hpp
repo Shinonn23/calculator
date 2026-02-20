@@ -1,5 +1,4 @@
-#ifndef VARIABLE_H
-#define VARIABLE_H
+#pragma once
 
 #include "ast/math/expr.hpp"
 #include <string>
@@ -48,5 +47,3 @@ namespace math_solver {
     };
 
 } // namespace math_solver
-
-#endif

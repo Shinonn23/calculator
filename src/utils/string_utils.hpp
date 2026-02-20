@@ -1,5 +1,4 @@
-#ifndef STRING_UTILS_H
-#define STRING_UTILS_H
+#pragma once
 
 #include <sstream>
 #include <string>
@@ -69,5 +68,3 @@ namespace math_solver {
     }
 
 } // namespace math_solver
-
-#endif // STRING_UTILS_H

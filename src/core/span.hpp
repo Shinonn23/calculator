@@ -1,5 +1,4 @@
-#ifndef SPAN_H
-#define SPAN_H
+#pragma once
 
 #include <cstddef>
 #include <string>
@@ -89,5 +88,3 @@ namespace math_solver {
     }
 
 } // namespace math_solver
-
-#endif

@@ -1,5 +1,4 @@
-#ifndef MATH_SOLVER_CONTEXT_HPP
-#define MATH_SOLVER_CONTEXT_HPP
+#pragma once
 
 #include "ast/math/expr.hpp"
 #include <string>
@@ -72,5 +71,3 @@ namespace math_solver {
     };
 
 } // namespace math_solver
-
-#endif // MATH_SOLVER_CONTEXT_HPP

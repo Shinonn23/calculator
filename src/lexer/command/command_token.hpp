@@ -1,5 +1,4 @@
-#ifndef COMMAND_TOKEN
-#define COMMAND_TOKEN
+#pragma once
 
 #include <string>
 
@@ -62,5 +61,3 @@ namespace math_solver {
     }
 
 } // namespace math_solver
-
-#endif // COMMAND_TOKEN

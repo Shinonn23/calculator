@@ -1,5 +1,4 @@
-#ifndef MATH_SOLVER_CMD_LEXER_HPP
-#define MATH_SOLVER_CMD_LEXER_HPP
+#pragma once
 
 #include "command_token.hpp"
 #include <cctype>
@@ -130,5 +129,3 @@ namespace math_solver {
     };
 
 } // namespace math_solver
-
-#endif // MATH_SOLVER_CMD_LEXER_HPP

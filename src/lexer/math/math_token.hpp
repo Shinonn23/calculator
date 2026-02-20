@@ -1,5 +1,4 @@
-#ifndef TOKEN_H
-#define TOKEN_H
+#pragma once
 
 #include "core/span.hpp"
 #include <string>
@@ -87,5 +86,3 @@ namespace math_solver {
     }
 
 } // namespace math_solver
-
-#endif

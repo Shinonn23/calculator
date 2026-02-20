@@ -1,5 +1,4 @@
-#ifndef EXPR_VISITOR_H
-#define EXPR_VISITOR_H
+#pragma once
 
 namespace math_solver {
     class Number;
@@ -23,5 +22,3 @@ namespace math_solver {
         virtual void visit(const Variable& node) = 0;
     };
 } // namespace math_solver
-
-#endif

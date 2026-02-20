@@ -1,5 +1,4 @@
-#ifndef PATH_UTILS_H
-#define PATH_UTILS_H
+#pragma once
 
 #include <filesystem>
 #include <string>
@@ -50,5 +49,3 @@ namespace math_solver {
     }
 
 } // namespace math_solver
-
-#endif // PATH_UTILS_H

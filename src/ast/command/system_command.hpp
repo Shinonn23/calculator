@@ -1,5 +1,5 @@
-#ifndef SYSTEM_COMMAND
-#define SYSTEM_COMMAND
+#pragma once
+
 #include <string>
 
 #include "command.hpp"
@@ -34,5 +34,3 @@ namespace math_solver {
         }
     };
 } // namespace math_solver
-
-#endif

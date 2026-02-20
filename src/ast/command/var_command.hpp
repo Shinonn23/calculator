@@ -1,5 +1,5 @@
-#ifndef VAR_COMMAND
-#define VAR_COMMAND
+#pragma once
+
 #include <optional>
 #include <string>
 
@@ -58,4 +58,3 @@ namespace math_solver {
     };
 
 } // namespace math_solver
-#endif

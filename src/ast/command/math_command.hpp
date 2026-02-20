@@ -1,5 +1,5 @@
-#ifndef MATH_COMMAND
-#define MATH_COMMAND
+#pragma once
+
 #include <string>
 #include <vector>
 
@@ -62,5 +62,3 @@ namespace math_solver {
         }
     };
 } // namespace math_solver
-
-#endif

@@ -1,5 +1,4 @@
-#ifndef EQUATION_H
-#define EQUATION_H
+#pragma once
 
 #include "ast/math/expr.hpp"
 #include <memory>
@@ -61,4 +60,3 @@ namespace math_solver {
 
 } // namespace math_solver
 
-#endif

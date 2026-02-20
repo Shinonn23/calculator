@@ -1,5 +1,4 @@
-#ifndef ERROR_H
-#define ERROR_H
+#pragma once
 
 #include "span.hpp"
 #include <stdexcept>
@@ -174,5 +173,3 @@ namespace math_solver {
     };
 
 } // namespace math_solver
-
-#endif

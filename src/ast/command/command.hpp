@@ -1,5 +1,4 @@
-#ifndef COMMAND
-#define COMMAND
+#pragma once
 
 #include <memory>
 #include <string>
@@ -40,5 +39,3 @@ namespace math_solver {
     using CommandPtr = std::unique_ptr<Command>;
 
 } // namespace math_solver
-
-#endif
