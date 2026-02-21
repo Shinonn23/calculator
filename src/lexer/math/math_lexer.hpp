@@ -12,6 +12,7 @@ namespace math_solver {
         private:
         std::string input_;
         size_t      pos_;
+        size_t      offset_;
 
         // Returns the current character or '\0' if at or past end of input.
         // Invariant: pos_ <= input_.size().
@@ -42,10 +43,12 @@ namespace math_solver {
         }
 
         public:
-        explicit Lexer(const std::string& input) : input_(input), pos_(0) {}
+        explicit Lexer(const std::string& input)
+            : input_(input), pos_(0), offset_(0) {}
 
         const std::string& input() const { return input_; }
         size_t             position() const { return pos_; }
+        size_t             offset() const { return offset_; }
 
         // Main tokenization entry point.
         // Returns the next token, advancing internal state.
@@ -64,7 +67,8 @@ namespace math_solver {
 
             if (current() == '\0') {
                 // End-of-input sentinel. No further tokens will be produced.
-                return Token(TokenType::End, 0, Span(pos_, pos_));
+                return Token(
+                    TokenType::End, 0, Span(pos_ + offset_, pos_ + offset_));
             }
 
             // Fast path for numeric literals.
@@ -85,12 +89,14 @@ namespace math_solver {
 
                 // Rejects empty or invalid numbers (e.g., ".").
                 if (num.empty() || num == ".") {
-                    throw ParseError(
-                        "invalid number", Span(start, pos_), input_);
+                    throw ParseError("invalid number",
+                                     Span(start + offset_, pos_ + offset_),
+                                     input_);
                 }
 
-                return Token(
-                    TokenType::Number, std::stod(num), Span(start, pos_));
+                return Token(TokenType::Number,
+                             std::stod(num),
+                             Span(start + offset_, pos_ + offset_));
             }
 
             // Identifier/keyword path.
@@ -104,17 +110,20 @@ namespace math_solver {
                 }
 
                 if (is_reserved_keyword(name)) {
-                    throw ReservedKeywordError(name, Span(start, pos_), input_);
+                    throw ReservedKeywordError(
+                        name, Span(start + offset_, pos_ + offset_), input_);
                 }
 
-                return Token(TokenType::Identifier, name, Span(start, pos_));
+                return Token(TokenType::Identifier,
+                             name,
+                             Span(start + offset_, pos_ + offset_));
             }
 
             // Single-character operator dispatch.
             // No lookahead; multi-char operators are not supported.
             char c = current();
             advance();
-            Span span(start, pos_);
+            Span span(start + offset_, pos_ + offset_);
 
             switch (c) {
             case '+':

@@ -217,6 +217,19 @@ namespace math_solver {
         }
     };
 
+    class UnknownCommandError : public MathError {
+        public:
+        UnknownCommandError(const std::string& command,
+                            const Span&        span  = Span(),
+                            const std::string& input = "")
+            : MathError("unknown command: " + command, span, input) {
+            diag_.code         = "E0002";
+            diag_.inline_label = "unrecognized command";
+            diag_.help = "available commands: :help, :env, :config, :history, "
+                         ":var, etc.";
+        }
+    };
+
     class UndefinedVariableError : public MathError {
         private:
         std::string var_name_;

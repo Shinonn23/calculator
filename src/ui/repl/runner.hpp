@@ -10,7 +10,9 @@ namespace math_solver {
 
     class Runner {
         public:
-        explicit Runner(HandlerRegistry& registry) : registry_(registry) {}
+        explicit Runner(HandlerRegistry& registry) : registry_(registry) {
+            registry_.set_runner(*this);
+        }
 
         // Entry point for interactive REPL session.
         // - Assumes `current_env` is a valid environment identifier and may be

@@ -161,19 +161,21 @@ namespace math_solver {
             }
         }
 
-        void set_runner(Runner& runner) { runner_ = &runner; }
+        const std::string& current_env() const { return current_env_; }
+
+        void               set_runner(Runner& runner) { runner_ = &runner; }
 
         // CommandVisitor overrides. Each handler is responsible for updating
         // last_command_status_, should_exit_, and should_clear_history_ as
         // needed.
-        void visit(const SystemCommand& cmd) override;
-        void visit(const VarCommand& cmd) override;
-        void visit(const MathCommand& cmd) override;
-        void visit(const EnvCommand& cmd) override;
-        void visit(const ConfigCommand& cmd) override;
-        void visit(const LoadCommand& cmd) override;
-        void visit(const HistoryCommand& cmd) override;
-        void visit(const RedoCommand& cmd) override;
+        void               visit(const SystemCommand& cmd) override;
+        void               visit(const VarCommand& cmd) override;
+        void               visit(const MathCommand& cmd) override;
+        void               visit(const EnvCommand& cmd) override;
+        void               visit(const ConfigCommand& cmd) override;
+        void               visit(const LoadCommand& cmd) override;
+        void               visit(const HistoryCommand& cmd) override;
+        void               visit(const RedoCommand& cmd) override;
 
         private:
         Context&                  ctx_;

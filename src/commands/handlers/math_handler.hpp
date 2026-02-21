@@ -25,8 +25,8 @@ namespace math_solver {
         // - Assumes payload is a valid equation string.
         // - On success, updates the context with the solved variable.
         // - Suggests similar variable names on undefined variable errors.
-        inline HistoryStatus
-        do_solve(const std::string& payload, Context& ctx, Config& /*config*/) {
+        inline HistoryStatus do_solve(const std::string& payload, Context& ctx,
+                                      Config& /*config*/) {
             if (payload.empty()) {
                 std::cout << "  Usage: :solve <lhs> = <rhs>\n";
                 return HistoryStatus::Error;
@@ -98,9 +98,8 @@ namespace math_solver {
         // - Emits warnings for non-canonical or ambiguous forms.
         // - Returns warning status if any warnings are present.
         inline HistoryStatus do_simplify(const std::string& payload,
-                                         const MathCommand& cmd,
-                                         Context&           ctx,
-                                         Config&            config) {
+                                         const MathCommand& cmd, Context& ctx,
+                                         Config& config) {
             if (payload.empty()) {
                 std::cout << "  Usage: :simplify <lhs> = <rhs> [-vars x y] "
                              "[-isolated] [-fraction]\n";
@@ -222,8 +221,7 @@ namespace math_solver {
         // - No fallback expansion; errors are surfaced directly.
         // - Catches std::exception as a last resort to avoid process abort.
         inline HistoryStatus do_evaluate(const std::string& payload,
-                                         Context&           ctx,
-                                         Config& /*config*/) {
+                                         Context& ctx, Config& /*config*/) {
             if (payload.empty())
                 return HistoryStatus::Error;
             try {
@@ -272,8 +270,8 @@ namespace math_solver {
         // Dispatches math commands to the appropriate handler.
         // - Invariant: cmd.type() must be a valid MathCommand::Type.
         // - Returns Unknown for unhandled types (should not occur).
-        inline HistoryStatus
-        handle_math(const MathCommand& cmd, Context& ctx, Config& config) {
+        inline HistoryStatus handle_math(const MathCommand& cmd, Context& ctx,
+                                         Config& config) {
             const std::string& payload = cmd.payload();
             switch (cmd.type()) {
             case MathCommand::Type::Solve:
@@ -286,8 +284,18 @@ namespace math_solver {
                 return do_factor(payload, ctx);
             case MathCommand::Type::Evaluate:
                 return do_evaluate(payload, ctx, config);
+            case MathCommand::Type::Unknown: {
+                std::string         input   = cmd.raw_command();
+                std::string         bad_cmd = input.substr(0, input.find(' '));
+
+                UnknownCommandError e       = UnknownCommandError(
+                    bad_cmd, find_token_span(input, bad_cmd), input);
+
+                std::cout << e.format() << "\n";
             }
-            return HistoryStatus::Unknown;
+            }
+
+            return HistoryStatus::Error;
         }
 
     } // namespace handlers

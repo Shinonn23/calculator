@@ -20,7 +20,7 @@ namespace math_solver {
     // diagnostics.
     class ConfigCommand : public Command {
         public:
-        enum class Action { List, Get, Set, Path, Reset };
+        enum class Action { List, Get, Set, Path, Reset, Unknown };
 
         private:
         Action      action_;

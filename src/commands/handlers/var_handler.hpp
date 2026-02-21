@@ -46,16 +46,16 @@ namespace math_solver {
         // - Performance: context cloning is O(n) in the number of variables.
         // - Correctness: relies on parser and solver subsystems for semantic
         // checks.
-        inline HistoryStatus
-        handle_set(const VarCommand& cmd, Context& ctx, Config& config) {
+        inline HistoryStatus handle_set(const VarCommand& cmd, Context& ctx,
+                                        Config& config) {
             (void)config;
             using std::cout;
             const std::string& var = cmd.var_name();
             const std::string& raw = cmd.raw_command();
 
             if (var.empty()) {
-                MathError err(
-                    "missing variable name", find_token_span(raw, ":set"), raw);
+                MathError err("missing variable name",
+                              find_token_span(raw, ":set"), raw);
                 err.with_code("E0401").with_help("Usage: `:set <var> <expr>`");
                 cout << err.format();
                 return HistoryStatus::Error;
@@ -64,14 +64,12 @@ namespace math_solver {
             if (!validate_var_name(var)) {
                 if (is_reserved_keyword(var)) {
                     MathError err("`" + var + "` is a reserved keyword",
-                                  find_token_span(raw, var),
-                                  raw);
+                                  find_token_span(raw, var), raw);
                     err.with_code("E0402").with_label("reserved word");
                     cout << err.format();
                 } else {
                     MathError err("invalid variable name `" + var + "`",
-                                  find_token_span(raw, var),
-                                  raw);
+                                  find_token_span(raw, var), raw);
                     err.with_code("E0403")
                         .with_label("invalid identifier")
                         .with_help(
@@ -83,8 +81,8 @@ namespace math_solver {
             }
 
             if (!cmd.has_payload()) {
-                MathError err(
-                    "missing expression", find_token_span(raw, var), raw);
+                MathError err("missing expression", find_token_span(raw, var),
+                              raw);
                 err.with_code("E0404").with_help("Usage: `:set <var> <expr>`");
                 cout << err.format();
                 return HistoryStatus::Error;
@@ -207,8 +205,7 @@ namespace math_solver {
             const std::string& raw = cmd.raw_command();
             if (var.empty()) {
                 MathError err("missing variable name",
-                              find_token_span(raw, ":unset"),
-                              raw);
+                              find_token_span(raw, ":unset"), raw);
                 err.with_code("E0401").with_help("Usage: `:unset <var>`");
                 std::cout << err.format();
                 return HistoryStatus::Error;
@@ -219,8 +216,7 @@ namespace math_solver {
                 return HistoryStatus::Success;
             } else {
                 MathError err("variable `" + var + "` not found",
-                              find_token_span(raw, var),
-                              raw);
+                              find_token_span(raw, var), raw);
                 err.with_code("E0425").with_label("not found in this scope");
                 auto match = suggest(var, ctx.all_names());
                 if (match) {
@@ -237,15 +233,22 @@ namespace math_solver {
         // - If new actions are added, this switch must be updated.
         // - Returns HistoryStatus::Unknown for unhandled actions (should be
         // unreachable).
-        inline HistoryStatus handle_var(const VarCommand& cmd,
-                                        Context&          ctx,
-                                        Config&           config,
-                                        std::string&) {
+        inline HistoryStatus handle_var(const VarCommand& cmd, Context& ctx,
+                                        Config& config, std::string&) {
             switch (cmd.action()) {
             case VarCommand::Action::Set:
                 return handle_set(cmd, ctx, config);
             case VarCommand::Action::Unset:
                 return handle_unset(cmd, ctx);
+            case VarCommand::Action::Unknown:
+                std::string         input   = cmd.raw_command();
+                std::string         bad_cmd = input.substr(0, input.find(' '));
+
+                UnknownCommandError e       = UnknownCommandError(
+                    bad_cmd, find_token_span(input, bad_cmd), input);
+
+                std::cout << e.format() << "\n";
+                return HistoryStatus::Error;
             }
             return HistoryStatus::Unknown;
         }

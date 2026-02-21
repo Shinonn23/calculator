@@ -16,7 +16,7 @@ namespace math_solver {
     // - The 'raw' string is preserved for diagnostics and round-tripping.
     class SystemCommand : public Command {
         public:
-        enum class Type { Exit, Help, Clear, Ls };
+        enum class Type { Exit, Help, Clear, Ls, Unknown };
 
         private:
         Type type_;

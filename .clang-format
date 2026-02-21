@@ -34,16 +34,3 @@ BreakBeforeBraces: Custom
 BraceWrapping:
     AfterClass: false
     AfterCaseLabel: false
-AllowShortFunctionsOnASingleLine: Inline
-AllowShortLambdasOnASingleLine: Inline
-AllowShortIfStatementsOnASingleLine: Never
-AllowShortBlocksOnASingleLine: Never
-LambdaBodyIndentation: Signature
-ContinuationIndentWidth: 4
-BreakConstructorInitializers: BeforeColon
-PackConstructorInitializers: NextLine
-SpaceAfterTemplateKeyword: true
-SpaceBeforeCpp11BracedList: true
-MaxEmptyLinesToKeep: 1
-BinPackParameters: false
-BinPackArguments: false

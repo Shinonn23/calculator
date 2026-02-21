@@ -6,6 +6,7 @@
 #include "history.hpp"
 #include "runner.hpp"
 #include "ui/color.hpp"
+#include "ui/repl/highlighter.hpp"
 
 #include <replxx.hxx>
 
@@ -73,6 +74,8 @@ namespace math_solver {
         // Custom history loading is required to maintain consistency with
         // our persistence model. Do not use replxx's built-in history_load.
         registry.load_persisted_history();
+
+        setup_highlighter(rx);
 
         Runner runner(registry);
         runner.run_interactive(rx, g_current_env);

@@ -49,8 +49,7 @@ namespace math_solver {
                                           const std::string& raw) {
             if (!config.env_exists(env_name)) {
                 MathError err("environment `" + env_name + "` not found",
-                              find_env_token_span(raw, env_name),
-                              raw);
+                              find_env_token_span(raw, env_name), raw);
                 err.with_code("E0601").with_label("unknown environment");
 
                 auto match = suggest(env_name, config.list_envs());
@@ -85,10 +84,9 @@ namespace math_solver {
         // persisted before switching. All error reporting is routed through
         // MathError for consistency. Returns a HistoryStatus indicating the
         // outcome for integration with the REPL history.
-        inline HistoryStatus handle_env(const EnvCommand& cmd,
-                                        Context&          ctx,
-                                        Config&           config,
-                                        std::string&      current_env) {
+        inline HistoryStatus handle_env(const EnvCommand& cmd, Context& ctx,
+                                        Config&      config,
+                                        std::string& current_env) {
             const std::string& raw = cmd.raw_command();
 
             switch (cmd.action()) {
@@ -117,8 +115,7 @@ namespace math_solver {
                 const std::string& target = cmd.target_env();
                 if (target.empty()) {
                     MathError err("missing environment name",
-                                  find_env_token_span(raw, "load"),
-                                  raw);
+                                  find_env_token_span(raw, "load"), raw);
                     err.with_code("E0600").with_help(
                         "Usage: `:env load <name>`");
                     std::cout << err.format();
@@ -173,8 +170,7 @@ namespace math_solver {
                 const std::string& name = cmd.target_env();
                 if (name.empty()) {
                     MathError err("missing environment name",
-                                  find_env_token_span(raw, "new"),
-                                  raw);
+                                  find_env_token_span(raw, "new"), raw);
                     err.with_code("E0600").with_help(
                         "Usage: `:env new <name>`");
                     std::cout << err.format();
@@ -188,8 +184,8 @@ namespace math_solver {
                               << ansi::reset << "'\n";
                     return HistoryStatus::Success;
                 } catch (const std::exception& e) {
-                    MathError err(
-                        e.what(), find_env_token_span(raw, name), raw);
+                    MathError err(e.what(), find_env_token_span(raw, name),
+                                  raw);
                     err.with_code("E0604");
                     std::cout << err.format();
                     return HistoryStatus::Error;
@@ -200,8 +196,7 @@ namespace math_solver {
                 const std::string& name = cmd.target_env();
                 if (name.empty()) {
                     MathError err("missing environment name",
-                                  find_env_token_span(raw, "delete"),
-                                  raw);
+                                  find_env_token_span(raw, "delete"), raw);
                     err.with_code("E0600").with_help(
                         "Usage: `:env delete <name>`");
                     std::cout << err.format();
@@ -211,8 +206,7 @@ namespace math_solver {
                 // state.
                 if (name == current_env) {
                     MathError err("cannot delete the active environment",
-                                  find_env_token_span(raw, name),
-                                  raw);
+                                  find_env_token_span(raw, name), raw);
                     err.with_code("E0602")
                         .with_label("active environment")
                         .with_help("switch to another environment using `:env "
@@ -225,8 +219,8 @@ namespace math_solver {
                     std::cout << "  Deleted environment '" << name << "'\n";
                     return HistoryStatus::Success;
                 } catch (const std::exception& e) {
-                    MathError err(
-                        e.what(), find_env_token_span(raw, name), raw);
+                    MathError err(e.what(), find_env_token_span(raw, name),
+                                  raw);
                     err.with_code("E0604");
                     std::cout << err.format();
                     return HistoryStatus::Error;
@@ -243,8 +237,7 @@ namespace math_solver {
                     const std::string& dest = flags.to_env;
                     if (dest.empty()) {
                         MathError err("missing target environment",
-                                      find_env_token_span(raw, "--to"),
-                                      raw);
+                                      find_env_token_span(raw, "--to"), raw);
                         err.with_code("E0600").with_help(
                             "Usage: `:env mv --vars x y --to <target_env>`");
                         std::cout << err.format();
@@ -252,8 +245,7 @@ namespace math_solver {
                     }
                     if (!config.env_exists(dest)) {
                         MathError err("environment `" + dest + "` not found",
-                                      find_env_token_span(raw, dest),
-                                      raw);
+                                      find_env_token_span(raw, dest), raw);
                         err.with_code("E0601").with_label(
                             "unknown environment");
                         auto match = suggest(dest, config.list_envs());
@@ -300,8 +292,7 @@ namespace math_solver {
 
                     if (src.empty() || dest.empty()) {
                         MathError err("missing source or target environment",
-                                      find_env_token_span(raw, "mv"),
-                                      raw);
+                                      find_env_token_span(raw, "mv"), raw);
                         err.with_code("E0600").with_help(
                             "Usage: `:env mv <source_env> <target_env>`");
                         std::cout << err.format();
@@ -309,16 +300,14 @@ namespace math_solver {
                     }
                     if (src == current_env) {
                         MathError err("cannot move the active environment",
-                                      find_env_token_span(raw, src),
-                                      raw);
+                                      find_env_token_span(raw, src), raw);
                         err.with_code("E0603").with_label("active environment");
                         std::cout << err.format();
                         return HistoryStatus::Error;
                     }
                     if (!config.env_exists(src)) {
                         MathError err("environment `" + src + "` not found",
-                                      find_env_token_span(raw, src),
-                                      raw);
+                                      find_env_token_span(raw, src), raw);
                         err.with_code("E0601").with_label(
                             "unknown environment");
                         auto match = suggest(src, config.list_envs());
@@ -339,8 +328,8 @@ namespace math_solver {
                                   << ansi::bold << dest << ansi::reset << "'\n";
                         return HistoryStatus::Success;
                     } catch (const std::exception& e) {
-                        MathError err(
-                            e.what(), find_env_token_span(raw, dest), raw);
+                        MathError err(e.what(), find_env_token_span(raw, dest),
+                                      raw);
                         err.with_code("E0604");
                         std::cout << err.format();
                         return HistoryStatus::Error;
@@ -358,8 +347,7 @@ namespace math_solver {
                     const std::string& dest = flags.to_env;
                     if (dest.empty()) {
                         MathError err("missing target environment",
-                                      find_env_token_span(raw, "--to"),
-                                      raw);
+                                      find_env_token_span(raw, "--to"), raw);
                         err.with_code("E0600").with_help(
                             "Usage: `:env cp --vars x y --to <target_env>`");
                         std::cout << err.format();
@@ -367,8 +355,7 @@ namespace math_solver {
                     }
                     if (!config.env_exists(dest)) {
                         MathError err("environment `" + dest + "` not found",
-                                      find_env_token_span(raw, dest),
-                                      raw);
+                                      find_env_token_span(raw, dest), raw);
                         err.with_code("E0601").with_label(
                             "unknown environment");
                         auto match = suggest(dest, config.list_envs());
@@ -411,8 +398,7 @@ namespace math_solver {
 
                     if (src.empty() || dest.empty()) {
                         MathError err("missing source or target environment",
-                                      find_env_token_span(raw, "cp"),
-                                      raw);
+                                      find_env_token_span(raw, "cp"), raw);
                         err.with_code("E0600").with_help(
                             "Usage: `:env cp <source_env> <target_env>`");
                         std::cout << err.format();
@@ -420,8 +406,7 @@ namespace math_solver {
                     }
                     if (!config.env_exists(src)) {
                         MathError err("environment `" + src + "` not found",
-                                      find_env_token_span(raw, src),
-                                      raw);
+                                      find_env_token_span(raw, src), raw);
                         err.with_code("E0601").with_label(
                             "unknown environment");
                         auto match = suggest(src, config.list_envs());
@@ -441,13 +426,23 @@ namespace math_solver {
                                   << ansi::bold << dest << ansi::reset << "'\n";
                         return HistoryStatus::Success;
                     } catch (const std::exception& e) {
-                        MathError err(
-                            e.what(), find_env_token_span(raw, dest), raw);
+                        MathError err(e.what(), find_env_token_span(raw, dest),
+                                      raw);
                         err.with_code("E0604");
                         std::cout << err.format();
                         return HistoryStatus::Error;
                     }
                 }
+            }
+            case EnvCommand::Action::Unknown: {
+                std::string         input   = cmd.raw_command();
+                std::string         bad_cmd = input.substr(0, input.find(' '));
+
+                UnknownCommandError e       = UnknownCommandError(
+                    bad_cmd, find_env_token_span(input, bad_cmd), input);
+
+                std::cout << e.format() << "\n";
+                return HistoryStatus::Error;
             }
             }
             return HistoryStatus::Unknown;

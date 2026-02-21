@@ -26,14 +26,14 @@ namespace math_solver {
         // Detect and prevent cycles in variable definitions.
         // This is critical to avoid infinite recursion in cases like `a = a +
         // 1`.
-        if (visited_.count(name)) {
-            throw CircularDependencyError(name, node.span(), input_);
+        if (auto it = visited_.find(name); it != visited_.end()) {
+            throw CircularDependencyError(name, it->second, input_);
         }
 
         // Recursively evaluate the expression bound to this variable.
         // Note: visited_ is used as a dynamic set for the current evaluation
         // stack.
-        visited_.insert(name);
+        visited_[name] = Span();
         const Expr& stored = context_->get_expr(name);
         stored.accept(*this);
         visited_.erase(name);

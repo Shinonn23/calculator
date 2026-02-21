@@ -25,7 +25,7 @@ namespace math_solver {
 
     class EnvCommand : public Command {
         public:
-        enum class Action { Show, List, Load, Save, New, Delete, Move, Copy };
+        enum class Action { Show, List, Load, Save, New, Delete, Move, Copy, Unknown };
 
         struct Flags {
             // When true, Move/Copy operates on a subset of variables (see

@@ -56,8 +56,7 @@ namespace math_solver {
                 const std::string& key = cmd.key();
                 if (key.empty()) {
                     MathError err("missing setting key",
-                                  find_token_span(raw, "get"),
-                                  raw);
+                                  find_token_span(raw, "get"), raw);
                     err.with_code("E0502").with_help(
                         "Usage: `:config get <key>`");
                     cout << err.format();
@@ -65,8 +64,7 @@ namespace math_solver {
                 }
                 if (!Settings::is_valid_key(key)) {
                     MathError err("unknown setting `" + key + "`",
-                                  find_token_span(raw, key),
-                                  raw);
+                                  find_token_span(raw, key), raw);
                     err.with_code("E0503").with_label("unknown setting key");
 
                     auto match = suggest(key, Settings::all_keys());
@@ -97,8 +95,7 @@ namespace math_solver {
 
                 if (key.empty() || value.empty()) {
                     MathError err("missing key or value",
-                                  find_token_span(raw, "set"),
-                                  raw);
+                                  find_token_span(raw, "set"), raw);
                     err.with_code("E0502").with_help(
                         "Usage: `:config set <key> <value>`");
                     cout << err.format();
@@ -107,8 +104,7 @@ namespace math_solver {
 
                 if (!Settings::is_valid_key(key)) {
                     MathError err("unknown setting `" + key + "`",
-                                  find_token_span(raw, key),
-                                  raw);
+                                  find_token_span(raw, key), raw);
                     err.with_code("E0503").with_label("unknown setting key");
 
                     auto match = suggest(key, Settings::all_keys());
@@ -124,8 +120,7 @@ namespace math_solver {
                 std::string err_msg = config.settings().set(key, value);
                 if (!err_msg.empty()) {
                     MathError err("invalid value for `" + key + "`: " + err_msg,
-                                  find_token_span(raw, value),
-                                  raw);
+                                  find_token_span(raw, value), raw);
                     err.with_code("E0504").with_label("invalid value");
                     cout << err.format();
                     return HistoryStatus::Error;
@@ -161,6 +156,17 @@ namespace math_solver {
                 config.save();
                 cout << "  Settings reset to defaults\n";
                 return HistoryStatus::Success;
+
+            case ConfigCommand::Action::Unknown: {
+                std::string         input   = cmd.raw_command();
+                std::string         bad_cmd = input.substr(0, input.find(' '));
+
+                UnknownCommandError e       = UnknownCommandError(
+                    bad_cmd, find_token_span(input, bad_cmd), input);
+
+                cout << e.format() << "\n";
+                return HistoryStatus::Error;
+            }
             }
 
             // Defensive: should be unreachable unless new actions are added

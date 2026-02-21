@@ -31,6 +31,7 @@ namespace math_solver {
             Search,
             Save,
             Clear,
+            Unknown
         };
 
         private:

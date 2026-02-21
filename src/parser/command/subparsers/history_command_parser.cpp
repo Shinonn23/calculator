@@ -170,8 +170,6 @@ namespace math_solver {
     }
 
     CommandPtr HistoryCommandParser::parse_save(ITokenStream& stream) {
-        // If no filepath is provided, downstream handler is responsible for
-        // emitting usage errors.
         if (stream.is_eof()) {
             return std::make_unique<HistoryCommand>(
                 HistoryCommand::Action::Save, stream.raw_input());
@@ -184,17 +182,20 @@ namespace math_solver {
             HistoryCommand::Action::Save, stream.raw_input());
         cmd->set_filepath(filepath);
 
-        // Optional selector: only accepted if token starts with a digit.
-        // This prevents flags from being misinterpreted as selectors.
         if (!stream.is_eof()) {
-            std::string selector = stream.peek().value;
-            stream.advance();
+            std::string full_selector = stream.consume_remaining();
 
-            if (!selector.empty() &&
-                std::isdigit(static_cast<unsigned char>(selector[0]))) {
-                // Range parsing is delegated; handler validates bounds.
-                auto range = HistoryRange::parse(selector);
-                cmd->set_range(range);
+            full_selector.erase(
+                std::remove(full_selector.begin(), full_selector.end(), ' '),
+                full_selector.end());
+
+            if (!full_selector.empty() &&
+                std::isdigit(static_cast<unsigned char>(full_selector[0]))) {
+                try {
+                    auto range = HistoryRange::parse(full_selector);
+                    cmd->set_range(range);
+                } catch (...) {
+                }
             }
         }
 

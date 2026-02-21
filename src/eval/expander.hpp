@@ -10,7 +10,6 @@
 #include "runtime/context/context.hpp"
 #include <memory>
 #include <string>
-#include <unordered_set>
 
 namespace math_solver {
 
@@ -37,7 +36,7 @@ namespace math_solver {
         ExprPtr                         result_;
         const Context&                  context_;
         std::string                     input_;
-        std::unordered_set<std::string> visited_;
+        std::unordered_map<std::string, Span> visited_;
 
         public:
         explicit Expander(const Context& ctx) : context_(ctx), input_() {}
@@ -55,8 +54,8 @@ namespace math_solver {
 
         // Used for recursive expansion with explicit visited set (e.g., for
         // nested expansion).
-        ExprPtr expand(const Expr&                      expr,
-                       std::unordered_set<std::string>& visited) {
+        ExprPtr expand(const Expr& expr,
+                       std::unordered_map<std::string, Span>& visited) {
             visited_ = visited;
             expr.accept(*this);
             visited = visited_;
@@ -78,7 +77,7 @@ namespace math_solver {
             if (visited_.count(name)) {
                 throw CircularDependencyError(name, node.span(), input_);
             }
-            visited_.insert(name);
+            visited_[name] = node.span();
             context_.get_expr(name).accept(*this);
             visited_.erase(name);
         }

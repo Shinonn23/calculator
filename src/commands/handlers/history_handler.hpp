@@ -118,21 +118,26 @@ namespace math_solver {
             }
         }
 
-        // Writes the provided entries to the specified file.
-        // Overwrites any existing file. Returns false on I/O failure.
-        // Entries are written in the same format as append_history_file.
+        // Writes entries to `filepath`, overwriting any existing file.
+        // - Format matches append_history_file for consistency with persistent
+        // history.
+        // - Returns false if file cannot be opened for writing.
+        // - Entries are written in the order provided; caller is responsible
+        // for ordering and filtering.
+        // - No atomicity or fsync; partial writes possible on I/O error or
+        // crash.
         inline bool save_history_to_file(
             const std::string&                               filepath,
             const std::vector<std::pair<int, HistoryEntry>>& entries) {
             std::ofstream file(filepath);
-            if (!file.is_open())
+            if (!file.is_open()) {
                 return false;
+            }
 
             for (const auto& [idx, entry] : entries) {
-                file << entry.timestamp << " [" << to_string(entry.status)
-                     << "]\n"
-                     << entry.command << "\n\n";
+                file << entry.command << "\n";
             }
+
             return true;
         }
 
@@ -273,14 +278,17 @@ namespace math_solver {
                 }
 
                 std::vector<std::pair<int, HistoryEntry>> entries;
+
                 if (cmd.range().empty()) {
                     for (int i = 0;
                          i < static_cast<int>(session_history.size());
                          ++i) {
-                        if (should_show_entry(session_history[i], cmd))
+                        if (should_show_entry(session_history[i], cmd)) {
                             entries.emplace_back(i + 1, session_history[i]);
+                        }
                     }
-                } else {
+                }
+                else {
                     std::vector<int>         indices;
                     std::string              err;
                     std::vector<std::string> commands;
@@ -296,14 +304,17 @@ namespace math_solver {
                         std::cout << math_err.format();
                         return HistoryStatus::Error;
                     }
+
                     for (int i : indices) {
-                        if (should_show_entry(session_history[i], cmd))
+                        if (should_show_entry(session_history[i], cmd)) {
                             entries.emplace_back(i + 1, session_history[i]);
+                        }
                     }
                 }
 
                 if (save_history_to_file(cmd.filepath(), entries)) {
                     std::cout << "  Saved " << entries.size()
+                              << (cmd.has_any_flag() ? " filtered" : "")
                               << " entry(s) to '" << cmd.filepath() << "'\n";
                     return HistoryStatus::Success;
                 } else {
@@ -324,6 +335,18 @@ namespace math_solver {
                 std::cout << "  History cleared\n";
                 return HistoryStatus::Info;
             }
+
+            case HistoryCommand::Action::Unknown: {
+                std::string         input   = cmd.raw_command();
+                std::string         bad_cmd = input.substr(0, input.find(' '));
+
+                UnknownCommandError e = UnknownCommandError(
+                    bad_cmd, find_token_span(input, bad_cmd), input);
+
+                std::cout << e.format() << "\n";
+                return HistoryStatus::Error;
+            }
+
             }
             return HistoryStatus::Unknown;
         }

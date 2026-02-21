@@ -1,5 +1,6 @@
 #include "runner.hpp"
 #include "ast/command/load_command.hpp"
+#include "core/error.hpp"
 #include "parser/command/command_parser.hpp"
 #include "ui/color.hpp"
 #include "utils/string_utils.hpp"
@@ -66,13 +67,15 @@ namespace math_solver {
                     should_exit = true;
                 }
                 status = registry_.last_command_status();
-            } catch (const std::exception& e) {
+            }
+
+            catch (const MathError& e) {
+                std::cout << e.format() << "\n";
+                status = HistoryStatus::Error;
+            }
+            catch (const std::exception& e) {
                 std::cout << ansi::red << "  Error: " << ansi::reset << e.what()
                           << "\n";
-                status = HistoryStatus::Error;
-            } catch (...) {
-                std::cout << ansi::red << "  Unknown error occurred."
-                          << ansi::reset << "\n";
                 status = HistoryStatus::Error;
             }
 
@@ -84,20 +87,22 @@ namespace math_solver {
         }
     }
 
-    // Script execution is intentionally tolerant of errors: continues
-    // processing subsequent lines after failures, only incrementing the error
-    // count for lines that fail at the handler level or throw exceptions.
+    // Script execution is designed to maximize robustness:
+    // - Continues processing after handler-level failures or exceptions.
+    // - Only increments error count once per line, regardless of multiple error
+    // paths.
+    // - Maintains registry_ invariants across all error conditions.
+    // - Skips empty lines and comment lines (lines starting with '#').
+    // - Echoes executed lines unless flags.silent is set.
+    // - flags.dry_run disables execution but still parses and prints lines.
     //
-    // - Skips empty lines and comments (lines starting with '#').
-    // - If flags.silent is unset, echoes each executed line with line number.
-    // - If flags.dry_run is set, skips execution but still parses and prints
-    // lines.
+    // Subtlety: Error reporting in silent mode requires temporarily restoring
+    // std::cout to ensure visibility of failures. This avoids silent loss of
+    // diagnostics.
     //
-    // Subtlety: Errors are only counted once per line, even if both handler and
-    // exception paths are triggered. This avoids double-counting.
-    //
-    // Invariant: registry_ must be left in a consistent state regardless of
-    // script errors.
+    // Performance: Stream redirection for silent mode is localized to minimize
+    // overhead. Interaction: Any changes to environment switching must be
+    // coordinated with registry_ and context management logic elsewhere.
     void Runner::run_script(const std::string&        filepath,
                             const LoadCommand::Flags& flags) {
         std::ifstream file(filepath);
@@ -107,43 +112,70 @@ namespace math_solver {
             return;
         }
 
-        std::string line;
-        int         line_no = 0;
-        int         errors  = 0;
+        // --- 1. สลับ Environment (ถ้าระบุมา) ---
+        std::string old_env;
+        bool        should_switch_back = false;
+        if (!flags.env.empty()) {
+            old_env =
+                registry_.current_env(); // คุณอาจต้องเพิ่ม getter นี้ใน registry
+            // จำลองการรันคำสั่ง :env load <name> แบบเงียบๆ
+            run_line(":env load " + flags.env);
+            should_switch_back = true;
+        }
+
+        std::string       line;
+        int               line_no = 0, errors = 0;
+        std::stringstream garbage;
+        std::streambuf*   old_cout = std::cout.rdbuf();
 
         while (std::getline(file, line)) {
             ++line_no;
-
             auto trimmed = trim(line);
             if (trimmed.empty() || trimmed[0] == '#')
                 continue;
 
-            if (!flags.silent)
+            // Echo คำสั่ง (ถ้าไม่เงียบ)
+            if (!flags.silent) {
                 std::cout << ansi::dim << "  [" << line_no << "] " << trimmed
                           << ansi::reset << "\n";
+            }
 
+            // รันคำสั่ง (ถ้าไม่ใช้ dry-run)
             if (!flags.dry_run) {
+                if (flags.silent)
+                    std::cout.rdbuf(garbage.rdbuf()); // ย้ายทางน้ำไปลงถังขยะ
+
                 try {
                     run_line(trimmed);
-                    // If handler signals failure (e.g., semantic error), count
-                    // as error.
-                    if (registry_.last_command_status() ==
-                        HistoryStatus::Error) {
-                        ++errors;
-                    }
+                    if (registry_.last_command_status() == HistoryStatus::Error)
+                        errors++;
                 } catch (const std::exception& e) {
-                    ++errors;
+                    errors++;
+                    std::cout.rdbuf(old_cout); // คืนค่าชั่วคราวเพื่อพ่น error
                     std::cout << ansi::red << "  Error at line " << line_no
                               << ": " << ansi::reset << e.what() << "\n";
+                    if (flags.silent)
+                        std::cout.rdbuf(garbage.rdbuf());
                 }
+
+                std::cout.rdbuf(old_cout); // คืนค่าปกติหลังจบบรรทัด
             }
         }
 
-        std::cout << "  Loaded '" << filepath << "' (" << line_no << " lines";
-        if (errors)
-            std::cout << ", " << ansi::red << errors << " error(s)"
-                      << ansi::reset;
-        std::cout << ")\n";
+        // --- 2. สลับ Environment กลับ ---
+        if (should_switch_back) {
+            run_line(":env load " + old_env);
+        }
+
+        // สรุปผล
+        if (!flags.silent || errors > 0) {
+            std::cout << "  Loaded '" << filepath << "' (" << line_no
+                      << " lines";
+            if (errors)
+                std::cout << ", " << ansi::red << errors << " error(s)"
+                          << ansi::reset;
+            std::cout << ")\n";
+        }
     }
 
 } // namespace math_solver

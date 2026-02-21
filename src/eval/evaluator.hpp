@@ -5,7 +5,6 @@
 #include "ast/math/number_expr.hpp"
 #include "ast/math/variable_expr.hpp"
 #include "runtime/context/context.hpp"
-#include <unordered_set>
 
 namespace math_solver {
 
@@ -32,10 +31,10 @@ namespace math_solver {
     // - No side effects on `context_` or the AST.
     class Evaluator : public ExprVisitor {
         private:
-        double                          result_;
-        const Context*                  context_;
-        std::string                     input_;
-        std::unordered_set<std::string> visited_;
+        double                                result_;
+        const Context*                        context_;
+        std::string                           input_;
+        std::unordered_map<std::string, Span> visited_;
 
         public:
         Evaluator() : result_(0.0), context_(nullptr), input_() {}

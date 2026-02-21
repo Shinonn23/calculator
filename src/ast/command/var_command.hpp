@@ -24,7 +24,7 @@ namespace math_solver {
     // Performance: Avoids heap allocations unless payloads are present.
     class VarCommand : public Command {
         public:
-        enum class Action { Set, Unset };
+        enum class Action { Set, Unset, Unknown };
 
         private:
         Action                     action_;

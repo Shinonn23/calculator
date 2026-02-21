@@ -12,7 +12,7 @@ namespace math_solver {
         // Represents the high-level operation requested by the user.
         // The set of variants is expected to remain stable; adding new ones
         // may require changes in downstream consumers (e.g., CommandVisitor).
-        enum class Type { Evaluate, Solve, Simplify, Expand, Factor };
+        enum class Type { Evaluate, Solve, Simplify, Expand, Factor, Unknown };
 
         private:
         Type                     type_;
