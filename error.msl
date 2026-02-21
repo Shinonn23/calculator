@@ -1,0 +1,15 @@
+:config ste output.mode decimal
+:config get
+:config get output.decmals
+:config get fracton_mode
+:config set
+:config set output.mode banana
+:config set output.decimals abc
+:config set output.decimals -5
+:config set output.decimals 99
+:config set solver.tolerance -1
+:config set history.size 0
+:config set output.fraction yes
+
+# Test auto_load_env
+:config set auto_load_env ghost_env

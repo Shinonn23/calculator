@@ -7,35 +7,38 @@
 
 namespace math_solver {
 
-    // Base class for all command AST nodes.
-    //
-    // - Each Command instance owns its raw textual representation, which is
-    //   preserved for diagnostics and round-tripping.
-    // - Subclasses must implement accept() for the visitor pattern; this is
-    //   used by all passes that operate on commands (e.g., semantic analysis,
-    //   lowering, etc).
-    // - Lifetime: Command objects are always heap-allocated and managed via
-    //   CommandPtr. No shared ownership is assumed.
-    // - Invariant: raw_command_ must always be a valid, non-empty string
-    //   corresponding to the original user input.
     class Command {
         protected:
         std::string raw_command_;
+        // Tracks the origin of the command for diagnostics and error reporting.
+        // Invariants:
+        // - source_file_ is always non-empty.
+        // - source_line_ is always >= 1.
+        std::string source_file_ = "<repl>";
+        size_t      source_line_ = 1;
 
         public:
         explicit Command(const std::string& raw) : raw_command_(raw) {}
         virtual ~Command() = default;
 
-        // Returns the original command string as provided by the user.
-        // Used for error reporting and debugging; not intended for parsing.
         const std::string& raw_command() const { return raw_command_; }
+        const std::string& source_file() const { return source_file_; }
+        size_t             source_line() const { return source_line_; }
 
-        // Accepts a visitor for double-dispatch. Subclasses must implement
-        // this to ensure correct dispatch for all command kinds.
-        virtual void       accept(CommandVisitor& visitor) const = 0;
+        // Updates the source location metadata.
+        // Used by the parser to associate commands with their origin.
+        // Must be called before any error reporting that depends on source
+        // location.
+        void               set_source(const std::string& file, size_t line) {
+            source_file_ = file;
+            source_line_ = line;
+        }
+
+        // Accepts a visitor for double-dispatch.
+        // Subclasses must implement this to participate in the visitor pattern.
+        virtual void accept(CommandVisitor& visitor) const = 0;
     };
 
-    // Unique ownership for Command AST nodes.
     using CommandPtr = std::unique_ptr<Command>;
 
 } // namespace math_solver

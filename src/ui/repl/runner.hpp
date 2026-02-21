@@ -15,31 +15,43 @@ namespace math_solver {
         }
 
         // Entry point for interactive REPL session.
+        //
         // - Assumes `current_env` is a valid environment identifier and may be
-        // mutated by commands.
-        // - `rx` must be a valid, initialized replxx instance; ownership is not
-        // transferred.
-        // - Side effects: may mutate global state via registry handlers.
+        //   mutated by commands dispatched through the registry.
+        // - `rx` must be a valid, initialized replxx instance; lifetime is
+        // managed externally.
+        // - Mutates global state only via registry handlers.
+        // - REPL state is not guaranteed to be preserved across invocations.
         void run_interactive(replxx::Replxx& rx, std::string& current_env);
 
-        // Executes a script file in batch mode.
+        // Batch script execution.
+        //
         // - `filepath` must refer to a readable file; errors are surfaced via
         // handler return values.
         // - `flags` controls script loading semantics (see LoadCommand::Flags).
         // - Designed for non-interactive use; does not mutate REPL state.
+        // - No side effects outside of registry handler invocations.
         void run_script(const std::string&        filepath,
                         const LoadCommand::Flags& flags);
 
-        // Executes a single line as a command.
-        // - Returns true if the line was handled successfully, false otherwise.
+        // Dispatches a single command line.
+        //
+        // - Returns true if the command was handled successfully, false
+        // otherwise.
         // - Used by both REPL and script loader; must remain side-effect free
         // except via registry_.
+        // - Invariant: registry_ must be valid for the lifetime of this Runner.
         bool run_line(const std::string& line);
 
         private:
-        // Invariant: registry_ must outlive this Runner instance.
-        // All command dispatches are routed through this registry.
+        // registry_ must outlive this Runner; all command dispatches are routed
+        // through it.
         HandlerRegistry& registry_;
+
+        // Helper for command dispatch; returns true on success.
+        // Assumes cmd is a valid, heap-allocated command pointer.
+        // May mutate registry state depending on handler implementation.
+        bool             dispatch_cmd(CommandPtr& cmd);
     };
 
 } // namespace math_solver

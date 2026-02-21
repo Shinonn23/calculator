@@ -50,6 +50,7 @@ add_library(math_core
     src/algebra/polynomial/factor.cpp
     src/algebra/solver/solver.cpp
     src/commands/registry.cpp
+    src/config/config.cpp
     src/eval/evaluator.cpp
     src/lexer/command/command_token_stream.cpp
     src/parser/command/command_parser.cpp

@@ -6,21 +6,21 @@
 
 namespace math_solver {
 
-    // CommandTokenStream provides a token stream abstraction over CommandLexer.
+    // Provides a single-pass token stream abstraction over CommandLexer.
     //
     // Invariant: `current_` always holds the most recently produced token,
-    // including Eof. This ensures that `peek()` is side-effect free and
+    // including Eof. This ensures `peek()` is side-effect free and
     // `advance()` always progresses the stream.
     //
-    // The stream is single-pass; no backtracking or lookahead beyond `peek()`
-    // is supported. This is intentional to keep the interface minimal and
-    // predictable for downstream consumers (e.g., parser).
+    // - No lookahead or backtracking is supported; this is intentional to
+    //   minimize state and avoid subtle bugs in parser/consumer logic.
+    // - `raw_input_` is retained verbatim for diagnostics; must match the
+    //   original input exactly for correct error reporting.
+    // - Construction is intentionally cheap; all lexing is deferred until
+    //   tokens are requested. No internal buffering beyond `current_`.
     //
-    // `raw_input_` is retained for diagnostics and error reporting; it must
-    // always match the original input passed at construction.
-    //
-    // Performance: Construction is cheap; all lexing is deferred until tokens
-    // are requested. No internal buffering beyond `current_`.
+    // Correctness relies on CommandLexer producing a valid token stream
+    // (including Eof) and not mutating input state externally.
     class CommandTokenStream : public ITokenStream {
         CommandLexer lexer_;
         CommandToken current_;
@@ -35,6 +35,19 @@ namespace math_solver {
             return current_.is(CommandTokenType::Eof);
         }
         const std::string& raw_input() const override { return raw_input_; }
+
+        // Returns the unconsumed suffix of the input, or empty if at Eof.
+        // Used for diagnostics; correctness depends on `raw_input_` being
+        // unmodified and `tok.start` accurately tracking the current offset.
+        std::string        consume_remaining() override {
+            const CommandToken& tok = peek();
+            if (is_eof())
+                return "";
+            const std::string& input = raw_input();
+            if (tok.start >= input.size())
+                return "";
+            return input.substr(tok.start);
+        }
     };
 
 } // namespace math_solver

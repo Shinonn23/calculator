@@ -18,13 +18,23 @@
 namespace math_solver {
     namespace handlers {
 
-        // Entry point for equation solving.
+        // Entry: equation solving.
+        //
         // - Attempts to isolate a single unknown if possible, using a temporary
-        // context to avoid clobbering unrelated variables.
-        // - If multiple unknowns, falls back to using the full context.
-        // - Assumes payload is a valid equation string.
+        // context
+        //   to avoid polluting unrelated variables. This is critical to avoid
+        //   accidental shadowing or mutation of variables not involved in the
+        //   solve.
+        // - If multiple unknowns, falls back to using the full context, which
+        // may
+        //   introduce ambiguity if variable names overlap.
+        // - Assumes payload is a valid equation string (parser is responsible
+        // for syntax).
         // - On success, updates the context with the solved variable.
-        // - Suggests similar variable names on undefined variable errors.
+        // - Suggests similar variable names on undefined variable errors to
+        // mitigate
+        //   user typos (UI/ergonomics).
+        // - Invariant: context must remain consistent after error paths.
         inline HistoryStatus do_solve(const std::string& payload, Context& ctx,
                                       Config& /*config*/) {
             if (payload.empty()) {
@@ -41,8 +51,8 @@ namespace math_solver {
                     unknowns = (lc.collect(eq->lhs()) - lc.collect(eq->rhs()))
                                    .variables();
                 } catch (...) {
-                    // Fallback: contextless collection, disables type-based
-                    // inference.
+                    // Fallback: disables type-based inference, which may reduce
+                    // precision but avoids dependency on context state.
                     LinearCollector lc(nullptr, payload, true);
                     unknowns = (lc.collect(eq->lhs()) - lc.collect(eq->rhs()))
                                    .variables();
@@ -51,8 +61,9 @@ namespace math_solver {
                 const Context* solve_ctx = &ctx;
                 Context        temp_ctx;
                 if (unknowns.size() == 1) {
-                    // Only isolate the target variable; exclude others from
-                    // context to avoid accidental shadowing.
+                    // Only the target variable is retained in the context to
+                    // avoid accidental shadowing or leakage from unrelated
+                    // bindings.
                     const std::string& target = *unknowns.begin();
                     if (ctx.has(target)) {
                         for (const auto& [name, expr] : ctx.all())
@@ -71,7 +82,8 @@ namespace math_solver {
                 return HistoryStatus::Success;
 
             } catch (const UndefinedVariableError& undef_err) {
-                // Suggests similar variable names to mitigate user typos.
+                // Suggest similar variable names for diagnostics; improves UX
+                // but does not affect correctness.
                 auto match = suggest(undef_err.var_name(), ctx.all_names());
                 if (match) {
                     undef_err.with_help(
@@ -82,8 +94,7 @@ namespace math_solver {
                 return HistoryStatus::Error;
             } catch (const MathError& e) {
                 std::cout << e.format();
-                // NonLinearError is surfaced with a hint for variable
-                // definition.
+                // NonLinearError: surface with a hint for variable definition.
                 if (dynamic_cast<const NonLinearError*>(&e))
                     std::cout << ansi::dim
                               << "  Hint: use :set to define variables\n"
@@ -92,11 +103,17 @@ namespace math_solver {
             }
         }
 
-        // Canonicalizes and simplifies equations.
+        // Canonicalization and simplification of equations.
+        //
         // - Honors variable order and isolation flags from the command and
         // config.
-        // - Emits warnings for non-canonical or ambiguous forms.
-        // - Returns warning status if any warnings are present.
+        // - Emits warnings for non-canonical or ambiguous forms; these are
+        // surfaced
+        //   to the user but do not abort processing.
+        // - Returns warning status if any warnings are present, which may be
+        // used
+        //   by higher layers for diagnostics or UI.
+        // - Assumes payload is syntactically valid.
         inline HistoryStatus do_simplify(const std::string& payload,
                                          const MathCommand& cmd, Context& ctx,
                                          Config& config) {
@@ -113,7 +130,7 @@ namespace math_solver {
                 opts.var_order = cmd.specific_vars();
                 opts.isolated  = cmd.isolated();
                 opts.as_fraction =
-                    cmd.as_fraction() || config.settings().fraction_mode;
+                    cmd.as_fraction() || config.settings().output_fraction;
 
                 Simplifier     simplifier(&ctx, payload);
                 SimplifyResult result      = simplifier.simplify(*eq, opts);
@@ -152,10 +169,12 @@ namespace math_solver {
             }
         }
 
-        // Expands polynomial expressions.
-        // - Assumes input is a valid expression.
+        // Polynomial expansion.
+        //
         // - Converts AST to polynomial and prints expanded form.
         // - No fallback for non-polynomial input; errors are surfaced.
+        // - Assumes input is a valid expression.
+        // - No side effects on context.
         inline HistoryStatus do_expand(const std::string& payload,
                                        Context&           ctx) {
             if (payload.empty()) {
@@ -183,9 +202,11 @@ namespace math_solver {
             }
         }
 
-        // Factors polynomial expressions.
+        // Polynomial factorization.
+        //
         // - Only operates on valid polynomial input; errors otherwise.
         // - Returns factored form as a string.
+        // - No context mutation.
         inline HistoryStatus do_factor(const std::string& payload,
                                        Context&           ctx) {
             if (payload.empty()) {
@@ -214,12 +235,17 @@ namespace math_solver {
             }
         }
 
-        // Evaluates expressions or equations numerically.
+        // Numeric evaluation of expressions or equations.
+        //
         // - For equations, checks for approximate equality within a tight
         // epsilon.
+        //   This is a correctness tradeoff: floating-point comparison is
+        //   inherently lossy, but 1e-12 is chosen to minimize false negatives
+        //   for typical use.
         // - For expressions, prints the evaluated value.
         // - No fallback expansion; errors are surfaced directly.
         // - Catches std::exception as a last resort to avoid process abort.
+        // - Invariant: context is not mutated.
         inline HistoryStatus do_evaluate(const std::string& payload,
                                          Context& ctx, Config& /*config*/) {
             if (payload.empty())
@@ -247,7 +273,7 @@ namespace math_solver {
                     return HistoryStatus::Success;
                 }
             } catch (const UndefinedVariableError& undef_err) {
-                // Suggests similar variable names for undefined identifiers.
+                // Suggest similar variable names for diagnostics.
                 auto match = suggest(undef_err.var_name(), ctx.all_names());
                 if (match) {
                     undef_err.with_help(
@@ -267,9 +293,14 @@ namespace math_solver {
             }
         }
 
-        // Dispatches math commands to the appropriate handler.
+        // Math command dispatcher.
+        //
         // - Invariant: cmd.type() must be a valid MathCommand::Type.
-        // - Returns Unknown for unhandled types (should not occur).
+        // - Returns Unknown for unhandled types (should not occur in normal
+        // operation).
+        // - This is the main entry point for math command handling; all
+        // math-related
+        //   commands are routed through this function.
         inline HistoryStatus handle_math(const MathCommand& cmd, Context& ctx,
                                          Config& config) {
             const std::string& payload = cmd.payload();

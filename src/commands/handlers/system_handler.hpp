@@ -7,121 +7,146 @@
 #include "runtime/context/context.hpp"
 #include "ui/color.hpp"
 
+#include <iomanip>
 #include <iostream>
 #include <string>
 
 namespace math_solver {
     namespace handlers {
 
-        // Prints the help message for all supported commands.
+        // Centralized help output for all supported commands.
         //
+        // - Must be kept in sync with parser and command set; any additions or
+        //   removals require updating this output to avoid user confusion.
+        // - If the command set grows substantially, consider extracting help
+        //   text to a single authoritative source to avoid duplication.
         // - Not performance critical; invoked only on explicit user request.
-        // - Output must be kept in sync with the parser and command set.
-        // - Any additions to the command set require updating this output.
-        // - If the command set grows, consider extracting help text to a single
-        // source.
         inline void print_help() {
             using std::cout;
-            cout
-                << "\n"
-                << ansi::bold
-                << "╔══════════════════════════════════════════════════════╗"
-                << ansi::reset << "\n"
-                << ansi::bold
-                << "║                CMath Solver - Help Menu              ║"
-                << ansi::reset << "\n"
-                << ansi::bold
-                << "╚══════════════════════════════════════════════════════╝"
-                << ansi::reset << "\n\n"
 
-                << ansi::bold << "1. [ Evaluation & Equations ]" << ansi::reset
-                << "\n"
-                << "   <expr>                      Evaluate expression (e.g., "
-                   "2 + 3 * (5^2))\n"
-                << "   <lhs> = <rhs>               Check if the equation is "
-                   "true or false\n"
-                << "   :solve <eq>                 Solve for a single unknown "
-                   "(auto-saves result)\n"
-                << "   :simplify <eq>              Simplify equation to "
-                   "canonical form\n"
-                << "      -vars x y                (Flag) Define variable "
-                   "ordering\n"
-                << "      -isolated                (Flag) Do not substitute "
-                   "context variables\n"
-                << "      -fraction                (Flag) Display results as "
-                   "fractions\n\n"
+            auto section = [&](const char* title) {
+                cout << "\n" << ansi::bold << title << ansi::reset << "\n";
+            };
 
-                << ansi::bold << "2. [ Variable Management ]" << ansi::reset
-                << "\n"
-                << "   :set <var> <expr>           Create or update a variable "
-                   "(e.g., :set x 10)\n"
-                << "   :set <var> <cmd> <input>    Execute a command and store "
-                   "result in <var>\n"
-                << "                               (e.g., :set x solve y+2=5)\n"
-                << "   :unset <var>                Remove a specific variable\n"
-                << "   :ls                         List all variables and "
-                   "their current values\n"
-                << "   :clear                      Clear all variables in the "
-                   "current environment\n\n"
+            auto cmd = [&](const char* name, const char* desc) {
+                cout << "  " << ansi::bold << std::left << std::setw(32) << name
+                     << ansi::reset << desc << "\n";
+            };
 
-                << ansi::bold << "3. [ Polynomial Operations ]" << ansi::reset
-                << "\n"
-                << "   :expand <expr>              Expand polynomials (e.g., "
-                   "(x+1)^2 -> x^2+2x+1)\n"
-                << "   :factor <expr>              Factorize a polynomial "
-                   "expression\n\n"
+            auto flag = [&](const char* name, const char* desc) {
+                cout << "    " << ansi::dim << std::left << std::setw(30)
+                     << name << ansi::reset << desc << "\n";
+            };
 
-                << ansi::bold << "4. [ Environments (Context) ]" << ansi::reset
-                << "\n"
-                << "   :env                        Show the name of the active "
-                   "environment\n"
-                << "   :env list                   List all available "
-                   "environments\n"
-                << "   :env new <name>             Create a new environment "
-                   "(workspace)\n"
-                << "   :env load <name>            Switch to a specific "
-                   "environment\n"
-                << "   :env delete <name>          Delete an environment\n"
-                << "   :env cp <src> <dst>         Copy all variables from src "
-                   "to dst environment\n"
-                << "   :env mv <src> <dst>         Rename an environment\n"
-                << "   :env save [name]            Persist variables to "
-                   "storage\n\n"
+            auto note = [&](const char* text) {
+                cout << "  " << ansi::dim << text << ansi::reset << "\n";
+            };
 
-                << ansi::bold << "5. [ System & History ]" << ansi::reset
-                << "\n"
-                << "   :history [n]                Show command history (n for "
-                   "last n entries)\n"
-                << "   :history search <pat>       Search history for a "
-                   "specific pattern\n"
-                << "   :history save <file>        Export history as a script "
-                   "file (.msl)\n"
-                << "   :history clear              Clear all command history\n"
-                << "   :redo [n]                   Re-execute last command (or "
-                   "nth command)\n"
-                << "   :load <filepath>            Execute commands from an "
-                   "external script\n"
-                << "      --dry-run                (Flag) Parse only, do not "
-                   "execute commands\n"
-                << "      --silent                 (Flag) Execute without "
-                   "displaying output\n\n"
+            cout << "\n"
+                 << ansi::bold
+                 << "╔══════════════════════════════════════════════════════╗\n"
+                 << "║              CMath Solver  —  Help Menu              ║\n"
+                 << "╚══════════════════════════════════════════════════════╝"
+                 << ansi::reset << "\n";
 
-                << ansi::bold << "6. [ Configuration ]" << ansi::reset << "\n"
-                << "   :config list                Show all settings "
-                   "(Precision, Fraction Mode, etc.)\n"
-                << "   :config set <key> <val>     Update a specific "
-                   "configuration value\n"
-                << "   :config reset               Restore all settings to "
-                   "factory defaults\n\n"
+            section("1. Evaluation & Equations");
+            cmd("<expr>", "Evaluate an expression");
+            note("e.g.  2 + 3 * (5^2)   or   sin(pi/2)");
+            cmd("<lhs> = <rhs>", "Check equality (returns true/false)");
+            cmd(":solve <eq>", "Solve for the unknown, auto-saves result");
+            note("e.g.  :solve 2x + 3 = 7");
+            cmd(":simplify <eq>", "Canonicalise equation to Ax + By = C form");
+            flag("--vars x y", "Force variable ordering in output");
+            flag("--isolated",
+                 "Treat all identifiers as unknowns (ignore context)");
+            flag("--fraction", "Display coefficients as fractions");
+            cmd(":expand <expr>", "Expand to standard polynomial form");
+            note("e.g.  :expand (x+1)^3");
+            cmd(":factor <expr>", "Factorise a polynomial expression");
 
-                << "   :help                       Show this help menu\n"
-                << "   exit / quit / :q            Exit the solver\n"
-                << std::string(56, '-') << "\n";
+            section("2. Variable Management");
+            cmd(":set <var> <expr>",
+                "Bind a variable to an expression or value");
+            note("e.g.  :set g 9.81   or   :set r 3/4");
+            cmd(":set <var> solve <eq>", "Solve and store result in <var>");
+            cmd(":set <var> expand <expr>", "Expand and store result in <var>");
+            cmd(":set <var> factor <expr>",
+                "Factorise and store result in <var>");
+            cmd(":unset <var>", "Remove a variable from the current context");
+            cmd(":rm <var>", "Alias for :unset");
+            cmd(":ls", "List all variables with their current values");
+            cmd(":clear", "Remove all variables from the current environment");
+
+            section("3. Environments  (isolated variable workspaces)");
+            cmd(":env", "Show the name of the active environment");
+            cmd(":env list", "List all environments  (* marks active)");
+            cmd(":env new <name>", "Create a new empty environment");
+            cmd(":env load <name>",
+                "Switch to an environment (saves current first)");
+            cmd(":env save [name]",
+                "Persist current variables (defaults to active env)");
+            flag("--vars x y", "Save only specific variables");
+            cmd(":env delete <name>",
+                "Delete an environment (active env is protected)");
+            cmd(":env mv <src> <dst>", "Rename an environment");
+            cmd(":env cp <src> <dst>", "Duplicate an environment");
+            cmd(":env mv --vars x y --to <env>",
+                "Move variables to another env (removes from current)");
+            cmd(":env cp --vars x y --to <env>",
+                "Copy variables to another env (keeps in current)");
+
+            section("4. History");
+            cmd(":history", "Show last 20 commands");
+            cmd(":history <n>", "Show last n commands");
+            cmd(":history all", "Show entire history");
+            cmd(":history <n> <m>", "Show commands in index range [n, m]");
+            cmd(":history search <pat>", "Filter history by pattern");
+            note("e.g.  :history search :set");
+            cmd(":history save <file>",
+                "Export history as a runnable .msl script");
+            note("e.g.  :history save session.msl   or   :history save out.msl "
+                 "1,3,5-8");
+            flag("--errors", "Show only commands that resulted in an error");
+            cmd(":history clear", "Clear all history (in-memory and on disk)");
+
+            section("5. Redo");
+            cmd(":redo", "Re-execute the last command");
+            cmd(":redo <n>", "Re-execute command at index n");
+            cmd(":redo <selector>",
+                "Re-execute a set of commands by index/range");
+            note("selector syntax:  5   or   1,3,7   or   4-6   or   1,3,5-8");
+
+            section("6. Scripts  (.msl files)");
+            cmd(":load <file.msl>", "Run all commands from a script file");
+            flag("--dry-run", "Parse and echo commands without executing");
+            flag("--silent", "Suppress output except errors");
+            flag("--env <name>",
+                 "Execute script inside a specific environment");
+            note("Script format: one command per line; lines starting with # "
+                 "are comments");
+            note("e.g.  :load setup.msl   or   :history save today.msl  →  "
+                 ":load today.msl");
+
+            section("7. Configuration");
+            cmd(":config", "List all settings and their current values");
+            cmd(":config get <key>", "Show the value of a specific setting");
+            cmd(":config set <key> <val>", "Update a setting");
+            note("e.g.  :config set output.fraction true");
+            cmd(":config path", "Show the path to the config file");
+            cmd(":config reset", "Restore all settings to factory defaults");
+
+            section("8. System");
+            cmd(":help  /  :h", "Show this help menu");
+            cmd(":clear  /  :cls", "Clear the terminal screen");
+            cmd("exit  /  quit  /  :q", "Exit the solver");
+
+            cout << "\n" << std::string(56, '-') << "\n";
         }
 
         // Handles system-level commands (exit, help, clear, ls).
         //
-        // - Invariant: `cmd` must be a valid SystemCommand variant.
+        // - Invariant: `cmd` must be a valid SystemCommand variant as produced
+        // by the parser.
         // - Only `ctx` is mutated, and only for commands that require it.
         // - Not performance sensitive; system commands are rare in normal
         // usage.
@@ -139,25 +164,29 @@ namespace math_solver {
             switch (cmd.type()) {
             case SystemCommand::Type::Exit:
                 // Signals REPL termination. No resource cleanup here; handled
-                // at a higher layer.
+                // at a higher layer. Must ensure no further commands are
+                // processed after this returns Success with out_should_exit =
+                // true.
                 out_should_exit = true;
                 return HistoryStatus::Success;
 
             case SystemCommand::Type::Help:
+                // Help output is side-effect free and does not mutate any
+                // state.
                 print_help();
                 return HistoryStatus::Info;
 
             case SystemCommand::Type::Clear:
                 // Emits ANSI escape codes to clear the terminal.
-                // Not guaranteed to work on all terminals.
+                // Not guaranteed to work on all terminals; no fallback
+                // provided.
                 std::cout << "\033[2J\033[H";
                 return HistoryStatus::Info;
 
             case SystemCommand::Type::Ls: {
-                // Lists all variables in the current context.
-                // Output is aligned for readability.
-                // If context is empty, prints a message.
-                // Assumes ctx.all() returns a stable snapshot.
+                // Variable listing is snapshot-based; assumes ctx.all() returns
+                // a stable view of the current context. Output is aligned for
+                // readability. If context is empty, emits a message.
                 if (ctx.empty()) {
                     std::cout << "  No variables defined\n";
                     return HistoryStatus::Info;
@@ -174,6 +203,9 @@ namespace math_solver {
                 return HistoryStatus::Success;
             }
             case SystemCommand::Type::Unknown: {
+                // Defensive: parser should not emit Unknown unless input is
+                // unrecognized. Error is formatted and printed for user
+                // feedback.
                 std::string         input   = cmd.raw_command();
 
                 std::string         bad_cmd = input.substr(0, input.find(' '));

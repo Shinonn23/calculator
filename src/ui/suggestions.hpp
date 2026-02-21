@@ -1,6 +1,6 @@
 #pragma once
 
-#include "config/config.hpp"
+#include "config/settings.hpp"
 #include "ui/color.hpp"
 
 #include <algorithm>

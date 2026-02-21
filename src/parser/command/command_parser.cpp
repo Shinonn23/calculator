@@ -18,8 +18,8 @@ namespace math_solver {
         // stripping). This ensures downstream consumers never receive a null
         // command node, preserving invariants in the command dispatch pipeline.
         if (stream.is_eof()) {
-            return std::make_unique<MathCommand>(
-                MathCommand::Type::Evaluate, "", raw_input_);
+            return std::make_unique<MathCommand>(MathCommand::Type::Evaluate,
+                                                 "", raw_input_);
         }
 
         // Colon-prefixed commands are dispatched via a static registry.
@@ -59,8 +59,8 @@ namespace math_solver {
         // Final fallback: treat all unhandled input as a math expression.
         // - Input is trimmed to avoid spurious whitespace in the command node.
         // - Invariant: all code paths yield a non-null command node.
-        return std::make_unique<MathCommand>(
-            MathCommand::Type::Evaluate, trim(raw_input_), raw_input_);
+        return std::make_unique<MathCommand>(MathCommand::Type::Evaluate,
+                                             trim(raw_input_), raw_input_);
     }
 
     // All subparser logic is intentionally delegated to the registry or

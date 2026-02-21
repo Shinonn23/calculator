@@ -9,8 +9,9 @@
 namespace math_solver {
 
     // Returns the span of the first occurrence of `token` in `raw`.
-    // Returns an empty span if not found or if token is empty.
-    // Assumes `raw` and `token` are valid UTF-8.
+    // - Assumes both `raw` and `token` are valid UTF-8.
+    // - Returns empty span if not found or token is empty.
+    // - Used for error reporting to highlight relevant source fragments.
     inline Span find_token_span(const std::string& raw,
                                 const std::string& token) {
         if (token.empty())
@@ -22,28 +23,29 @@ namespace math_solver {
         return Span();
     }
 
-    // DiagnosticBuilder is a utility for constructing error diagnostics
-    // with rich context, modeled after rustc's error reporting.
-    // - All fields are public for direct construction.
-    // - Formatting logic is centralized in build().
-    // - Assumes input is a single source file or REPL input.
     struct DiagnosticBuilder {
+        // All fields are public for direct construction and mutation.
+        // This struct is intended to be a lightweight, non-owning builder for
+        // error diagnostics, similar to rustc's Diagnostic.
         std::string level = "error";
         std::string code  = "";
         std::string message;
         std::string filename = "<repl>";
         Span        span;
         std::string input;
+        size_t      file_line    = 1;
 
         std::string inline_label = "";
         std::string help         = "";
         std::string note         = "";
 
-        // Formats the diagnostic as a colored, multi-line string.
+        // Formats the diagnostic for terminal display.
         // - Handles missing input gracefully (no code context).
         // - Computes line/column for span; assumes span is valid in input.
-        // - Underlines at least one character for zero-length spans.
-        // - Output is intended for terminal display; not machine-readable.
+        // - Always underlines at least one character for zero-length spans.
+        // - Output is not intended to be machine-readable.
+        // - Performance: Acceptable for small/medium inputs; not optimized for
+        // large files.
         std::string build() const {
             std::string out;
 
@@ -67,9 +69,9 @@ namespace math_solver {
             }
 
             // Compute line/column for the start of the span.
-            // This logic is performance-sensitive for large inputs,
-            // but is acceptable for typical REPL or small file usage.
-            size_t line       = 1;
+            // This is O(N) in the number of bytes before the span, but
+            // acceptable for REPL and small files.
+            size_t line       = file_line;
             size_t line_start = 0;
             for (size_t i = 0; i < span.start && i < input.size(); ++i) {
                 if (input[i] == '\n') {
@@ -109,7 +111,8 @@ namespace math_solver {
             out += " " + margin_pad + " | ";
             out += ansi::reset;
 
-            // Underline the span; always at least one caret.
+            // Always underline at least one character, even for zero-length
+            // spans.
             for (size_t i = 0; i < col - 1; ++i)
                 out += ' ';
 
@@ -151,19 +154,17 @@ namespace math_solver {
         }
     };
 
-    // MathError is the base class for all solver errors.
+    // Base class for all solver errors.
     // - Carries a DiagnosticBuilder for rich error reporting.
-    // - diag_ is mutable to allow post-construction augmentation (e.g.
-    // help/note)
-    //   during error handling, similar to how rustc augments diagnostics in
-    //   passes.
+    // - diag_ is mutable to allow augmentation after construction (e.g.
+    // attaching help/note).
+    // - Used as the root for all error types surfaced to the user.
     class MathError : public std::runtime_error {
         protected:
         mutable DiagnosticBuilder diag_;
 
         public:
-        MathError(const std::string& message,
-                  const Span&        span  = Span(),
+        MathError(const std::string& message, const Span& span = Span(),
                   const std::string& input = "")
             : std::runtime_error(message) {
             diag_.message = message;
@@ -202,14 +203,14 @@ namespace math_solver {
         std::string format() const { return diag_.build(); }
     };
 
-    // --- Specialized error types for solver diagnostics.
+    // Specialized error types for solver diagnostics.
     // Each subclass sets a unique error code and label.
     // Codes are chosen to match rustc conventions where applicable.
+    // These types are intended to be thrown and caught at subsystem boundaries.
 
     class ParseError : public MathError {
         public:
-        ParseError(const std::string& message,
-                   const Span&        span  = Span(),
+        ParseError(const std::string& message, const Span& span = Span(),
                    const std::string& input = "")
             : MathError(message, span, input) {
             diag_.code         = "E0001";
@@ -239,8 +240,7 @@ namespace math_solver {
                                const Span&        span  = Span(),
                                const std::string& input = "")
             : MathError("cannot find value `" + var_name + "` in this scope",
-                        span,
-                        input),
+                        span, input),
               var_name_(var_name) {
             diag_.code         = "E0425";
             diag_.inline_label = "not found in this scope";
@@ -251,8 +251,7 @@ namespace math_solver {
 
     class NonLinearError : public MathError {
         public:
-        NonLinearError(const std::string& message,
-                       const Span&        span  = Span(),
+        NonLinearError(const std::string& message, const Span& span = Span(),
                        const std::string& input = "")
             : MathError(message, span, input) {
             diag_.code         = "E0308";
@@ -281,6 +280,7 @@ namespace math_solver {
 
         private:
         // Constructs a message listing all unknowns.
+        // - Used to provide context in the error message.
         static std::string build_message(const std::vector<std::string>& vars) {
             std::string msg =
                 "cannot solve for multiple variables simultaneously (";
@@ -309,8 +309,7 @@ namespace math_solver {
         public:
         InfiniteSolutionsError(
             const std::string& message = "equation has infinite solutions",
-            const Span&        span    = Span(),
-            const std::string& input   = "")
+            const Span& span = Span(), const std::string& input = "")
             : MathError(message, span, input) {
             diag_.code         = "E0011";
             diag_.inline_label = "tautology detected";
@@ -333,8 +332,8 @@ namespace math_solver {
         ReservedKeywordError(const std::string& keyword,
                              const Span&        span  = Span(),
                              const std::string& input = "")
-            : MathError(
-                  "`" + keyword + "` is a reserved keyword", span, input) {
+            : MathError("`" + keyword + "` is a reserved keyword", span,
+                        input) {
             diag_.code         = "E0013";
             diag_.inline_label = "reserved keyword used as identifier";
             diag_.help         = "choose a different name for your variable.";
@@ -350,8 +349,7 @@ namespace math_solver {
                                 const Span&        span  = Span(),
                                 const std::string& input = "")
             : MathError("cyclic dependency detected for `" + var_name + "`",
-                        span,
-                        input),
+                        span, input),
               var_name_(var_name) {
             diag_.code         = "E0391";
             diag_.inline_label = "recursive variable reference";
