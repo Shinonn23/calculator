@@ -5,6 +5,7 @@
 #include "algebra/solver/solver.hpp"
 #include "ast/command/history_entry.hpp"
 #include "ast/command/var_command.hpp"
+#include "commands/handlers/diagnostics/var_diag.hpp"
 #include "config/config.hpp"
 #include "core/error.hpp"
 #include "eval/evaluator.hpp"
@@ -50,41 +51,24 @@ namespace math_solver {
                                         Config& config) {
             (void)config;
             using std::cout;
-            const std::string& var = cmd.var_name();
-            const std::string& raw = cmd.raw_command();
+            const std::string& var  = cmd.var_name();
+            auto               base = diag::from_cmd(cmd);
 
             if (var.empty()) {
-                MathError err("missing variable name",
-                              find_token_span(raw, ":set"), raw);
-                err.with_code("E0401").with_help("Usage: `:set <var> <expr>`");
-                cout << err.format();
+                cout << diag::missing_var_name(base, ":set",
+                                               "`set <var> <expr>`")
+                            .build();
                 return HistoryStatus::Error;
             }
-
             if (!validate_var_name(var)) {
-                if (is_reserved_keyword(var)) {
-                    MathError err("`" + var + "` is a reserved keyword",
-                                  find_token_span(raw, var), raw);
-                    err.with_code("E0402").with_label("reserved word");
-                    cout << err.format();
-                } else {
-                    MathError err("invalid variable name `" + var + "`",
-                                  find_token_span(raw, var), raw);
-                    err.with_code("E0403")
-                        .with_label("invalid identifier")
-                        .with_help(
-                            "Identifiers must start with a letter or `_` and "
-                            "contain only alphanumeric characters.");
-                    cout << err.format();
-                }
+                if (is_reserved_keyword(var))
+                    cout << diag::reserved_keyword(base, var).build();
+                else
+                    cout << diag::invalid_identifier(base, var).build();
                 return HistoryStatus::Error;
             }
-
             if (!cmd.has_payload()) {
-                MathError err("missing expression", find_token_span(raw, var),
-                              raw);
-                err.with_code("E0404").with_help("Usage: `:set <var> <expr>`");
-                cout << err.format();
+                cout << diag::missing_expr(base, var).build();
                 return HistoryStatus::Error;
             }
 
@@ -201,31 +185,21 @@ namespace math_solver {
         // - No-op if the variable is not present.
         // - Suggestion logic is best-effort and may not always be helpful.
         inline HistoryStatus handle_unset(const VarCommand& cmd, Context& ctx) {
-            const std::string& var = cmd.var_name();
-            const std::string& raw = cmd.raw_command();
+            const std::string& var  = cmd.var_name();
+            auto               base = diag::from_cmd(cmd);
+
             if (var.empty()) {
-                MathError err("missing variable name",
-                              find_token_span(raw, ":unset"), raw);
-                err.with_code("E0401").with_help("Usage: `:unset <var>`");
-                std::cout << err.format();
+                std::cout << diag::missing_var_name(base, ":unset",
+                                                    "`unset <var>`")
+                                 .build();
                 return HistoryStatus::Error;
             }
-
             if (ctx.unset(var)) {
                 std::cout << "  Removed: " << var << "\n";
                 return HistoryStatus::Success;
-            } else {
-                MathError err("variable `" + var + "` not found",
-                              find_token_span(raw, var), raw);
-                err.with_code("E0425").with_label("not found in this scope");
-                auto match = suggest(var, ctx.all_names());
-                if (match) {
-                    err.with_help("a variable with a similar name exists: `" +
-                                  *match + "`");
-                }
-                std::cout << err.format();
-                return HistoryStatus::Error;
             }
+            std::cout << diag::var_not_found(base, var, ctx).build();
+            return HistoryStatus::Error;
         }
 
         // Dispatches to the appropriate handler based on the VarCommand action.
