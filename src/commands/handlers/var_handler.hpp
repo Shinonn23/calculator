@@ -3,8 +3,10 @@
 #include "algebra/polynomial/ast_to_poly.hpp"
 #include "algebra/polynomial/factor.hpp"
 #include "algebra/solver/solver.hpp"
+#include "ast/command/history_entry.hpp"
 #include "ast/command/var_command.hpp"
 #include "config/config.hpp"
+#include "core/error.hpp"
 #include "eval/evaluator.hpp"
 #include "eval/expander.hpp"
 #include "parser/math/math_parser.hpp"
@@ -16,9 +18,13 @@
 
 namespace math_solver {
     namespace handlers {
-        // Variable names must be valid identifiers and not reserved keywords.
-        // Invariant: names must start with alpha/_ and contain only alphanum/_.
-        // This is relied upon by downstream parsing and symbol table logic.
+
+        // Variable name validation:
+        // - Invariant: names must start with alpha/_ and contain only
+        // alphanum/_.
+        // - This is relied upon by downstream parsing and symbol table logic.
+        // - Reserved keywords are disallowed to avoid shadowing and semantic
+        // ambiguity.
         inline bool validate_var_name(const std::string& name) {
             if (name.empty() || !(std::isalpha(name[0]) || name[0] == '_'))
                 return false;
@@ -31,49 +37,69 @@ namespace math_solver {
         }
 
         // Handles all forms of :set commands.
-        // - Handles assignment, expansion, factoring, and equation solving.
         // - Maintains the invariant that variable names are valid and not
         // reserved.
-        // - Interacts with the context to update or insert variable bindings.
+        // - Updates or inserts variable bindings in the context.
         // - On error, prints diagnostics and leaves context unchanged.
-        // - Performance: For "solve", clones all context except the target
-        // variable.
-        //   This avoids accidental self-reference during equation solving.
-        inline void
+        // - For "solve", clones all context except the target variable to avoid
+        //   accidental self-reference during equation solving.
+        // - Performance: context cloning is O(n) in the number of variables.
+        // - Correctness: relies on parser and solver subsystems for semantic
+        // checks.
+        inline HistoryStatus
         handle_set(const VarCommand& cmd, Context& ctx, Config& config) {
             (void)config;
             using std::cout;
             const std::string& var = cmd.var_name();
+            const std::string& raw = cmd.raw_command();
 
             if (var.empty()) {
-                cout << "  Usage: :set <var> <expr>\n";
-                return;
+                MathError err(
+                    "missing variable name", find_token_span(raw, ":set"), raw);
+                err.with_code("E0401").with_help("Usage: `:set <var> <expr>`");
+                cout << err.format();
+                return HistoryStatus::Error;
             }
 
             if (!validate_var_name(var)) {
-                if (is_reserved_keyword(var))
-                    cout << ansi::red << "  Error: " << ansi::reset << "'"
-                         << var << "' is a reserved keyword\n";
-                else
-                    cout << ansi::red << "  Error: " << ansi::reset
-                         << "invalid variable name '" << var << "'\n";
-                return;
+                if (is_reserved_keyword(var)) {
+                    MathError err("`" + var + "` is a reserved keyword",
+                                  find_token_span(raw, var),
+                                  raw);
+                    err.with_code("E0402").with_label("reserved word");
+                    cout << err.format();
+                } else {
+                    MathError err("invalid variable name `" + var + "`",
+                                  find_token_span(raw, var),
+                                  raw);
+                    err.with_code("E0403")
+                        .with_label("invalid identifier")
+                        .with_help(
+                            "Identifiers must start with a letter or `_` and "
+                            "contain only alphanumeric characters.");
+                    cout << err.format();
+                }
+                return HistoryStatus::Error;
             }
 
             if (!cmd.has_payload()) {
-                cout << "  Usage: :set <var> <expr>\n";
-                return;
+                MathError err(
+                    "missing expression", find_token_span(raw, var), raw);
+                err.with_code("E0404").with_help("Usage: `:set <var> <expr>`");
+                cout << err.format();
+                return HistoryStatus::Error;
             }
 
             const std::string& payload     = cmd.payload();
             const std::string& math_action = cmd.math_action();
 
+            // "solve" action:
+            // - Avoids self-reference by cloning context without the target
+            // variable.
+            // - Relies on EquationSolver for semantic and syntactic
+            // correctness.
+            // - Any MathError is surfaced directly to the user.
             if (math_action == "solve") {
-                // Solve mode: parse as equation, solve, and bind result.
-                // - Uses a temporary context excluding the target variable to
-                // avoid
-                //   circular dependencies.
-                // - Any MathError is surfaced to the user.
                 try {
                     Parser  parser(payload);
                     auto    eq = parser.parse_equation();
@@ -87,17 +113,18 @@ namespace math_solver {
 
                     ctx.set(var, result.value);
                     cout << "  " << var << " = " << result.value << "\n";
+                    return HistoryStatus::Success;
                 } catch (const MathError& e) {
                     cout << e.format() << "\n";
+                    return HistoryStatus::Error;
                 }
-                return;
             }
 
+            // "expand" action:
+            // - Converts the expression to a polynomial and stores the expanded
+            // form.
+            // - Assumes ASTToPolynomial and Polynomial are correct and total.
             if (math_action == "expand") {
-                // Expand mode: parse, convert to polynomial, expand, and bind.
-                // - Assumes ASTToPolynomial is lossless for supported
-                // expressions.
-                // - Any MathError is surfaced to the user.
                 try {
                     Parser     parser(payload);
                     auto       expr = parser.parse();
@@ -105,17 +132,18 @@ namespace math_solver {
                     Parser     sp(poly.to_string());
                     ctx.set(var, sp.parse());
                     cout << "  " << var << " = " << poly.to_string() << "\n";
+                    return HistoryStatus::Success;
                 } catch (const MathError& e) {
                     cout << e.format() << "\n";
+                    return HistoryStatus::Error;
                 }
-                return;
             }
 
+            // "factor" action:
+            // - Converts the expression to a polynomial and stores the factored
+            // form.
+            // - Assumes factor_polynomial is correct and total.
             if (math_action == "factor") {
-                // Factor mode: parse, convert to polynomial, factor, and bind.
-                // - Relies on factor_polynomial to preserve semantic
-                // equivalence.
-                // - Any MathError is surfaced to the user.
                 try {
                     Parser      parser(payload);
                     auto        expr = parser.parse();
@@ -125,21 +153,18 @@ namespace math_solver {
                     Parser      sp(str);
                     ctx.set(var, sp.parse());
                     cout << "  " << var << " = " << str << "\n";
+                    return HistoryStatus::Success;
                 } catch (const MathError& e) {
                     cout << e.format() << "\n";
+                    return HistoryStatus::Error;
                 }
-                return;
             }
 
-            // Default: plain assignment.
-            // - Attempts to evaluate numerically if possible, else falls back
-            // to symbolic.
-            // - Nested try/catch: inner block attempts numeric evaluation,
-            // outer block
-            //   ensures that even if expansion fails, the symbolic form is
-            //   shown.
-            // - This fallback chain is important for user experience and
-            // robustness.
+            // Default assignment:
+            // - Parses and stores the expression.
+            // - Attempts eager evaluation; if undefined variables are present,
+            //   falls back to expansion.
+            // - Handles circular dependencies gracefully, emitting a warning.
             try {
                 Parser parser(payload);
                 ctx.set(var, parser.parse());
@@ -148,53 +173,81 @@ namespace math_solver {
                     Evaluator eval(&ctx, payload);
                     double    val = eval.evaluate(ctx.get_expr(var));
                     cout << "  " << var << " = " << val << "\n";
-                } catch (...) {
-                    Expander expander(ctx);
+                    return HistoryStatus::Success;
+                } catch (const UndefinedVariableError&) {
+                    Expander expander(ctx, payload);
                     try {
                         auto expanded = expander.expand(ctx.get_expr(var));
                         cout << "  " << var << " = " << expanded->to_string()
                              << "\n";
-                    } catch (...) {
+                        return HistoryStatus::Success;
+                    } catch (const CircularDependencyError& e) {
                         cout << "  " << var << " = "
-                             << ctx.get_expr(var).to_string() << "\n";
+                             << ctx.get_expr(var).to_string() << ansi::dim
+                             << " (unexpanded)" << ansi::reset << "\n";
+                        return HistoryStatus::Warning;
                     }
+                } catch (const MathError& e) {
+                    cout << e.format() << "\n";
+                    return HistoryStatus::Error;
                 }
             } catch (const MathError& e) {
                 cout << e.format() << "\n";
+                return HistoryStatus::Error;
             }
+            return HistoryStatus::Error;
         }
 
         // Removes a variable binding from the context.
         // - If the variable does not exist, suggests similar names.
         // - No-op if the variable is not present.
-        inline void handle_unset(const VarCommand& cmd, Context& ctx) {
+        // - Suggestion logic is best-effort and may not always be helpful.
+        inline HistoryStatus handle_unset(const VarCommand& cmd, Context& ctx) {
             const std::string& var = cmd.var_name();
+            const std::string& raw = cmd.raw_command();
             if (var.empty()) {
-                std::cout << "  Usage: :unset <var>\n";
-                return;
+                MathError err("missing variable name",
+                              find_token_span(raw, ":unset"),
+                              raw);
+                err.with_code("E0401").with_help("Usage: `:unset <var>`");
+                std::cout << err.format();
+                return HistoryStatus::Error;
             }
 
             if (ctx.unset(var)) {
                 std::cout << "  Removed: " << var << "\n";
+                return HistoryStatus::Success;
             } else {
-                std::cout << "  Variable '" << var << "' not found\n";
-                maybe_suggest(var, ctx.all_names());
+                MathError err("variable `" + var + "` not found",
+                              find_token_span(raw, var),
+                              raw);
+                err.with_code("E0425").with_label("not found in this scope");
+                auto match = suggest(var, ctx.all_names());
+                if (match) {
+                    err.with_help("a variable with a similar name exists: `" +
+                                  *match + "`");
+                }
+                std::cout << err.format();
+                return HistoryStatus::Error;
             }
         }
 
         // Dispatches to the appropriate handler based on the VarCommand action.
-        // - Invariant: only Set and Unset actions are supported.
-        // - Future: If new actions are added, this switch must be updated.
-        inline void
-        handle_var(const VarCommand& cmd, Context& ctx, Config& config) {
+        // - Only Set and Unset actions are supported.
+        // - If new actions are added, this switch must be updated.
+        // - Returns HistoryStatus::Unknown for unhandled actions (should be
+        // unreachable).
+        inline HistoryStatus handle_var(const VarCommand& cmd,
+                                        Context&          ctx,
+                                        Config&           config,
+                                        std::string&) {
             switch (cmd.action()) {
             case VarCommand::Action::Set:
-                handle_set(cmd, ctx, config);
-                break;
+                return handle_set(cmd, ctx, config);
             case VarCommand::Action::Unset:
-                handle_unset(cmd, ctx);
-                break;
+                return handle_unset(cmd, ctx);
             }
+            return HistoryStatus::Unknown;
         }
 
     } // namespace handlers

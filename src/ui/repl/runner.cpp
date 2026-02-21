@@ -10,25 +10,39 @@
 
 namespace math_solver {
 
-    // Prompt must encode the current environment name to avoid ambiguity
-    // when switching contexts. Any change here must be coordinated with
-    // completion and hinting logic elsewhere to avoid desynchronization.
+    // Prompt encodes the current environment name to avoid ambiguity when
+    // switching contexts. Any change here must be coordinated with completion
+    // and hinting logic elsewhere to avoid desynchronization. Invariant:
+    // env_name must always reflect the active environment for the session.
     std::string build_prompt(const std::string& env_name) {
         return std::string(ansi::bold) + "[" + env_name + "]" + ansi::reset +
                " > ";
     }
 
-    // Assumes parse_command returns a valid command or throws.
+    // Assumes parse_command returns a valid command or throws on parse failure.
     // Returns false if the command signals REPL termination.
+    // Invariant: registry_ must be in a valid state before and after dispatch.
     bool Runner::run_line(const std::string& line) {
         auto cmd = parse_command(line);
         return registry_.dispatch(*cmd);
     }
 
     // Main interactive REPL loop.
-    // - Handles EINTR/EAGAIN from input to avoid spurious termination.
-    // - Maintains history for user convenience.
+    //
+    // - Handles EINTR/EAGAIN from input to avoid spurious termination due to
+    // signal interruptions.
+    // - Maintains history for user convenience and for features that depend on
+    // command history.
     // - Exits on EOF or explicit command.
+    //
+    // Subtlety: The prompt must remain in sync with the current environment, as
+    // completion and hinting logic depend on this. Any change to prompt
+    // construction must be reflected in those subsystems to avoid
+    // desynchronization.
+    //
+    // Error handling: All exceptions are caught and reported, ensuring the REPL
+    // remains live unless explicitly terminated. History is updated with the
+    // actual command status, not just parse success.
     void Runner::run_interactive(replxx::Replxx& rx, std::string& current_env) {
 
         while (true) {
@@ -44,19 +58,46 @@ namespace math_solver {
             if (line.empty())
                 continue;
 
-            rx.history_add(line);
+            HistoryStatus status      = HistoryStatus::Unknown;
+            bool          should_exit = false;
 
-            if (!run_line(line))
+            try {
+                if (!run_line(line)) {
+                    should_exit = true;
+                }
+                status = registry_.last_command_status();
+            } catch (const std::exception& e) {
+                std::cout << ansi::red << "  Error: " << ansi::reset << e.what()
+                          << "\n";
+                status = HistoryStatus::Error;
+            } catch (...) {
+                std::cout << ansi::red << "  Unknown error occurred."
+                          << ansi::reset << "\n";
+                status = HistoryStatus::Error;
+            }
+
+            registry_.push_history(line, status);
+
+            if (should_exit) {
                 break;
+            }
         }
     }
 
-    // Script execution:
-    // - Ignores blank lines and lines starting with '#'.
-    // - Reports errors per-line but continues execution to maximize coverage.
-    // - Flags.silent suppresses echoing commands; flags.dry_run disables
-    // execution.
-    // - Reports aggregate error count at end for diagnostics.
+    // Script execution is intentionally tolerant of errors: continues
+    // processing subsequent lines after failures, only incrementing the error
+    // count for lines that fail at the handler level or throw exceptions.
+    //
+    // - Skips empty lines and comments (lines starting with '#').
+    // - If flags.silent is unset, echoes each executed line with line number.
+    // - If flags.dry_run is set, skips execution but still parses and prints
+    // lines.
+    //
+    // Subtlety: Errors are only counted once per line, even if both handler and
+    // exception paths are triggered. This avoids double-counting.
+    //
+    // Invariant: registry_ must be left in a consistent state regardless of
+    // script errors.
     void Runner::run_script(const std::string&        filepath,
                             const LoadCommand::Flags& flags) {
         std::ifstream file(filepath);
@@ -84,6 +125,12 @@ namespace math_solver {
             if (!flags.dry_run) {
                 try {
                     run_line(trimmed);
+                    // If handler signals failure (e.g., semantic error), count
+                    // as error.
+                    if (registry_.last_command_status() ==
+                        HistoryStatus::Error) {
+                        ++errors;
+                    }
                 } catch (const std::exception& e) {
                     ++errors;
                     std::cout << ansi::red << "  Error at line " << line_no

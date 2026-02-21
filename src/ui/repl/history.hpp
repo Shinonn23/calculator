@@ -8,34 +8,21 @@
 
 namespace math_solver {
 
-    // History management is intentionally decoupled from REPL logic to allow
-    // for flexible persistence strategies and to avoid entangling user state
-    // with session logic. All functions here assume that the caller ensures
-    // thread safety and lifetime of the Replxx instance.
-
+    // Sets up the in-memory history size for the REPL.
+    // Note: History file loading is intentionally deferred to the main loop
+    // to allow for custom registry-based persistence. This avoids
+    // double-loading and ensures that history state is consistent with registry
+    // expectations. Returns the resolved history file path for later use.
     inline std::string setup_history(replxx::Replxx& rx, const Config& cfg) {
-        // Sets up history with the configured maximum size and loads persisted
-        // entries from disk. The resolved path is returned to ensure that
-        // subsequent save operations target the same file, avoiding accidental
-        // history fragmentation. Assumes get_history_file_path() is stable
-        // across the session.
         rx.set_max_history_size(cfg.settings().history_size);
         const std::string path = get_history_file_path();
-        rx.history_load(path);
         return path;
     }
 
-    inline void save_history(replxx::Replxx& rx, const std::string& path) {
-        // Persists in-memory history to disk. Callers must guarantee that
-        // 'path' matches the one used in setup_history to avoid data loss.
-        // No atomicity guarantees; interrupted writes may corrupt history.
-        rx.history_save(path);
-    }
-
+    // Adds a line to the REPL history if non-empty.
+    // This is a low-level utility; higher-level code may bypass this
+    // in favor of direct registry-managed history updates.
     inline void add_history(replxx::Replxx& rx, const std::string& line) {
-        // Only non-empty lines are added to history to avoid polluting the
-        // persistent log with spurious entries. Assumes caller has already
-        // performed any necessary normalization or deduplication.
         if (!line.empty())
             rx.history_add(line);
     }

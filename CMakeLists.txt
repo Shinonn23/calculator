@@ -56,7 +56,10 @@ add_library(math_core
     src/parser/command/command_parser_registry.cpp
     src/parser/command/subparsers/config_command_parser.cpp
     src/parser/command/subparsers/env_command_parser.cpp
+    src/parser/command/subparsers/history_command_parser.cpp
+    src/parser/command/subparsers/load_command_parser.cpp
     src/parser/command/subparsers/math_command_parser.cpp
+    src/parser/command/subparsers/redo_command_parser.cpp
     src/parser/command/subparsers/system_command_parser.cpp
     src/parser/command/subparsers/var_command_parser.cpp
     src/parser/math/math_parser.cpp

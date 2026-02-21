@@ -15,13 +15,15 @@
 namespace math_solver {
 
     namespace {
-        // Prints the startup banner. The banner is intentionally minimal to
-        // avoid excessive output in automated or embedded scenarios. The
-        // environment name is included for clarity when running multiple
-        // sessions.
-        void print_banner(const std::string& env_name) {
-            std::cout << ansi::bold << "Math Solver" << ansi::reset << " v1.0"
-                      << "  " << ansi::dim << "[" << env_name << "]"
+        // Banner output is intentionally minimal to avoid excessive noise in
+        // automated or embedded contexts. Including the environment name is
+        // critical for distinguishing concurrent sessions. Any changes here
+        // should consider downstream consumers that may parse or depend on
+        // startup output.
+        void print_banner(const std::string& env_name,
+                          const std::string& version) {
+            std::cout << ansi::bold << "CMath Solver" << ansi::reset << " v"
+                      << version << "  " << ansi::dim << "[" << env_name << "]"
                       << ansi::reset << "\n"
                       << ansi::dim << "Type :help for commands, exit to quit."
                       << ansi::reset << "\n\n";
@@ -29,19 +31,31 @@ namespace math_solver {
 
     } // anonymous namespace
 
-    // Entry point for the interactive REPL loop.
+    // Entry point for the interactive REPL.
     //
-    // - The REPL persists for the lifetime of the process; all stateful
-    // resources
-    //   (history, environment, registry) are initialized once and reused.
-    // - The handler registry is constructed per session to ensure that command
-    //   dispatch reflects the current environment and configuration.
-    // - The loop is robust against EINTR/EAGAIN from the underlying terminal.
-    // - On exit, all persistent state is flushed to disk. Failure to do so may
-    //   result in lost history or environment corruption.
-    // - Any change to the REPL loop structure must preserve the invariant that
-    //   the environment and config are always saved on normal exit.
-    int run_repl(Config& g_config, Context& g_ctx, std::string& g_current_env) {
+    // Invariants:
+    // - All persistent state (history, environment, config) must be flushed on
+    //   normal exit to avoid user data loss.
+    // - HandlerRegistry is rebuilt per session to ensure command dispatch
+    //   reflects the current environment and configuration.
+    // - REPL loop must be robust against EINTR/EAGAIN from the terminal.
+    //
+    // Subtlety:
+    // - History is managed via a custom mechanism; do not rely on replxx's
+    //   built-in save/load. This avoids race conditions and ensures
+    //   consistency with our persistence model.
+    //
+    // Performance:
+    // - All setup is performed once per session; no per-iteration allocations
+    //   or registry rebuilds.
+    //
+    // Interactions:
+    // - On exit, environment and config are always saved, regardless of
+    //   session outcome. This is critical for correctness.
+    int run_repl(Config&            g_config,
+                 Context&           g_ctx,
+                 std::string&       g_current_env,
+                 const std::string& version) {
         replxx::Replxx    rx;
 
         const std::string hist_path = setup_history(rx, g_config);
@@ -49,19 +63,26 @@ namespace math_solver {
         setup_completions(rx, g_config, g_ctx);
         setup_hints(rx);
 
-        print_banner(g_current_env);
+        print_banner(g_current_env, version);
 
         HandlerRegistry registry =
             build_handler_registry(g_ctx, g_config, g_current_env);
 
+        registry.set_replxx(rx);
+
+        // Custom history loading is required to maintain consistency with
+        // our persistence model. Do not use replxx's built-in history_load.
+        registry.load_persisted_history();
+
         Runner runner(registry);
         runner.run_interactive(rx, g_current_env);
 
-        // On exit, persist all state. This is critical for correctness: failure
-        // to save the environment or history may result in user data loss.
+        // On exit, all persistent state must be saved. Failure to do so
+        // risks user data loss or environment corruption.
         handlers::save_current_env(g_config, g_current_env, g_ctx);
         g_config.save();
-        save_history(rx, hist_path);
+
+        // History is persisted in real time; explicit save is unnecessary.
         std::cout << "\n";
 
         return 0;

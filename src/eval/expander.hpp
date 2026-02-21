@@ -14,45 +14,47 @@
 
 namespace math_solver {
 
-    // Expander is responsible for recursively inlining variable references
-    // within an expression tree, using the current Context as the source of
-    // variable bindings. This is a pre-pass that canonicalizes expressions
-    // before further lowering or evaluation.
-    //
-    // Invariants:
+    // Expander performs eager inlining of variable references using the
+    // provided Context.
     // - Variable references are replaced with their definitions from Context,
-    //   unless the variable is not present in Context.
-    // - Circular dependencies are detected and reported as errors.
-    //
-    // Subtlety:
-    // - The visited_ set is used to track the expansion stack and prevent
-    //   infinite recursion on cycles. This is critical for soundness.
-    // - The expansion is performed eagerly; downstream passes must not assume
-    //   that variable references remain unexpanded.
-    //
-    // Performance:
-    // - Each variable is expanded at most once per expansion path. No caching
-    //   is performed; repeated expansions may be costly if expressions are
-    //   large.
-    //
-    // Interactions:
-    // - Assumes Context is immutable during expansion.
-    // - Equation nodes are not handled here; see downstream passes.
+    // if available.
+    // - Cyclic variable definitions are detected and reported as errors (see
+    // visited_).
+    // - Expansion is non-caching: repeated expansion of the same variable along
+    // different
+    //   paths will re-traverse the subtree. This is intentional to avoid subtle
+    //   caching bugs in the presence of context mutation or shadowing (though
+    //   context is assumed immutable during expansion).
+    // - Downstream passes must not assume variable references remain after
+    // expansion.
+    // - Equation nodes are intentionally skipped; handled by later lowering
+    // passes.
+    // - Correctness relies on Context being immutable for the duration of
+    // expansion.
+    // - visited_ tracks the expansion stack to ensure cycle detection is sound.
     class Expander : public ExprVisitor {
         private:
         ExprPtr                         result_;
         const Context&                  context_;
+        std::string                     input_;
         std::unordered_set<std::string> visited_;
 
         public:
-        explicit Expander(const Context& ctx) : context_(ctx) {}
+        explicit Expander(const Context& ctx) : context_(ctx), input_() {}
 
+        Expander(const Context& ctx, const std::string& input)
+            : context_(ctx), input_(input) {}
+
+        // Entry point for expansion. visited_ is cleared to ensure no
+        // cross-call contamination.
         ExprPtr expand(const Expr& expr) {
             visited_.clear();
             expr.accept(*this);
             return std::move(result_);
         }
 
+        // Used for recursive expansion with explicit visited set (e.g., for
+        // nested expansion).
         ExprPtr expand(const Expr&                      expr,
                        std::unordered_set<std::string>& visited) {
             visited_ = visited;
@@ -65,15 +67,16 @@ namespace math_solver {
 
         void visit(const Variable& node) override {
             const std::string& name = node.name();
-            // If the variable is not bound in Context, leave as-is.
+            // If variable is not present in Context, leave as-is.
             if (!context_.has(name)) {
                 result_ = node.clone();
                 return;
             }
-            // Detect cycles in variable expansion. This is required for
-            // soundness.
+            // Cycle detection: expansion stack is tracked in visited_.
+            // This is required for soundness; otherwise, infinite recursion is
+            // possible.
             if (visited_.count(name)) {
-                throw CircularDependencyError(name, node.span());
+                throw CircularDependencyError(name, node.span(), input_);
             }
             visited_.insert(name);
             context_.get_expr(name).accept(*this);
@@ -89,8 +92,9 @@ namespace math_solver {
                 std::move(left), std::move(right), node.op());
         }
 
-        void visit(const Equation& /*node*/) {
-        } // Not handled here; see downstream passes.
+        // Equation nodes are not expanded here; expansion is deferred to later
+        // passes.
+        void visit(const Equation& /*node*/) {}
     };
 
 } // namespace math_solver

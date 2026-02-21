@@ -4,49 +4,55 @@
 #include "algebra/polynomial/ast_to_poly.hpp"
 #include "algebra/polynomial/factor.hpp"
 #include "algebra/solver/solver.hpp"
+#include "ast/command/history_entry.hpp"
 #include "ast/command/math_command.hpp"
 #include "config/config.hpp"
 #include "eval/evaluator.hpp"
-#include "eval/expander.hpp"
 #include "parser/math/math_parser.hpp"
 #include "runtime/context/context.hpp"
 #include "ui/color.hpp"
+#include "ui/suggestions.hpp"
 
 #include <iostream>
 
 namespace math_solver {
     namespace handlers {
-        inline void
+
+        // Entry point for equation solving.
+        // - Attempts to isolate a single unknown if possible, using a temporary
+        // context to avoid clobbering unrelated variables.
+        // - If multiple unknowns, falls back to using the full context.
+        // - Assumes payload is a valid equation string.
+        // - On success, updates the context with the solved variable.
+        // - Suggests similar variable names on undefined variable errors.
+        inline HistoryStatus
         do_solve(const std::string& payload, Context& ctx, Config& /*config*/) {
             if (payload.empty()) {
                 std::cout << "  Usage: :solve <lhs> = <rhs>\n";
-                return;
+                return HistoryStatus::Error;
             }
             try {
                 Parser                parser(payload);
                 auto                  eq = parser.parse_equation();
 
-                // Attempt to infer unknowns using context-aware substitution.
-                // If context is incomplete or substitution fails, fall back to
-                // a context-free collection. This is necessary to avoid
-                // misidentifying knowns as unknowns when context is partial.
                 std::set<std::string> unknowns;
                 try {
                     LinearCollector lc(&ctx, payload, false);
                     unknowns = (lc.collect(eq->lhs()) - lc.collect(eq->rhs()))
                                    .variables();
                 } catch (...) {
+                    // Fallback: contextless collection, disables type-based
+                    // inference.
                     LinearCollector lc(nullptr, payload, true);
                     unknowns = (lc.collect(eq->lhs()) - lc.collect(eq->rhs()))
                                    .variables();
                 }
 
-                // If exactly one unknown, exclude it from the context to avoid
-                // accidental shadowing by a previously set value. This ensures
-                // the solver does not treat the target as a constant.
                 const Context* solve_ctx = &ctx;
                 Context        temp_ctx;
                 if (unknowns.size() == 1) {
+                    // Only isolate the target variable; exclude others from
+                    // context to avoid accidental shadowing.
                     const std::string& target = *unknowns.begin();
                     if (ctx.has(target)) {
                         for (const auto& [name, expr] : ctx.all())
@@ -59,40 +65,51 @@ namespace math_solver {
                 EquationSolver solver(solve_ctx, payload);
                 SolveResult    result = solver.solve(*eq);
 
-                // Always update the context with the solution, even if the
-                // variable was previously set. This is consistent with REPL
-                // semantics and avoids stale bindings.
                 ctx.set(result.variable, result.value);
                 std::cout << "  " << result.variable << " = " << result.value
                           << ansi::dim << " (saved)" << ansi::reset << "\n";
+                return HistoryStatus::Success;
 
+            } catch (const UndefinedVariableError& undef_err) {
+                // Suggests similar variable names to mitigate user typos.
+                auto match = suggest(undef_err.var_name(), ctx.all_names());
+                if (match) {
+                    undef_err.with_help(
+                        "a variable with a similar name exists: `" + *match +
+                        "`");
+                }
+                std::cout << undef_err.format();
+                return HistoryStatus::Error;
             } catch (const MathError& e) {
-                std::cout << e.format() << "\n";
-                // NonLinearError is surfaced here to hint at missing variable
-                // definitions, which is a common user error.
+                std::cout << e.format();
+                // NonLinearError is surfaced with a hint for variable
+                // definition.
                 if (dynamic_cast<const NonLinearError*>(&e))
                     std::cout << ansi::dim
                               << "  Hint: use :set to define variables\n"
                               << ansi::reset;
+                return HistoryStatus::Error;
             }
         }
 
-        inline void do_simplify(const std::string& payload,
-                                const MathCommand& cmd,
-                                Context&           ctx,
-                                Config&            config) {
+        // Canonicalizes and simplifies equations.
+        // - Honors variable order and isolation flags from the command and
+        // config.
+        // - Emits warnings for non-canonical or ambiguous forms.
+        // - Returns warning status if any warnings are present.
+        inline HistoryStatus do_simplify(const std::string& payload,
+                                         const MathCommand& cmd,
+                                         Context&           ctx,
+                                         Config&            config) {
             if (payload.empty()) {
                 std::cout << "  Usage: :simplify <lhs> = <rhs> [-vars x y] "
                              "[-isolated] [-fraction]\n";
-                return;
+                return HistoryStatus::Error;
             }
             try {
                 Parser          parser(payload);
                 auto            eq = parser.parse_equation();
 
-                // Option propagation: prefer explicit command-line flags, but
-                // fall back to global config for fraction mode. This ensures
-                // deterministic behavior across invocations.
                 SimplifyOptions opts;
                 opts.var_order = cmd.specific_vars();
                 opts.isolated  = cmd.isolated();
@@ -100,14 +117,14 @@ namespace math_solver {
                     cmd.as_fraction() || config.settings().fraction_mode;
 
                 Simplifier     simplifier(&ctx, payload);
-                SimplifyResult result = simplifier.simplify(*eq, opts);
+                SimplifyResult result      = simplifier.simplify(*eq, opts);
 
-                // Warnings are surfaced directly; no attempt is made to
-                // suppress or deduplicate, as downstream consumers may rely
-                // on full diagnostic output.
-                for (const auto& w : result.warnings)
+                bool           has_warning = false;
+                for (const auto& w : result.warnings) {
                     std::cout << ansi::yellow << "  Warning: " << ansi::reset
                               << w << "\n";
+                    has_warning = true;
+                }
 
                 std::cout << "  " << result.canonical;
                 if (result.is_no_solution())
@@ -118,30 +135,63 @@ namespace math_solver {
                               << "infinite solutions" << ansi::reset;
                 std::cout << "\n";
 
+                return has_warning ? HistoryStatus::Warning
+                                   : HistoryStatus::Success;
+
+            } catch (const UndefinedVariableError& undef_err) {
+                auto match = suggest(undef_err.var_name(), ctx.all_names());
+                if (match) {
+                    undef_err.with_help(
+                        "a variable with a similar name exists: `" + *match +
+                        "`");
+                }
+                std::cout << undef_err.format();
+                return HistoryStatus::Error;
             } catch (const MathError& e) {
-                std::cout << e.format() << "\n";
+                std::cout << e.format();
+                return HistoryStatus::Error;
             }
         }
 
-        inline void do_expand(const std::string& payload) {
+        // Expands polynomial expressions.
+        // - Assumes input is a valid expression.
+        // - Converts AST to polynomial and prints expanded form.
+        // - No fallback for non-polynomial input; errors are surfaced.
+        inline HistoryStatus do_expand(const std::string& payload,
+                                       Context&           ctx) {
             if (payload.empty()) {
                 std::cout << "  Usage: :expand <expr>\n";
-                return;
+                return HistoryStatus::Error;
             }
             try {
                 Parser     parser(payload);
                 auto       expr = parser.parse();
                 Polynomial poly = ASTToPolynomial(payload).convert(*expr);
                 std::cout << "  " << poly.to_string() << "\n";
+                return HistoryStatus::Success;
+            } catch (const UndefinedVariableError& undef_err) {
+                auto match = suggest(undef_err.var_name(), ctx.all_names());
+                if (match) {
+                    undef_err.with_help(
+                        "a variable with a similar name exists: `" + *match +
+                        "`");
+                }
+                std::cout << undef_err.format();
+                return HistoryStatus::Error;
             } catch (const MathError& e) {
-                std::cout << e.format() << "\n";
+                std::cout << e.format();
+                return HistoryStatus::Error;
             }
         }
 
-        inline void do_factor(const std::string& payload) {
+        // Factors polynomial expressions.
+        // - Only operates on valid polynomial input; errors otherwise.
+        // - Returns factored form as a string.
+        inline HistoryStatus do_factor(const std::string& payload,
+                                       Context&           ctx) {
             if (payload.empty()) {
                 std::cout << "  Usage: :factor <expr>\n";
-                return;
+                return HistoryStatus::Error;
             }
             try {
                 Parser parser(payload);
@@ -149,24 +199,38 @@ namespace math_solver {
                 auto   poly     = ASTToPolynomial(payload).convert(*expr);
                 auto   factored = factor_polynomial(poly);
                 std::cout << "  " << factored.to_string() << "\n";
+                return HistoryStatus::Success;
+            } catch (const UndefinedVariableError& undef_err) {
+                auto match = suggest(undef_err.var_name(), ctx.all_names());
+                if (match) {
+                    undef_err.with_help(
+                        "a variable with a similar name exists: `" + *match +
+                        "`");
+                }
+                std::cout << undef_err.format();
+                return HistoryStatus::Error;
             } catch (const MathError& e) {
-                std::cout << e.format() << "\n";
+                std::cout << e.format();
+                return HistoryStatus::Error;
             }
         }
 
-        inline void do_evaluate(const std::string& payload,
-                                Context&           ctx,
-                                Config& /*config*/) {
+        // Evaluates expressions or equations numerically.
+        // - For equations, checks for approximate equality within a tight
+        // epsilon.
+        // - For expressions, prints the evaluated value.
+        // - No fallback expansion; errors are surfaced directly.
+        // - Catches std::exception as a last resort to avoid process abort.
+        inline HistoryStatus do_evaluate(const std::string& payload,
+                                         Context&           ctx,
+                                         Config& /*config*/) {
             if (payload.empty())
-                return;
+                return HistoryStatus::Error;
             try {
                 Parser parser(payload);
                 auto [expr, eq] = parser.parse_expression_or_equation();
 
                 if (eq) {
-                    // Evaluate both sides numerically and compare for equality
-                    // within a tight epsilon. This is not robust for all
-                    // floating-point scenarios, but suffices for REPL usage.
                     Evaluator eval(&ctx, payload);
                     double    lhs = eval.evaluate(eq->lhs());
                     double    rhs = eval.evaluate(eq->rhs());
@@ -177,54 +241,53 @@ namespace math_solver {
                                       : std::string("  ") + ansi::red +
                                             "(false)" + ansi::reset)
                               << "\n";
+                    return HistoryStatus::Success;
                 } else {
-                    // Attempt numeric evaluation first; if variables are
-                    // undefined, fall back to symbolic expansion. This
-                    // two-stage approach avoids unnecessary symbolic work.
-                    try {
-                        Evaluator eval(&ctx, payload);
-                        std::cout << "  = " << eval.evaluate(*expr) << "\n";
-                    } catch (const UndefinedVariableError&) {
-                        Expander expander(ctx);
-                        try {
-                            std::cout << "  = "
-                                      << expander.expand(*expr)->to_string()
-                                      << "\n";
-                        } catch (const CircularDependencyError& e) {
-                            std::cout << ansi::red << "  Error: " << ansi::reset
-                                      << e.what() << "\n";
-                        }
-                    }
+                    Evaluator eval(&ctx, payload);
+                    double    val = eval.evaluate(*expr);
+                    std::cout << "  = " << val << "\n";
+                    return HistoryStatus::Success;
                 }
+            } catch (const UndefinedVariableError& undef_err) {
+                // Suggests similar variable names for undefined identifiers.
+                auto match = suggest(undef_err.var_name(), ctx.all_names());
+                if (match) {
+                    undef_err.with_help(
+                        "a variable with a similar name exists: `" + *match +
+                        "`");
+                }
+                std::cout << undef_err.format();
+                return HistoryStatus::Error;
             } catch (const MathError& e) {
-                std::cout << e.format() << "\n";
+                std::cout << e.format();
+                return HistoryStatus::Error;
             } catch (const std::exception& e) {
+                // Defensive: catch-all for unexpected runtime errors.
                 std::cout << ansi::red << "  Error: " << ansi::reset << e.what()
                           << "\n";
+                return HistoryStatus::Error;
             }
         }
-        inline void
+
+        // Dispatches math commands to the appropriate handler.
+        // - Invariant: cmd.type() must be a valid MathCommand::Type.
+        // - Returns Unknown for unhandled types (should not occur).
+        inline HistoryStatus
         handle_math(const MathCommand& cmd, Context& ctx, Config& config) {
             const std::string& payload = cmd.payload();
-            // Dispatch based on command type. This is intentionally not
-            // extensible at runtime; new commands require explicit addition.
             switch (cmd.type()) {
             case MathCommand::Type::Solve:
-                do_solve(payload, ctx, config);
-                break;
+                return do_solve(payload, ctx, config);
             case MathCommand::Type::Simplify:
-                do_simplify(payload, cmd, ctx, config);
-                break;
+                return do_simplify(payload, cmd, ctx, config);
             case MathCommand::Type::Expand:
-                do_expand(payload);
-                break;
+                return do_expand(payload, ctx);
             case MathCommand::Type::Factor:
-                do_factor(payload);
-                break;
+                return do_factor(payload, ctx);
             case MathCommand::Type::Evaluate:
-                do_evaluate(payload, ctx, config);
-                break;
+                return do_evaluate(payload, ctx, config);
             }
+            return HistoryStatus::Unknown;
         }
 
     } // namespace handlers
