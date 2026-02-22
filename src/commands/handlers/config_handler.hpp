@@ -5,6 +5,7 @@
 #include "commands/handlers/diagnostics/command_diag.hpp"
 #include "commands/handlers/diagnostics/config_diag.hpp"
 #include "config/config.hpp"
+#include "core/diagnostic_sink.hpp"
 #include "ui/color.hpp"
 
 #include <iostream>
@@ -13,7 +14,8 @@ namespace math_solver {
     namespace handlers {
 
         inline HistoryStatus handle_config(const ConfigCommand& cmd,
-                                           Config&              config) {
+                                           Config&              config,
+                                           DiagnosticSink& /*sink*/) {
             using std::cout;
             const auto base = diag::from_cmd(cmd);
 

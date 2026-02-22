@@ -140,9 +140,8 @@ namespace math_solver {
         explicit LinearCollector(const Context* ctx, bool isolated = false)
             : context_(ctx), input_(), isolated_(isolated) {}
 
-        LinearCollector(const Context*     ctx,
-                        const std::string& input,
-                        bool               isolated = false)
+        LinearCollector(const Context* ctx, const std::string& input,
+                        bool isolated = false)
             : context_(ctx), input_(input), isolated_(isolated) {}
 
         void       set_input(const std::string& input) { input_ = input; }
@@ -212,10 +211,9 @@ namespace math_solver {
                 } else if (right.is_constant()) {
                     result_ = left * right.constant;
                 } else {
-                    throw NonLinearError(
-                        "non-linear term: multiplication of variables",
-                        node.span(),
-                        input_);
+                    throw MathException(errors::non_linear(
+                        "non-linear term: variables multiplied together",
+                        node.span(), input_));
                 }
                 break;
 
@@ -223,14 +221,13 @@ namespace math_solver {
                 // Division is only linear if the divisor is constant and
                 // nonzero.
                 if (!right.is_constant()) {
-                    throw NonLinearError(
-                        "non-linear term: division by variable",
-                        node.span(),
-                        input_);
+                    throw MathException(errors::non_linear(
+                        "non-linear term: division by variable", node.span(),
+                        input_));
                 }
                 if (std::abs(right.constant) < 1e-12) {
-                    throw MathError(
-                        "division by zero", node.right().span(), input_);
+                    throw MathException(errors::math(
+                        "division by zero", node.right().span(), input_));
                 }
                 result_ = left * (1.0 / right.constant);
                 break;
@@ -239,9 +236,9 @@ namespace math_solver {
                 // Exponentiation is only linear if the exponent is constant and
                 // equals 1.
                 if (!right.is_constant()) {
-                    throw NonLinearError("non-linear term: variable exponent",
-                                         node.span(),
-                                         input_);
+                    throw MathException(
+                        errors::non_linear("non-linear term: variable exponent",
+                                           node.right().span(), input_));
                 }
 
                 double exp = right.constant;
@@ -260,11 +257,10 @@ namespace math_solver {
 
                 // For all other exponents, only allow if base is constant.
                 if (!left.is_constant()) {
-                    throw NonLinearError(
+                    throw MathException(errors::non_linear(
                         "non-linear term: variable raised to power " +
                             std::to_string(static_cast<int>(exp)),
-                        node.span(),
-                        input_);
+                        node.span(), input_));
                 }
 
                 result_ = LinearForm(std::pow(left.constant, exp));

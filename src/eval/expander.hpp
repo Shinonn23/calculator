@@ -33,9 +33,9 @@ namespace math_solver {
     // - visited_ tracks the expansion stack to ensure cycle detection is sound.
     class Expander : public ExprVisitor {
         private:
-        ExprPtr                         result_;
-        const Context&                  context_;
-        std::string                     input_;
+        ExprPtr                               result_;
+        const Context&                        context_;
+        std::string                           input_;
         std::unordered_map<std::string, Span> visited_;
 
         public:
@@ -54,7 +54,7 @@ namespace math_solver {
 
         // Used for recursive expansion with explicit visited set (e.g., for
         // nested expansion).
-        ExprPtr expand(const Expr& expr,
+        ExprPtr expand(const Expr&                            expr,
                        std::unordered_map<std::string, Span>& visited) {
             visited_ = visited;
             expr.accept(*this);
@@ -75,7 +75,8 @@ namespace math_solver {
             // This is required for soundness; otherwise, infinite recursion is
             // possible.
             if (visited_.count(name)) {
-                throw CircularDependencyError(name, node.span(), input_);
+                throw MathException(
+                    errors::circular_dependency(name, node.span(), input_));
             }
             visited_[name] = node.span();
             context_.get_expr(name).accept(*this);
@@ -87,8 +88,8 @@ namespace math_solver {
             ExprPtr left = std::move(result_);
             node.right().accept(*this);
             ExprPtr right = std::move(result_);
-            result_       = std::make_unique<BinaryOp>(
-                std::move(left), std::move(right), node.op());
+            result_       = std::make_unique<BinaryOp>(std::move(left),
+                                                       std::move(right), node.op());
         }
 
         // Equation nodes are not expanded here; expansion is deferred to later

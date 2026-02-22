@@ -25,7 +25,17 @@ namespace math_solver {
 
     class EnvCommand : public Command {
         public:
-        enum class Action { Show, List, Load, Save, New, Delete, Move, Copy, Unknown };
+        enum class Action {
+            Show,
+            List,
+            Load,
+            Save,
+            New,
+            Delete,
+            Move,
+            Copy,
+            Unknown
+        };
 
         struct Flags {
             // When true, Move/Copy operates on a subset of variables (see
@@ -42,8 +52,7 @@ namespace math_solver {
         Flags                    flags_;
 
         public:
-        EnvCommand(Action             act,
-                   const std::string& target,
+        EnvCommand(Action act, const std::string& target,
                    const std::string& raw)
             : Command(raw), action_(act), target_env_(target) {}
 
@@ -66,8 +75,9 @@ namespace math_solver {
         // Double-dispatch entry point. All semantic handling is delegated to
         // CommandVisitor::visit(EnvCommand&). Any changes to the structure or
         // invariants here must be reflected in the visitor logic.
-        void         accept(CommandVisitor& visitor) const override {
-            visitor.visit(*this);
+        void         accept(CommandVisitor& visitor,
+                            DiagnosticSink& sink) const override {
+            visitor.visit(*this, sink);
         }
     };
 

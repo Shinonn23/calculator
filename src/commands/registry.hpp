@@ -12,6 +12,7 @@
 #include "ast/command/system_command.hpp"
 #include "ast/command/var_command.hpp"
 #include "config/config.hpp"
+#include "core/diagnostic_sink.hpp"
 #include "replxx.hxx"
 #include "runtime/context/context.hpp"
 
@@ -37,7 +38,8 @@ namespace math_solver {
     template <typename Cmd, typename Key> class CommandRegistry {
         public:
         using Handler = std::function<HistoryStatus(
-            const Cmd&, Context&, Config&, std::string& /*current_env*/)>;
+            const Cmd&, Context&, Config&, std::string& /*current_env*/,
+            DiagnosticSink& /*sink*/)>;
 
         void add(Key key, Handler handler) {
             handlers_[key] = std::move(handler);
@@ -45,16 +47,14 @@ namespace math_solver {
 
         // Returns handler result for the given key.
         // Precondition: key must be registered; otherwise, aborts.
-        HistoryStatus dispatch(Key          key,
-                               const Cmd&   cmd,
-                               Context&     ctx,
-                               Config&      config,
-                               std::string& current_env) const {
+        HistoryStatus dispatch(Key key, const Cmd& cmd, Context& ctx,
+                               Config& config, std::string& current_env,
+                               DiagnosticSink& sink) const {
             auto it = handlers_.find(key);
             if (it == handlers_.end())
                 throw std::out_of_range("CommandRegistry: unregistered key " +
                                         std::to_string(static_cast<int>(key)));
-            return it->second(cmd, ctx, config, current_env);
+            return it->second(cmd, ctx, config, current_env, sink);
         }
 
         bool has(Key key) const { return handlers_.count(key) != 0; }
@@ -97,12 +97,10 @@ namespace math_solver {
             CommandRegistry<HistoryCommand, HistoryCommand::Action>;
         using RedoReg = CommandRegistry<RedoCommand, std::string /*range*/>;
 
-        HandlerRegistry(Context& ctx, Config& config, std::string& current_env)
-            : ctx_(ctx),
-              cfg_(config),
-              current_env_(current_env),
-              should_exit_(false),
-              should_clear_history_(false) {}
+        HandlerRegistry(Context& ctx, Config& config, std::string& current_env,
+                        DiagnosticSink& sink)
+            : ctx_(ctx), cfg_(config), current_env_(current_env), sink_(sink),
+              should_exit_(false), should_clear_history_(false) {}
 
         SystemReg&  system() { return system_reg_; }
         VarReg&     var() { return var_reg_; }
@@ -164,6 +162,7 @@ namespace math_solver {
         const std::string& current_env() const { return current_env_; }
 
         void               set_runner(Runner& runner) { runner_ = &runner; }
+        DiagnosticSink&    sink() { return sink_; }
 
         // CommandVisitor overrides. Each handler is responsible for updating
         // last_command_status_, should_exit_, and should_clear_history_ as
@@ -181,6 +180,7 @@ namespace math_solver {
         Context&                  ctx_;
         Config&                   cfg_;
         std::string&              current_env_;
+        DiagnosticSink&           sink_;
         bool                      should_exit_;
         bool                      should_clear_history_;
         HistoryStatus             last_command_status_ = HistoryStatus::Success;
@@ -201,8 +201,8 @@ namespace math_solver {
         replxx::Replxx*           rx_     = nullptr;
     };
 
-    HandlerRegistry build_handler_registry(Context&     ctx,
-                                           Config&      config,
-                                           std::string& current_env);
+    HandlerRegistry build_handler_registry(Context& ctx, Config& config,
+                                           std::string&    current_env,
+                                           DiagnosticSink& sink);
 
 } // namespace math_solver

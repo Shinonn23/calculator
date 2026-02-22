@@ -7,6 +7,7 @@
 #include "ast/command/var_command.hpp"
 #include "commands/handlers/diagnostics/var_diag.hpp"
 #include "config/config.hpp"
+#include "core/diagnostic_sink.hpp"
 #include "core/error.hpp"
 #include "eval/evaluator.hpp"
 #include "eval/expander.hpp"
@@ -83,8 +84,14 @@ namespace math_solver {
             // - Any MathError is surfaced directly to the user.
             if (math_action == "solve") {
                 try {
-                    Parser  parser(payload);
-                    auto    eq = parser.parse_equation();
+                    Parser parser(payload);
+                    auto   parse_result = parser.parse_equation().with_location(
+                        cmd.source_file(), cmd.source_line());
+                    if (!parse_result) {
+                        std::cout << parse_result.error().format();
+                        return HistoryStatus::Error;
+                    }
+                    auto    eq = std::move(*parse_result);
                     Context temp_ctx;
                     for (const auto& [n, e] : ctx.all())
                         if (n != var)
@@ -96,8 +103,8 @@ namespace math_solver {
                     ctx.set(var, result.value);
                     cout << "  " << var << " = " << result.value << "\n";
                     return HistoryStatus::Success;
-                } catch (const MathError& e) {
-                    cout << e.format() << "\n";
+                } catch (const MathException& e) {
+                    cout << e.error().format() << "\n";
                     return HistoryStatus::Error;
                 }
             }
@@ -108,15 +115,26 @@ namespace math_solver {
             // - Assumes ASTToPolynomial and Polynomial are correct and total.
             if (math_action == "expand") {
                 try {
-                    Parser     parser(payload);
-                    auto       expr = parser.parse();
+                    Parser parser(payload);
+                    auto   parse_result = parser.parse().with_location(
+                        cmd.source_file(), cmd.source_line());
+                    if (!parse_result) {
+                        std::cout << parse_result.error().format();
+                        return HistoryStatus::Error;
+                    }
+                    auto       expr = std::move(*parse_result);
                     Polynomial poly = ASTToPolynomial(payload).convert(*expr);
                     Parser     sp(poly.to_string());
-                    ctx.set(var, sp.parse());
+                    auto       sr = sp.parse();
+                    if (!sr) {
+                        std::cout << sr.error().format();
+                        return HistoryStatus::Error;
+                    }
+                    ctx.set(var, std::move(*sr));
                     cout << "  " << var << " = " << poly.to_string() << "\n";
                     return HistoryStatus::Success;
-                } catch (const MathError& e) {
-                    cout << e.format() << "\n";
+                } catch (const MathException& e) {
+                    cout << e.error().format() << "\n";
                     return HistoryStatus::Error;
                 }
             }
@@ -127,17 +145,28 @@ namespace math_solver {
             // - Assumes factor_polynomial is correct and total.
             if (math_action == "factor") {
                 try {
-                    Parser      parser(payload);
-                    auto        expr = parser.parse();
+                    Parser parser(payload);
+                    auto   parse_result = parser.parse().with_location(
+                        cmd.source_file(), cmd.source_line());
+                    if (!parse_result) {
+                        std::cout << parse_result.error().format();
+                        return HistoryStatus::Error;
+                    }
+                    auto        expr = std::move(*parse_result);
                     auto        poly = ASTToPolynomial(payload).convert(*expr);
                     auto        factored = factor_polynomial(poly);
                     std::string str      = factored.to_string();
                     Parser      sp(str);
-                    ctx.set(var, sp.parse());
+                    auto        sr = sp.parse();
+                    if (!sr) {
+                        std::cout << sr.error().format();
+                        return HistoryStatus::Error;
+                    }
+                    ctx.set(var, std::move(*sr));
                     cout << "  " << var << " = " << str << "\n";
                     return HistoryStatus::Success;
-                } catch (const MathError& e) {
-                    cout << e.format() << "\n";
+                } catch (const MathException& e) {
+                    cout << e.error().format() << "\n";
                     return HistoryStatus::Error;
                 }
             }
@@ -149,32 +178,45 @@ namespace math_solver {
             // - Handles circular dependencies gracefully, emitting a warning.
             try {
                 Parser parser(payload);
-                ctx.set(var, parser.parse());
+                auto   parse_result = parser.parse().with_location(
+                    cmd.source_file(), cmd.source_line());
+                if (!parse_result) {
+                    std::cout << parse_result.error().format();
+                    return HistoryStatus::Error;
+                }
+                ctx.set(var, std::move(*parse_result));
 
                 try {
                     Evaluator eval(&ctx, payload);
                     double    val = eval.evaluate(ctx.get_expr(var));
                     cout << "  " << var << " = " << val << "\n";
                     return HistoryStatus::Success;
-                } catch (const UndefinedVariableError&) {
-                    Expander expander(ctx, payload);
-                    try {
-                        auto expanded = expander.expand(ctx.get_expr(var));
-                        cout << "  " << var << " = " << expanded->to_string()
-                             << "\n";
-                        return HistoryStatus::Success;
-                    } catch (const CircularDependencyError& e) {
-                        cout << "  " << var << " = "
-                             << ctx.get_expr(var).to_string() << ansi::dim
-                             << " (unexpanded)" << ansi::reset << "\n";
-                        return HistoryStatus::Warning;
+                } catch (const MathException& e) {
+                    if (e.error().code == "E0425") { // UndefinedVariable
+                        Expander expander(ctx, payload);
+                        try {
+                            auto expanded = expander.expand(ctx.get_expr(var));
+                            cout << "  " << var << " = "
+                                 << expanded->to_string() << "\n";
+                            return HistoryStatus::Success;
+                        } catch (const MathException& inner_e) {
+                            if (inner_e.error().code ==
+                                "E0391") { // CircularDependency
+                                cout << "  " << var << " = "
+                                     << ctx.get_expr(var).to_string()
+                                     << ansi::dim << " (unexpanded)"
+                                     << ansi::reset << "\n";
+                                return HistoryStatus::Warning;
+                            }
+                            cout << inner_e.error().format() << "\n";
+                            return HistoryStatus::Error;
+                        }
                     }
-                } catch (const MathError& e) {
-                    cout << e.format() << "\n";
+                    cout << e.error().format() << "\n";
                     return HistoryStatus::Error;
                 }
-            } catch (const MathError& e) {
-                cout << e.format() << "\n";
+            } catch (const MathException& e) {
+                cout << e.error().format() << "\n";
                 return HistoryStatus::Error;
             }
             return HistoryStatus::Error;
@@ -208,17 +250,18 @@ namespace math_solver {
         // - Returns HistoryStatus::Unknown for unhandled actions (should be
         // unreachable).
         inline HistoryStatus handle_var(const VarCommand& cmd, Context& ctx,
-                                        Config& config, std::string&) {
+                                        Config& config, std::string&,
+                                        DiagnosticSink& /*sink*/) {
             switch (cmd.action()) {
             case VarCommand::Action::Set:
                 return handle_set(cmd, ctx, config);
             case VarCommand::Action::Unset:
                 return handle_unset(cmd, ctx);
             case VarCommand::Action::Unknown:
-                std::string         input   = cmd.raw_command();
-                std::string         bad_cmd = input.substr(0, input.find(' '));
+                std::string input   = cmd.raw_command();
+                std::string bad_cmd = input.substr(0, input.find(' '));
 
-                UnknownCommandError e       = UnknownCommandError(
+                Error       e       = errors::unknown_command(
                     bad_cmd, find_token_span(input, bad_cmd), input);
 
                 std::cout << e.format() << "\n";

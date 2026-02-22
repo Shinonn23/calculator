@@ -3,6 +3,7 @@
 #include <string>
 
 #include "ast/command/command.hpp"
+#include "core/result.hpp"
 
 namespace math_solver {
 
@@ -27,7 +28,7 @@ namespace math_solver {
         // Produces a Command AST or nullptr on failure.
         // Ownership and lifetime semantics: does not retain references to
         // external data.
-        CommandPtr parse();
+        Result<CommandPtr> parse();
     };
 
     // Canonical entry point for command parsing.
@@ -35,6 +36,6 @@ namespace math_solver {
     // - Must remain in sync with CommandParser invariants.
     // - Used by batch and interactive subsystems; changes here may have
     // cross-cutting effects.
-    CommandPtr parse_command(const std::string& input);
+    Result<CommandPtr> parse_command(const std::string& input);
 
 } // namespace math_solver

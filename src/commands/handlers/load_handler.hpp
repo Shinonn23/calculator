@@ -2,6 +2,7 @@
 
 #include "ast/command/history_entry.hpp"
 #include "ast/command/load_command.hpp"
+#include "core/diagnostic_sink.hpp"
 #include "ui/repl/runner.hpp"
 
 namespace math_solver {
@@ -18,8 +19,8 @@ namespace math_solver {
         // script execution.
         // - Any changes to script loading semantics must be coordinated with
         // the REPL runner's state management.
-        inline HistoryStatus handle_load(const LoadCommand& cmd,
-                                         Runner&            runner) {
+        inline HistoryStatus handle_load(const LoadCommand& cmd, Runner& runner,
+                                         DiagnosticSink& /*sink*/) {
             runner.run_script(cmd.filepath(), cmd.flags());
             return HistoryStatus::Info;
         }

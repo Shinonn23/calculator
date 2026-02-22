@@ -70,6 +70,7 @@ add_library(math_core
     src/runtime/runtime.cpp
     src/ui/repl/repl.cpp
     src/ui/repl/runner.cpp
+    src/core/error.cpp
 )
 
 target_include_directories(math_core

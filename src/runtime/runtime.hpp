@@ -6,6 +6,14 @@
 
 namespace math_solver {
 
+    // Plain value snapshot of mutable runtime state.
+    // Cheap to copy — Context and Config are both value types.
+    struct RuntimeSnapshot {
+        Context     ctx;
+        Config      config;
+        std::string current_env;
+    };
+
     // Orchestrates state management and evaluation logic.
     //
     // Invariant: `config_` must outlive this Runtime instance.
@@ -50,6 +58,17 @@ namespace math_solver {
         // Assumes Context is up-to-date with the intended environment.
         // May throw or assert if var_name is not present.
         double             evaluate(const std::string& var_name) const;
+
+        // ── Snapshot / Restore ────────────────────────────────────────────
+        RuntimeSnapshot    snapshot() const {
+            return {context_, config_, current_env_};
+        }
+
+        void restore(const RuntimeSnapshot& snap) {
+            context_     = snap.ctx;
+            config_      = snap.config;
+            current_env_ = snap.current_env;
+        }
     };
 
 } // namespace math_solver

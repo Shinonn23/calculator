@@ -2,6 +2,7 @@
 #include "commands/handlers/env_handler.hpp"
 #include "commands/registry.hpp"
 #include "completions.hpp"
+#include "core/diagnostic_sink.hpp"
 #include "hints.hpp"
 #include "history.hpp"
 #include "runner.hpp"
@@ -53,9 +54,7 @@ namespace math_solver {
     // Interactions:
     // - On exit, environment and config are always saved, regardless of
     //   session outcome. This is critical for correctness.
-    int run_repl(Config&            g_config,
-                 Context&           g_ctx,
-                 std::string&       g_current_env,
+    int run_repl(Config& g_config, Context& g_ctx, std::string& g_current_env,
                  const std::string& version) {
         replxx::Replxx    rx;
 
@@ -66,8 +65,9 @@ namespace math_solver {
 
         print_banner(g_current_env, version);
 
+        DiagnosticSink  sink;
         HandlerRegistry registry =
-            build_handler_registry(g_ctx, g_config, g_current_env);
+            build_handler_registry(g_ctx, g_config, g_current_env, sink);
 
         registry.set_replxx(rx);
 

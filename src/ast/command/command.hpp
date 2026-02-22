@@ -7,6 +7,8 @@
 
 namespace math_solver {
 
+    class DiagnosticSink;
+
     class Command {
         protected:
         std::string raw_command_;
@@ -36,7 +38,8 @@ namespace math_solver {
 
         // Accepts a visitor for double-dispatch.
         // Subclasses must implement this to participate in the visitor pattern.
-        virtual void accept(CommandVisitor& visitor) const = 0;
+        virtual void accept(CommandVisitor& visitor,
+                            DiagnosticSink& sink) const = 0;
     };
 
     using CommandPtr = std::unique_ptr<Command>;

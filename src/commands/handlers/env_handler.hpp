@@ -4,6 +4,7 @@
 #include "ast/command/history_entry.hpp"
 #include "commands/handlers/diagnostics/env_diag.hpp"
 #include "config/config.hpp"
+#include "core/diagnostic_sink.hpp"
 #include "core/error.hpp"
 #include "parser/math/math_parser.hpp"
 #include "runtime/context/context.hpp"
@@ -40,7 +41,10 @@ namespace math_solver {
             for (const auto& [name, expr_str] : env.variables) {
                 try {
                     Parser parser(expr_str);
-                    ctx.set(name, parser.parse());
+                    auto   parse_result = parser.parse();
+                    if (!parse_result)
+                        throw std::runtime_error("parse failed");
+                    ctx.set(name, std::move(*parse_result));
                 } catch (...) {
                     try {
                         ctx.set(name, std::stod(expr_str));
@@ -53,7 +57,8 @@ namespace math_solver {
 
         inline HistoryStatus handle_env(const EnvCommand& cmd, Context& ctx,
                                         Config&      config,
-                                        std::string& current_env) {
+                                        std::string& current_env,
+                                        DiagnosticSink& /*sink*/) {
             const std::string& raw  = cmd.raw_command();
             auto               base = diag::from_cmd(cmd);
 

@@ -67,8 +67,8 @@ namespace math_solver {
 
             if (current() == '\0') {
                 // End-of-input sentinel. No further tokens will be produced.
-                return Token(
-                    TokenType::End, 0, Span(pos_ + offset_, pos_ + offset_));
+                return Token(TokenType::End, 0,
+                                          Span(pos_ + offset_, pos_ + offset_));
             }
 
             // Fast path for numeric literals.
@@ -89,14 +89,13 @@ namespace math_solver {
 
                 // Rejects empty or invalid numbers (e.g., ".").
                 if (num.empty() || num == ".") {
-                    throw ParseError("invalid number",
-                                     Span(start + offset_, pos_ + offset_),
-                                     input_);
+                    throw MathException(errors::parse(
+                        "invalid number", Span(start + offset_, pos_ + offset_),
+                        input_));
                 }
 
-                return Token(TokenType::Number,
-                             std::stod(num),
-                             Span(start + offset_, pos_ + offset_));
+                return Token(TokenType::Number, std::stod(num),
+                                          Span(start + offset_, pos_ + offset_));
             }
 
             // Identifier/keyword path.
@@ -110,13 +109,15 @@ namespace math_solver {
                 }
 
                 if (is_reserved_keyword(name)) {
-                    throw ReservedKeywordError(
-                        name, Span(start + offset_, pos_ + offset_), input_);
+                    Error err = errors::parse(
+                        "reserved keyword `" + name + "`",
+                        Span(start + offset_, pos_ + offset_), input_);
+                    err.inline_label = "cannot use as identifier";
+                    throw MathException(err);
                 }
 
-                return Token(TokenType::Identifier,
-                             name,
-                             Span(start + offset_, pos_ + offset_));
+                return Token(TokenType::Identifier, name,
+                                          Span(start + offset_, pos_ + offset_));
             }
 
             // Single-character operator dispatch.
@@ -142,13 +143,15 @@ namespace math_solver {
                 return Token(TokenType::RParen, 0, span);
             case '=':
                 return Token(TokenType::Equals, 0, span);
+            case '!':
+                return Token(TokenType::Bang, 0, span);
             }
 
             // Any unrecognized character is treated as a hard error.
             // No recovery attempted; caller must handle.
-            throw ParseError("unexpected character '" + std::string(1, c) + "'",
-                             span,
-                             input_);
+            throw MathException(errors::parse("unexpected character '" +
+                                                               std::string(1, c) + "'",
+                                                           span, input_));
         }
     };
 

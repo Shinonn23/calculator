@@ -10,20 +10,6 @@
 
 namespace math_solver {
 
-    // Error raised when an AST cannot be losslessly lowered to a Polynomial.
-    // This is used to enforce that only polynomial-expressible constructs are
-    // accepted. Invariants:
-    //   - Only integer, non-negative exponents are supported.
-    //   - Division by non-constant expressions is rejected.
-    //   - Division by zero is checked eagerly.
-    class PolynomialError : public MathError {
-        public:
-        PolynomialError(const std::string& message,
-                        const Span&        span  = Span(),
-                        const std::string& input = "")
-            : MathError(message, span, input) {}
-    };
-
     // Converts an Expr AST to a Polynomial, rejecting non-polynomial
     // constructs.
     //
@@ -91,16 +77,15 @@ namespace math_solver {
                 // Only allow division by a constant; reject variable
                 // denominators.
                 if (!right.is_constant()) {
-                    throw PolynomialError(
+                    throw MathException(errors::polynomial(
                         "cannot divide by a variable expression",
-                        node.right().span(),
-                        input_);
+                        node.right().span(), input_));
                 }
                 // Eagerly check for division by zero to avoid undefined
                 // behavior.
                 if (std::abs(right.constant_value()) < 1e-12) {
-                    throw PolynomialError(
-                        "division by zero", node.right().span(), input_);
+                    throw MathException(errors::polynomial(
+                        "division by zero", node.right().span(), input_));
                 }
                 result_ = left / right.constant_value();
                 break;
@@ -108,20 +93,18 @@ namespace math_solver {
             case BinaryOpType::Pow: {
                 // Only allow exponentiation by non-negative integer constants.
                 if (!right.is_constant()) {
-                    throw PolynomialError(
+                    throw MathException(errors::polynomial(
                         "exponent must be a non-negative integer constant",
-                        node.right().span(),
-                        input_);
+                        node.right().span(), input_));
                 }
                 double exp_val = right.constant_value();
                 int    exp_int = static_cast<int>(std::round(exp_val));
                 // Reject fractional or negative exponents; only allow integer
                 // >= 0.
                 if (std::abs(exp_val - exp_int) > 1e-9 || exp_int < 0) {
-                    throw PolynomialError(
+                    throw MathException(errors::polynomial(
                         "exponent must be a non-negative integer",
-                        node.right().span(),
-                        input_);
+                        node.right().span(), input_));
                 }
                 result_ = left.pow(exp_int);
                 break;

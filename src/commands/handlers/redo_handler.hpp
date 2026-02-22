@@ -3,6 +3,7 @@
 #include "ast/command/history_entry.hpp"
 #include "ast/command/redo_command.hpp"
 #include "commands/handlers/history_handler.hpp"
+#include "core/diagnostic_sink.hpp"
 #include "core/error.hpp"
 #include "ui/color.hpp"
 
@@ -49,7 +50,7 @@ namespace math_solver {
         inline HistoryStatus
         handle_redo(const RedoCommand&               cmd,
                     const std::vector<HistoryEntry>& session_history,
-                    DispatchFn                       dispatch_fn) {
+                    DispatchFn dispatch_fn, DiagnosticSink& sink) {
             const std::string& raw = cmd.raw_command();
             if (session_history.empty()) {
                 std::cout << "  No history to redo\n";
@@ -67,12 +68,13 @@ namespace math_solver {
                 indices.push_back(static_cast<int>(session_history.size()) - 1);
             } else {
                 if (!resolve_range(cmd.range(), commands, indices, err)) {
-                    MathError math_err(
-                        err,
-                        Span(raw.find_last_of(" \t") + 1, raw.length()),
-                        raw);
-                    math_err.with_code("E0801").with_label("invalid range");
-                    std::cout << math_err.format();
+                    Error e = errors::math(err,
+                                           Span(raw.find_last_of(" \t") + 1,
+                                                raw.length()),
+                                           raw)
+                                  .with_label("invalid range");
+                    e.code = "E0801";
+                    sink.push(e);
                     return HistoryStatus::Error;
                 }
             }

@@ -46,8 +46,10 @@ namespace math_solver {
         for (const auto& [name, expr_str] : env.variables) {
             try {
                 Parser parser(expr_str);
-                auto   expr = parser.parse();
-                context_.set(name, std::move(expr));
+                auto   parse_result = parser.parse();
+                if (!parse_result)
+                    throw std::runtime_error("parse failed");
+                context_.set(name, std::move(*parse_result));
             } catch (...) {
                 try {
                     double val = std::stod(expr_str);

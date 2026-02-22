@@ -21,6 +21,7 @@ namespace math_solver {
         LParen,
         RParen,
         Equals,
+        Bang
     };
 
     struct Token {
@@ -68,6 +69,8 @@ namespace math_solver {
             return ")";
         case TokenType::Equals:
             return "=";
+        case TokenType::Bang:
+            return "!";
         default:
             return "unknown";
         }

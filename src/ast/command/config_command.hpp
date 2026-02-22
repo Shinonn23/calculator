@@ -44,8 +44,9 @@ namespace math_solver {
 
         // Double-dispatch entry point; relies on visitor to distinguish Action
         // variants. All visitors must be prepared to handle all Action values.
-        void               accept(CommandVisitor& visitor) const override {
-            visitor.visit(*this);
+        void               accept(CommandVisitor& visitor,
+                                  DiagnosticSink& sink) const override {
+            visitor.visit(*this, sink);
         }
     };
 } // namespace math_solver

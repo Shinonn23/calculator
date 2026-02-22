@@ -4,6 +4,7 @@
 #include "ast/command/history_entry.hpp"
 #include "commands/handlers/diagnostics/command_diag.hpp"
 #include "commands/handlers/diagnostics/history_diag.hpp"
+#include "core/diagnostic_sink.hpp"
 #include "ui/color.hpp"
 #include "utils/path_utils.hpp"
 #include "utils/string_utils.hpp"
@@ -147,7 +148,8 @@ namespace math_solver {
 
         inline HistoryStatus
         handle_history(const HistoryCommand&            cmd,
-                       const std::vector<HistoryEntry>& session_history) {
+                       const std::vector<HistoryEntry>& session_history,
+                       DiagnosticSink& /*sink*/) {
 
             const std::string& raw  = cmd.raw_command();
             const auto         base = diag::from_cmd(cmd);

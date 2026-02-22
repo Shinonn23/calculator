@@ -58,35 +58,35 @@ namespace math_solver {
         // System commands may request process exit via should_exit_.
         // last_command_status_ must always reflect the result of handler.
         last_command_status_ =
-            handlers::handle_system(cmd, ctx_, cfg_, should_exit_);
+            handlers::handle_system(cmd, ctx_, cfg_, should_exit_, sink_);
     }
 
     void HandlerRegistry::visit(const VarCommand& cmd) {
         // All variable command actions must be registered in var_reg_.
         // Correctness: var_reg_ must not be mutated concurrently.
-        last_command_status_ =
-            var_reg_.dispatch(cmd.action(), cmd, ctx_, cfg_, current_env_);
+        last_command_status_ = var_reg_.dispatch(cmd.action(), cmd, ctx_, cfg_,
+                                                 current_env_, sink_);
     }
 
     void HandlerRegistry::visit(const MathCommand& cmd) {
         // math_reg_ must be fully populated for all MathCommand::Type variants.
         // Any missing handler is a logic error.
-        last_command_status_ =
-            math_reg_.dispatch(cmd.type(), cmd, ctx_, cfg_, current_env_);
+        last_command_status_ = math_reg_.dispatch(cmd.type(), cmd, ctx_, cfg_,
+                                                  current_env_, sink_);
     }
 
     void HandlerRegistry::visit(const EnvCommand& cmd) {
         // env_reg_ must be initialized for all EnvCommand::Action variants.
         // current_env_ must be valid for all env actions.
-        last_command_status_ =
-            env_reg_.dispatch(cmd.action(), cmd, ctx_, cfg_, current_env_);
+        last_command_status_ = env_reg_.dispatch(cmd.action(), cmd, ctx_, cfg_,
+                                                 current_env_, sink_);
     }
 
     void HandlerRegistry::visit(const ConfigCommand& cmd) {
         // config_reg_ is stateless; only mutates cfg_.
         // All supported ConfigCommand::Action variants must be registered.
-        last_command_status_ =
-            config_reg_.dispatch(cmd.action(), cmd, ctx_, cfg_, current_env_);
+        last_command_status_ = config_reg_.dispatch(cmd.action(), cmd, ctx_,
+                                                    cfg_, current_env_, sink_);
     }
 
     void HandlerRegistry::visit(const LoadCommand& cmd) {
@@ -96,7 +96,7 @@ namespace math_solver {
             throw std::runtime_error(
                 "HandlerRegistry: Runner not set; cannot handle :load");
         }
-        handlers::handle_load(cmd, *runner_);
+        handlers::handle_load(cmd, *runner_, sink_);
         last_command_status_ = HistoryStatus::Success;
     }
 
@@ -109,7 +109,8 @@ namespace math_solver {
             if (rx_)
                 rx_->history_clear();
         }
-        last_command_status_ = handlers::handle_history(cmd, session_history_);
+        last_command_status_ =
+            handlers::handle_history(cmd, session_history_, sink_);
     }
 
     void HandlerRegistry::visit(const RedoCommand& cmd) {
@@ -119,16 +120,19 @@ namespace math_solver {
         // parse_command
         //   being side-effect free.
         last_command_status_ = handlers::handle_redo(
-            cmd, session_history_, [this](const std::string& raw) {
-                auto parsed = parse_command(raw);
-                if (parsed)
-                    dispatch(*parsed);
-            });
+            cmd, session_history_,
+            [this](const std::string& raw) {
+                auto parse_result = parse_command(raw);
+                if (parse_result)
+                    dispatch(*std::move(*parse_result));
+            },
+            sink_);
     }
 
     HandlerRegistry build_handler_registry(Context& ctx, Config& config,
-                                           std::string& current_env) {
-        HandlerRegistry reg(ctx, config, current_env);
+                                           std::string&    current_env,
+                                           DiagnosticSink& sink) {
+        HandlerRegistry reg(ctx, config, current_env, sink);
 
         // Load persisted history before registering handlers.
         // - Ensures session_history_ is consistent with on-disk state.
@@ -143,11 +147,12 @@ namespace math_solver {
         // - Any new VarCommand::Action must be explicitly registered.
         for (auto type : {VarCommand::Action::Set, VarCommand::Action::Unset,
                           VarCommand::Action::Unknown}) {
-            reg.var().add(type,
-                          [](const VarCommand& cmd, Context& ctx, Config& cfg,
-                             std::string& env) -> HistoryStatus {
-                              return handlers::handle_var(cmd, ctx, cfg, env);
-                          });
+            reg.var().add(
+                type,
+                [](const VarCommand& cmd, Context& ctx, Config& cfg,
+                   std::string& env, DiagnosticSink& sink) -> HistoryStatus {
+                    return handlers::handle_var(cmd, ctx, cfg, env, sink);
+                });
         }
 
         // Register math command handlers.
@@ -159,8 +164,10 @@ namespace math_solver {
               MathCommand::Type::Evaluate, MathCommand::Type::Unknown}) {
             reg.math().add(type,
                            [](const MathCommand& cmd, Context& ctx, Config& cfg,
-                              std::string& /*env*/) -> HistoryStatus {
-                               return handlers::handle_math(cmd, ctx, cfg);
+                              std::string& /*env*/,
+                              DiagnosticSink& sink) -> HistoryStatus {
+                               return handlers::handle_math(cmd, ctx, cfg,
+                                                            sink);
                            });
         }
 
@@ -172,11 +179,12 @@ namespace math_solver {
                             EnvCommand::Action::New, EnvCommand::Action::Delete,
                             EnvCommand::Action::Move, EnvCommand::Action::Copy,
                             EnvCommand::Action::Unknown}) {
-            reg.env().add(action,
-                          [](const EnvCommand& cmd, Context& ctx, Config& cfg,
-                             std::string& env) -> HistoryStatus {
-                              return handlers::handle_env(cmd, ctx, cfg, env);
-                          });
+            reg.env().add(
+                action,
+                [](const EnvCommand& cmd, Context& ctx, Config& cfg,
+                   std::string& env, DiagnosticSink& sink) -> HistoryStatus {
+                    return handlers::handle_env(cmd, ctx, cfg, env, sink);
+                });
         }
 
         // Register config command handlers.
@@ -188,9 +196,10 @@ namespace math_solver {
               ConfigCommand::Action::Reset, ConfigCommand::Action::Unknown}) {
             reg.config_reg().add(action,
                                  [](const ConfigCommand& cmd, Context& /*ctx*/,
-                                    Config&              cfg,
-                                    std::string& /*env*/) -> HistoryStatus {
-                                     return handlers::handle_config(cmd, cfg);
+                                    Config&         cfg, std::string& /*env*/,
+                                    DiagnosticSink& sink) -> HistoryStatus {
+                                     return handlers::handle_config(cmd, cfg,
+                                                                    sink);
                                  });
         }
 

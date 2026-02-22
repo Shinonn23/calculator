@@ -3,6 +3,7 @@
 #include "ast/math/equation_expr.hpp"
 #include "ast/math/expr.hpp"
 #include "core/error.hpp"
+#include "core/result.hpp"
 #include "lexer/math/math_lexer.hpp"
 #include "lexer/math/math_token.hpp"
 #include <string>
@@ -25,7 +26,7 @@ namespace math_solver {
         // malformed input; all parser routines rely on this for error recovery.
         void        expect(TokenType type, const std::string& msg) {
             if (current_.type != type) {
-                throw ParseError(msg, current_.span, input_);
+                throw MathException(errors::parse(msg, current_.span, input_));
             }
             advance();
         }
@@ -50,18 +51,20 @@ namespace math_solver {
 
         // Returns the original input string. Used for diagnostics and error
         // reporting.
-        const std::string&              input() const;
+        const std::string&                      input() const;
 
         // Parses a single expression from the input.
-        // Leaves the parser at the next unconsumed token.
-        ExprPtr                         parse();
+        Result<ExprPtr>                         parse();
 
         // Attempts to parse either an expression or an equation.
-        // Used by the top-level driver to disambiguate input.
-        std::pair<ExprPtr, EquationPtr> parse_expression_or_equation();
+        Result<std::pair<ExprPtr, EquationPtr>> parse_expression_or_equation();
 
         // Parses an equation. Assumes the input contains an '=' token.
-        // Returns nullptr if no equation is found.
-        EquationPtr                     parse_equation();
+        Result<EquationPtr>                     parse_equation();
+
+        private:
+        ExprPtr                         parse_impl();
+        std::pair<ExprPtr, EquationPtr> parse_expression_or_equation_impl();
+        EquationPtr                     parse_equation_impl();
     };
 } // namespace math_solver

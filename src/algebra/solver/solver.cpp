@@ -8,9 +8,7 @@
 
 namespace math_solver {
 
-    void EquationSolver::set_input(const std::string& input) {
-        input_ = input;
-    }
+    void EquationSolver::set_input(const std::string& input) { input_ = input; }
 
     SolveResult EquationSolver::solve(const Equation& eq) {
         // Canonicalize equation to lhs - rhs = 0.
@@ -33,14 +31,13 @@ namespace math_solver {
         //   - constant != 0: contradiction, no solution.
         if (unknowns.empty()) {
             if (std::abs(normalized.constant) < 1e-12) {
-                throw InfiniteSolutionsError(
-                    "equation is always true (0 = 0)", eq.span(), input_);
+                throw MathException(errors::infinite_solutions(
+                    "equation is always true (0 = 0)", eq.span(), input_));
             } else {
-                throw NoSolutionError("equation has no solution (" +
-                                          std::to_string(normalized.constant) +
-                                          " != 0)",
-                                      eq.span(),
-                                      input_);
+                throw MathException(errors::no_solution(
+                    "equation has no solution (" +
+                        std::to_string(normalized.constant) + " != 0)",
+                    eq.span(), input_));
             }
         }
 
@@ -48,7 +45,8 @@ namespace math_solver {
         // Multiple unknowns: user error or unsupported input.
         if (unknowns.size() > 1) {
             std::vector<std::string> vars(unknowns.begin(), unknowns.end());
-            throw MultipleUnknownsError(vars, eq.span(), input_);
+            throw MathException(
+                errors::multiple_unknowns(vars, eq.span(), input_));
         }
 
         // At this point, exactly one unknown remains.
@@ -61,15 +59,14 @@ namespace math_solver {
         // If a == 0, check for tautology or contradiction.
         if (std::abs(a) < 1e-12) {
             if (std::abs(b) < 1e-12) {
-                throw InfiniteSolutionsError(
+                throw MathException(errors::infinite_solutions(
                     "equation has infinite solutions (0*" + var + " = 0)",
-                    eq.span(),
-                    input_);
+                    eq.span(), input_));
             } else {
-                throw NoSolutionError("equation has no solution (0*" + var +
-                                          " = " + std::to_string(-b) + ")",
-                                      eq.span(),
-                                      input_);
+                throw MathException(
+                    errors::no_solution("equation has no solution (0*" + var +
+                                            " = " + std::to_string(-b) + ")",
+                                        eq.span(), input_));
             }
         }
 
@@ -95,10 +92,9 @@ namespace math_solver {
 
         auto            vars      = all_vars.variables();
         if (vars.find(target_var) == vars.end()) {
-            throw InvalidEquationError("variable '" + target_var +
-                                           "' not found in equation",
-                                       eq.span(),
-                                       input_);
+            throw MathException(errors::invalid_equation(
+                "variable '" + target_var + "' not found in equation",
+                eq.span(), input_));
         }
 
         // Substitute known variables from context.
@@ -120,11 +116,10 @@ namespace math_solver {
         // If target_var was fully substituted, solving is not possible.
         // This can occur if the context provides a value for the target.
         if (unknowns.find(target_var) == unknowns.end()) {
-            throw InvalidEquationError(
+            throw MathException(errors::invalid_equation(
                 "variable '" + target_var +
                     "' was substituted from context; cannot solve for it",
-                eq.span(),
-                input_);
+                eq.span(), input_));
         }
 
         // If other unknowns remain, equation is underconstrained.
@@ -138,7 +133,8 @@ namespace math_solver {
                 hint += remaining[i];
             }
         }
-        throw MultipleUnknownsError(remaining, eq.span(), input_);
+        throw MathException(
+            errors::multiple_unknowns(remaining, eq.span(), input_));
     }
 
 } // namespace math_solver

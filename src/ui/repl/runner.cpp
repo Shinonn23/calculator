@@ -24,10 +24,16 @@ namespace math_solver {
     // Returns false if the command signals REPL termination.
     // Invariant: registry_ must be in a valid state before and after dispatch.
     bool Runner::run_line(const std::string& line) {
-        auto cmd = parse_command(line);
-        if (!cmd)
+        auto parse_result = parse_command(line);
+        if (!parse_result) {
+            std::cout << parse_result.error().format();
             return true;
-        return registry_.dispatch(*cmd);
+        }
+        auto cmd    = std::move(*parse_result);
+
+        bool status = registry_.dispatch(*cmd);
+        registry_.sink().flush(std::cout);
+        return status;
     }
 
     // Main REPL loop.
@@ -66,8 +72,8 @@ namespace math_solver {
                 status = registry_.last_command_status();
             }
 
-            catch (const MathError& e) {
-                std::cout << e.format() << "\n";
+            catch (const MathException& e) {
+                std::cout << e.error().format() << "\n";
                 status = HistoryStatus::Error;
             } catch (const std::exception& e) {
                 std::cout << ansi::red << "  Error: " << ansi::reset << e.what()
@@ -136,29 +142,31 @@ namespace math_solver {
                 if (flags.silent)
                     std::cout.rdbuf(garbage.rdbuf());
 
-                try {
-                    auto cmd = parse_command(trimmed);
-                    if (!cmd) {
-                        errors++;
-                        std::cout.rdbuf(old_cout);
-                        continue;
-                    }
-
-                    cmd->set_source(filepath, line_no);
-                    registry_.dispatch(*cmd);
-
-                    if (registry_.last_command_status() == HistoryStatus::Error)
-                        errors++;
-                } catch (const std::exception& e) {
+                auto parse_result = parse_command(trimmed);
+                if (!parse_result) {
                     errors++;
                     std::cout.rdbuf(old_cout);
-                    std::cout << ansi::red << "  Error at line " << line_no
-                              << ": " << ansi::reset << e.what() << "\n";
+                    std::cout << parse_result.error().format();
                     if (flags.silent)
                         std::cout.rdbuf(garbage.rdbuf());
+                    continue;
                 }
+                auto cmd = std::move(*parse_result);
+
+                cmd->set_source(filepath, line_no);
+
+                registry_.dispatch(*cmd);
+
+                if (registry_.last_command_status() == HistoryStatus::Error)
+                    errors++;
 
                 std::cout.rdbuf(old_cout);
+                size_t flushed_errs =
+                    registry_.sink().flush(flags.silent ? garbage : std::cout);
+                if (registry_.last_command_status() != HistoryStatus::Error &&
+                    flushed_errs > 0) {
+                    errors += flushed_errs;
+                }
             }
         }
 

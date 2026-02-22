@@ -25,9 +25,8 @@ namespace math_solver {
         return resolve_recursive(ctx.get_expr(name), ctx, visited);
     }
 
-    bool Resolver::try_evaluate(const std::string& name,
-                                const Context&     ctx,
-                                double&            out) {
+    bool Resolver::try_evaluate(const std::string& name, const Context& ctx,
+                                double& out) {
         // Provides a fallible interface for variable evaluation.
         // Any error (undefined variable, circular dependency, math error)
         // results in a false return; no error details are propagated.
@@ -40,8 +39,7 @@ namespace math_solver {
     }
 
     double
-    Resolver::resolve_recursive(const Expr&                      expr,
-                                const Context&                   ctx,
+    Resolver::resolve_recursive(const Expr& expr, const Context& ctx,
                                 std::unordered_set<std::string>& visited) {
         // Recursive evaluation of expressions.
         // Invariant: 'visited' tracks the current dependency chain to detect
@@ -56,11 +54,13 @@ namespace math_solver {
             const std::string& name = var->name();
             // Undefined variables are rejected eagerly.
             if (!ctx.has(name)) {
-                throw UndefinedVariableError(name, var->span());
+                throw MathException(
+                    errors::undefined_variable(name, var->span()));
             }
             // Detects cycles in variable dependencies.
             if (visited.count(name)) {
-                throw CircularDependencyError(name, var->span());
+                throw MathException(
+                    errors::circular_dependency(name, var->span()));
             }
             visited.insert(name);
             double val = resolve_recursive(ctx.get_expr(name), ctx, visited);
@@ -85,7 +85,8 @@ namespace math_solver {
             case BinaryOpType::Div:
                 // Division by zero is explicitly checked to avoid UB.
                 if (right_val == 0)
-                    throw MathError("division by zero", bin->right().span());
+                    throw MathException(
+                        errors::math("division by zero", bin->right().span()));
                 return left_val / right_val;
             case BinaryOpType::Pow:
                 // std::pow may return NaN or inf for some inputs;

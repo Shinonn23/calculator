@@ -15,10 +15,12 @@ namespace math_solver {
     void Evaluator::visit(const Variable& node) {
         // Variable resolution requires a valid context.
         if (!context_) {
-            throw UndefinedVariableError(node.name(), node.span(), input_);
+            throw MathException(
+                errors::undefined_variable(node.name(), node.span(), input_));
         }
         if (!context_->has(node.name())) {
-            throw UndefinedVariableError(node.name(), node.span(), input_);
+            throw MathException(
+                errors::undefined_variable(node.name(), node.span(), input_));
         }
 
         const std::string& name = node.name();
@@ -27,13 +29,14 @@ namespace math_solver {
         // This is critical to avoid infinite recursion in cases like `a = a +
         // 1`.
         if (auto it = visited_.find(name); it != visited_.end()) {
-            throw CircularDependencyError(name, it->second, input_);
+            throw MathException(
+                errors::circular_dependency(name, it->second, input_));
         }
 
         // Recursively evaluate the expression bound to this variable.
         // Note: visited_ is used as a dynamic set for the current evaluation
         // stack.
-        visited_[name] = Span();
+        visited_[name]     = Span();
         const Expr& stored = context_->get_expr(name);
         stored.accept(*this);
         visited_.erase(name);
@@ -63,8 +66,8 @@ namespace math_solver {
             // Division by zero is explicitly checked to avoid undefined
             // behavior.
             if (right_val == 0) {
-                throw MathError(
-                    "division by zero", node.right().span(), input_);
+                throw MathException(errors::math("division by zero",
+                                                 node.right().span(), input_));
             }
             result_ = left_val / right_val;
             break;

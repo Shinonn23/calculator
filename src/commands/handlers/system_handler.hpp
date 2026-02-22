@@ -3,6 +3,7 @@
 #include "ast/command/history_entry.hpp"
 #include "ast/command/system_command.hpp"
 #include "config/config.hpp"
+#include "core/diagnostic_sink.hpp"
 #include "core/error.hpp"
 #include "runtime/context/context.hpp"
 #include "ui/color.hpp"
@@ -158,7 +159,8 @@ namespace math_solver {
         // - Sets `out_should_exit` to signal REPL termination (for Exit).
         inline HistoryStatus handle_system(const SystemCommand& cmd,
                                            Context& ctx, Config& /*config*/,
-                                           bool&    out_should_exit) {
+                                           bool&    out_should_exit,
+                                           DiagnosticSink& /*sink*/) {
             out_should_exit = false;
 
             switch (cmd.type()) {
@@ -206,11 +208,11 @@ namespace math_solver {
                 // Defensive: parser should not emit Unknown unless input is
                 // unrecognized. Error is formatted and printed for user
                 // feedback.
-                std::string         input   = cmd.raw_command();
+                std::string input   = cmd.raw_command();
 
-                std::string         bad_cmd = input.substr(0, input.find(' '));
+                std::string bad_cmd = input.substr(0, input.find(' '));
 
-                UnknownCommandError e       = UnknownCommandError(
+                Error       e       = errors::unknown_command(
                     bad_cmd, find_token_span(input, bad_cmd), input);
 
                 std::cout << e.format() << "\n";

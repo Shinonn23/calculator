@@ -30,16 +30,16 @@ namespace math_solver {
             std::string env;
         };
 
-        LoadCommand(const std::string& filepath,
-                    const Flags&       flags,
+        LoadCommand(const std::string& filepath, const Flags& flags,
                     const std::string& raw)
             : Command(raw), filepath_(filepath), flags_(flags) {}
 
         const std::string& filepath() const { return filepath_; }
         const Flags&       flags() const { return flags_; }
 
-        void               accept(CommandVisitor& visitor) const override {
-            visitor.visit(*this);
+        void               accept(CommandVisitor& visitor,
+                                  DiagnosticSink& sink) const override {
+            visitor.visit(*this, sink);
         }
 
         private:

@@ -32,14 +32,19 @@ static int               run_cli(int argc, char* argv[]) {
         expr_str += argv[i];
     }
     try {
-        Context   ctx;
-        Parser    parser(expr_str);
-        auto      expr = parser.parse();
+        Context ctx;
+        Parser  parser(expr_str);
+        auto    parse_result = parser.parse();
+        if (!parse_result) {
+            std::cerr << parse_result.error().format();
+            return 1;
+        }
+        auto      expr = std::move(*parse_result);
         Evaluator eval(&ctx, expr_str);
         std::cout << eval.evaluate(*expr) << '\n';
         return 0;
-    } catch (const MathError& e) {
-        std::cerr << e.format() << '\n';
+    } catch (const MathException& e) {
+        std::cerr << "Initialization error: " << e.error().message << '\n';
         return 1;
     } catch (const std::exception& e) {
         std::cerr << "Error: " << e.what() << '\n';
@@ -63,7 +68,10 @@ static void load_startup_env(const std::string& env_name) {
     for (const auto& [name, expr_str] : env.variables) {
         try {
             Parser parser(expr_str);
-            g_ctx.set(name, parser.parse());
+            auto   parse_result = parser.parse();
+            if (!parse_result)
+                throw std::runtime_error("parse failed");
+            g_ctx.set(name, std::move(*parse_result));
         } catch (...) {
             try {
                 g_ctx.set(name, std::stod(expr_str));

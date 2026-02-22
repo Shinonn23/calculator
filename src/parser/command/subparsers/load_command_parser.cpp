@@ -10,9 +10,9 @@ namespace math_solver {
 
         // Defensive: Require at least one argument after ":load".
         if (stream.is_eof()) {
-            throw ParseError("missing filepath for ':load' command",
-                             find_token_span(raw, ":load"),
-                             raw)
+            throw MathException(
+                errors::parse("missing filepath for ':load' command",
+                              find_token_span(raw, ":load"), raw))
                 .with_help("Usage: :load [flags] <filepath>");
         }
 
@@ -39,22 +39,21 @@ namespace math_solver {
                     // Correctness: "--env" must be followed by a valid
                     // environment name.
                     if (stream.is_eof()) {
-                        throw ParseError(
+                        Error err = errors::parse(
                             "expected environment name after '--env'",
-                            find_token_span(raw, "--env"),
-                            raw)
-                            .with_help(
-                                "example: :load script.msl --env production");
+                            find_token_span(raw, "--env"), raw);
+                        err.help = "example: :load script.msl --env production";
+                        throw MathException(err);
                     }
                     flags.env = stream.advance().value;
                 } else {
                     // Strict: Disallow unknown flags to prevent accidental
                     // misuse.
-                    throw ParseError("unknown flag '" + token_val + "'",
-                                     find_token_span(raw, token_val),
-                                     raw)
-                        .with_help(
-                            "available flags: --dry-run, --silent, --env");
+                    Error err =
+                        errors::parse("unknown flag '" + token_val + "'",
+                                      find_token_span(raw, token_val), raw);
+                    err.help = "available flags: --dry-run, --silent, --env";
+                    throw MathException(err);
                 }
             } else {
                 // Only a single filepath is permitted; extra positional
@@ -62,23 +61,23 @@ namespace math_solver {
                 if (filepath.empty()) {
                     filepath = stream.advance().value;
                 } else {
-                    throw ParseError("unexpected positional argument '" +
-                                         token_val + "'",
-                                     find_token_span(raw, token_val),
-                                     raw)
-                        .with_label("extra argument")
-                        .with_help(
-                            "only one filepath is supported per command.");
+                    Error err = errors::parse(
+                        "unexpected positional argument '" + token_val + "'",
+                        find_token_span(raw, token_val), raw);
+                    err.inline_label = "extra argument";
+                    err.help = "only one filepath is supported per command.";
+                    throw MathException(err);
                 }
             }
         }
 
         // Final check: At least one filepath must be provided.
         if (filepath.empty()) {
-            throw ParseError(
-                "no filepath provided", find_token_span(raw, ":load"), raw)
-                .with_help("you must specify a file to load. Example: :load "
-                           "script.msl");
+            Error err = errors::parse("no filepath provided",
+                                      find_token_span(raw, ":load"), raw);
+            err.help  = "you must specify a file to load. Example: :load "
+                        "script.msl";
+            throw MathException(err);
         }
 
         // Returns a LoadCommand instance with parsed flags and filepath.

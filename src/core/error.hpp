@@ -1,5 +1,6 @@
 #pragma once
 
+#include "result.hpp"
 #include "span.hpp"
 #include "ui/color.hpp"
 #include <stdexcept>
@@ -154,209 +155,150 @@ namespace math_solver {
         }
     };
 
-    // Base class for all solver errors.
-    // - Carries a DiagnosticBuilder for rich error reporting.
-    // - diag_ is mutable to allow augmentation after construction (e.g.
-    // attaching help/note).
-    // - Used as the root for all error types surfaced to the user.
-    class MathError : public std::runtime_error {
-        protected:
-        mutable DiagnosticBuilder diag_;
-
-        public:
-        MathError(const std::string& message, const Span& span = Span(),
-                  const std::string& input = "")
-            : std::runtime_error(message) {
-            diag_.message = message;
-            diag_.span    = span;
-            diag_.input   = input;
-        }
-
-        const Span&        span() const { return diag_.span; }
-        const std::string& input() const { return diag_.input; }
-
-        void set_input(const std::string& input) const { diag_.input = input; }
-        void set_filename(const std::string& filename) const {
-            diag_.filename = filename;
-        }
-
-        // Fluent API for augmenting diagnostics after construction.
-        // - Returns *this for chaining.
-        // - Used to attach codes, labels, help, and notes at the catch site.
-        const MathError& with_code(const std::string& code) const {
-            diag_.code = code;
-            return *this;
-        }
-        const MathError& with_label(const std::string& label) const {
-            diag_.inline_label = label;
-            return *this;
-        }
-        const MathError& with_help(const std::string& help) const {
-            diag_.help = help;
-            return *this;
-        }
-        const MathError& with_note(const std::string& note) const {
-            diag_.note = note;
-            return *this;
-        }
-
-        std::string format() const { return diag_.build(); }
-    };
-
-    // Specialized error types for solver diagnostics.
-    // Each subclass sets a unique error code and label.
-    // Codes are chosen to match rustc conventions where applicable.
-    // These types are intended to be thrown and caught at subsystem boundaries.
-
-    class ParseError : public MathError {
-        public:
-        ParseError(const std::string& message, const Span& span = Span(),
-                   const std::string& input = "")
-            : MathError(message, span, input) {
-            diag_.code         = "E0001";
-            diag_.inline_label = "unexpected syntax";
-        }
-    };
-
-    class UnknownCommandError : public MathError {
-        public:
-        UnknownCommandError(const std::string& command,
-                            const Span&        span  = Span(),
-                            const std::string& input = "")
-            : MathError("unknown command: " + command, span, input) {
-            diag_.code         = "E0002";
-            diag_.inline_label = "unrecognized command";
-            diag_.help = "available commands: :help, :env, :config, :history, "
-                         ":var, etc.";
-        }
-    };
-
-    class UndefinedVariableError : public MathError {
+    // Internal exception representing a mathematical error.
+    // - Used structurally within deep ast visitors (e.g. evaluator, solver)
+    //   and caught at subsystem boundaries to map to Result::err.
+    class MathException : public std::runtime_error {
         private:
-        std::string var_name_;
+        Error error_;
 
         public:
-        UndefinedVariableError(const std::string& var_name,
-                               const Span&        span  = Span(),
-                               const std::string& input = "")
-            : MathError("cannot find value `" + var_name + "` in this scope",
-                        span, input),
-              var_name_(var_name) {
-            diag_.code         = "E0425";
-            diag_.inline_label = "not found in this scope";
-        }
+        explicit MathException(const Error& error)
+            : std::runtime_error(error.message), error_(error) {}
 
-        const std::string& var_name() const { return var_name_; }
+        const Error&         error() const { return error_; }
+
+        // Fluent API for augmenting diagnostics after construction (for
+        // backwards compat at catch sites)
+        const MathException& with_code(const std::string& code) {
+            error_.code = code;
+            return *this;
+        }
+        const MathException& with_label(const std::string& label) {
+            error_.inline_label = label;
+            return *this;
+        }
+        const MathException& with_help(const std::string& help) {
+            error_.help = help;
+            return *this;
+        }
+        const MathException& with_note(const std::string& note) {
+            error_.note = note;
+            return *this;
+        }
     };
 
-    class NonLinearError : public MathError {
-        public:
-        NonLinearError(const std::string& message, const Span& span = Span(),
-                       const std::string& input = "")
-            : MathError(message, span, input) {
-            diag_.code         = "E0308";
-            diag_.inline_label = "expected linear term";
-            diag_.help = "the solver currently only supports linear equations. "
-                         "Try defining it as a constant first.";
+    // Factory functions for predefined solver errors.
+    // Used by internal components to build `Error` instances efficiently.
+    namespace errors {
+
+        inline Error math(const std::string& message, const Span& span = Span(),
+                          const std::string& input = "") {
+            return Error::make(message, "E0000", span, input);
         }
-    };
 
-    class MultipleUnknownsError : public MathError {
-        private:
-        std::vector<std::string> unknowns_;
-
-        public:
-        MultipleUnknownsError(const std::vector<std::string>& unknowns,
-                              const Span&                     span  = Span(),
-                              const std::string&              input = "")
-            : MathError(build_message(unknowns), span, input),
-              unknowns_(unknowns) {
-            diag_.code         = "E0282";
-            diag_.inline_label = "multiple unknowns present here";
-            diag_.help =
-                "use `:set <var> <expr>` to define the other variables first.";
+        inline Error parse(const std::string& message,
+                           const Span&        span  = Span(),
+                           const std::string& input = "") {
+            return Error::make(message, "E0001", span, input,
+                               "unexpected syntax");
         }
-        const std::vector<std::string>& unknowns() const { return unknowns_; }
 
-        private:
-        // Constructs a message listing all unknowns.
-        // - Used to provide context in the error message.
-        static std::string build_message(const std::vector<std::string>& vars) {
+        inline Error unknown_command(const std::string& command,
+                                     const Span&        span  = Span(),
+                                     const std::string& input = "") {
+            auto err = Error::make("unknown command: " + command, "E0002", span,
+                                   input, "unrecognized command");
+            err.help = "available commands: :help, :env, :config, :history, "
+                       ":var, etc.";
+            return err;
+        }
+
+        inline Error undefined_variable(const std::string& var_name,
+                                        const Span&        span  = Span(),
+                                        const std::string& input = "") {
+            return Error::make("cannot find value `" + var_name +
+                                   "` in this scope",
+                               "E0425", span, input, "not found in this scope");
+        }
+
+        inline Error non_linear(const std::string& message,
+                                const Span&        span  = Span(),
+                                const std::string& input = "") {
+            auto err = Error::make(message, "E0308", span, input,
+                                   "expected linear term");
+            err.help = "the solver currently only supports linear equations. "
+                       "Try defining it as a constant first.";
+            return err;
+        }
+
+        inline Error multiple_unknowns(const std::vector<std::string>& unknowns,
+                                       const Span&        span  = Span(),
+                                       const std::string& input = "") {
             std::string msg =
                 "cannot solve for multiple variables simultaneously (";
-            for (size_t i = 0; i < vars.size(); ++i) {
+            for (size_t i = 0; i < unknowns.size(); ++i) {
                 if (i > 0)
                     msg += ", ";
-                msg += "`" + vars[i] + "`";
+                msg += "`" + unknowns[i] + "`";
             }
             msg += ")";
-            return msg;
+            auto err = Error::make(msg, "E0282", span, input,
+                                   "multiple unknowns present here");
+            err.help =
+                "use `:set <var> <expr>` to define the other variables first.";
+            return err;
         }
-    };
 
-    class NoSolutionError : public MathError {
-        public:
-        NoSolutionError(const std::string& message = "equation has no solution",
-                        const Span&        span    = Span(),
-                        const std::string& input   = "")
-            : MathError(message, span, input) {
-            diag_.code         = "E0010";
-            diag_.inline_label = "unsatisfiable equation";
+        inline Error circular_dependency(const std::string& var_name,
+                                         const Span&        span  = Span(),
+                                         const std::string& input = "") {
+            auto err = Error::make(
+                "cyclic dependency detected for `" + var_name + "`", "E0391",
+                span, input, "recursive variable reference");
+            err.help = "ensure that variables do not depend on themselves "
+                       "directly or indirectly.";
+            return err;
         }
-    };
 
-    class InfiniteSolutionsError : public MathError {
-        public:
-        InfiniteSolutionsError(
+        inline Error
+        no_solution(const std::string& message = "equation has no solution",
+                    const Span& span = Span(), const std::string& input = "") {
+            return Error::make(message, "E0010", span, input,
+                               "unsatisfiable equation");
+        }
+
+        inline Error infinite_solutions(
             const std::string& message = "equation has infinite solutions",
-            const Span& span = Span(), const std::string& input = "")
-            : MathError(message, span, input) {
-            diag_.code         = "E0011";
-            diag_.inline_label = "tautology detected";
+            const Span& span = Span(), const std::string& input = "") {
+            return Error::make(message, "E0011", span, input,
+                               "tautology detected");
         }
-    };
 
-    class InvalidEquationError : public MathError {
-        public:
-        InvalidEquationError(const std::string& message,
-                             const Span&        span  = Span(),
-                             const std::string& input = "")
-            : MathError(message, span, input) {
-            diag_.code         = "E0012";
-            diag_.inline_label = "invalid equation format";
+        inline Error invalid_equation(const std::string& message,
+                                      const Span&        span  = Span(),
+                                      const std::string& input = "") {
+            return Error::make(message, "E0012", span, input,
+                               "invalid equation format");
         }
-    };
 
-    class ReservedKeywordError : public MathError {
-        public:
-        ReservedKeywordError(const std::string& keyword,
-                             const Span&        span  = Span(),
-                             const std::string& input = "")
-            : MathError("`" + keyword + "` is a reserved keyword", span,
-                        input) {
-            diag_.code         = "E0013";
-            diag_.inline_label = "reserved keyword used as identifier";
-            diag_.help         = "choose a different name for your variable.";
+        inline Error reserved_keyword(const std::string& keyword,
+                                      const Span&        span  = Span(),
+                                      const std::string& input = "") {
+            auto err =
+                Error::make("`" + keyword + "` is a reserved keyword", "E0013",
+                            span, input, "reserved keyword used as identifier");
+            err.help = "choose a different name for your variable.";
+            return err;
         }
-    };
 
-    class CircularDependencyError : public MathError {
-        private:
-        std::string var_name_;
-
-        public:
-        CircularDependencyError(const std::string& var_name,
+        inline Error polynomial(const std::string& message,
                                 const Span&        span  = Span(),
-                                const std::string& input = "")
-            : MathError("cyclic dependency detected for `" + var_name + "`",
-                        span, input),
-              var_name_(var_name) {
-            diag_.code         = "E0391";
-            diag_.inline_label = "recursive variable reference";
-            diag_.help = "ensure that variables do not depend on themselves "
-                         "directly or indirectly.";
+                                const std::string& input = "") {
+            return Error::make(message, "E0500", span, input,
+                               "polynomial error");
         }
-        const std::string& var_name() const { return var_name_; }
-    };
+
+    } // namespace errors
 
 } // namespace math_solver

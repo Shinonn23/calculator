@@ -25,14 +25,7 @@ namespace math_solver {
     // reporting layers.
     class HistoryCommand : public Command {
         public:
-        enum class Action {
-            Show,
-            ShowRange,
-            Search,
-            Save,
-            Clear,
-            Unknown
-        };
+        enum class Action { Show, ShowRange, Search, Save, Clear, Unknown };
 
         private:
         Action           action_;
@@ -97,8 +90,9 @@ namespace math_solver {
                    action_ == Action::Search;
         }
 
-        void accept(CommandVisitor& visitor) const override {
-            visitor.visit(*this);
+        void accept(CommandVisitor& visitor,
+                    DiagnosticSink& sink) const override {
+            visitor.visit(*this, sink);
         }
     };
 

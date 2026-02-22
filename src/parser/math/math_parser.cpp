@@ -19,7 +19,8 @@ namespace math_solver {
             advance();
             auto expr = parse_expression();
             if (current_.type != TokenType::RParen) {
-                throw ParseError("expected ')'", current_.span, input_);
+                throw MathException(
+                    errors::parse("expected ')'", current_.span, input_));
             }
             Span end_span = current_.span;
             advance();
@@ -41,10 +42,10 @@ namespace math_solver {
             return std::make_unique<Variable>(name, span);
         }
 
-        throw ParseError("unexpected token '" +
-                             std::string(token_type_name(current_.type)) + "'",
-                         current_.span,
-                         input_);
+        throw MathException(
+            errors::parse("unexpected token '" +
+                              std::string(token_type_name(current_.type)) + "'",
+                          current_.span, input_));
     }
 
     // Handles unary prefix operators.
@@ -58,10 +59,8 @@ namespace math_solver {
             ExprPtr expr        = parse_unary();
             auto    zero        = std::make_unique<Number>(0, op_span);
             Span    result_span = op_span.merge(expr->span());
-            return std::make_unique<BinaryOp>(std::move(zero),
-                                              std::move(expr),
-                                              BinaryOpType::Sub,
-                                              result_span);
+            return std::make_unique<BinaryOp>(std::move(zero), std::move(expr),
+                                              BinaryOpType::Sub, result_span);
         }
         if (current_.type == TokenType::Plus) {
             advance();
@@ -83,10 +82,8 @@ namespace math_solver {
             advance();
             auto right       = parse_unary();
             Span result_span = left->span().merge(right->span());
-            left             = std::make_unique<BinaryOp>(std::move(left),
-                                              std::move(right),
-                                              BinaryOpType::Pow,
-                                              result_span);
+            left = std::make_unique<BinaryOp>(std::move(left), std::move(right),
+                                              BinaryOpType::Pow, result_span);
         }
 
         return left;
@@ -124,8 +121,8 @@ namespace math_solver {
 
             auto right       = parse_power();
             Span result_span = left->span().merge(right->span());
-            left             = std::make_unique<BinaryOp>(
-                std::move(left), std::move(right), op, result_span);
+            left = std::make_unique<BinaryOp>(std::move(left), std::move(right),
+                                              op, result_span);
         }
 
         return left;
@@ -147,8 +144,8 @@ namespace math_solver {
             advance();
             auto right       = parse_multiplicative();
             Span result_span = left->span().merge(right->span());
-            left             = std::make_unique<BinaryOp>(
-                std::move(left), std::move(right), op, result_span);
+            left = std::make_unique<BinaryOp>(std::move(left), std::move(right),
+                                              op, result_span);
         }
 
         return left;
@@ -156,22 +153,18 @@ namespace math_solver {
 
     // Entry point for parsing a full expression.
     // - All operator precedence and associativity handled by lower layers.
-    ExprPtr Parser::parse_expression() {
-        return parse_additive();
-    }
+    ExprPtr            Parser::parse_expression() { return parse_additive(); }
 
-    const std::string& Parser::input() const {
-        return input_;
-    }
+    const std::string& Parser::input() const { return input_; }
 
     // Parses a single expression and ensures no trailing input remains.
     // - Throws if extra tokens are present after the expression.
     // - Used for cases where only a pure expression is valid.
-    ExprPtr Parser::parse() {
+    ExprPtr            Parser::parse_impl() {
         auto expr = parse_expression();
         if (current_.type != TokenType::End) {
-            throw ParseError(
-                "unexpected input after expression", current_.span, input_);
+            throw MathException(errors::parse(
+                "unexpected input after expression", current_.span, input_));
         }
         return expr;
     }
@@ -182,7 +175,8 @@ namespace math_solver {
     // - Throws on malformed input or trailing tokens.
     // - Used by higher-level entry points to distinguish between equations and
     // expressions.
-    std::pair<ExprPtr, EquationPtr> Parser::parse_expression_or_equation() {
+    std::pair<ExprPtr, EquationPtr>
+    Parser::parse_expression_or_equation_impl() {
         auto lhs = parse_expression();
 
         if (current_.type == TokenType::Equals) {
@@ -190,26 +184,25 @@ namespace math_solver {
             advance();
 
             if (current_.type == TokenType::End) {
-                throw ParseError(
-                    "expected expression after '='", equals_span, input_);
+                throw MathException(errors::parse(
+                    "expected expression after '='", equals_span, input_));
             }
 
             auto rhs = parse_expression();
 
             if (current_.type != TokenType::End) {
-                throw ParseError(
-                    "unexpected input after equation", current_.span, input_);
+                throw MathException(errors::parse(
+                    "unexpected input after equation", current_.span, input_));
             }
 
             Span eq_span = lhs->span().merge(rhs->span());
-            return {nullptr,
-                    std::make_unique<Equation>(
-                        std::move(lhs), std::move(rhs), eq_span)};
+            return {nullptr, std::make_unique<Equation>(
+                                 std::move(lhs), std::move(rhs), eq_span)};
         }
 
         if (current_.type != TokenType::End) {
-            throw ParseError(
-                "unexpected input after expression", current_.span, input_);
+            throw MathException(errors::parse(
+                "unexpected input after expression", current_.span, input_));
         }
 
         return {std::move(lhs), nullptr};
@@ -219,30 +212,65 @@ namespace math_solver {
     // - Throws if '=' is missing or if trailing input remains.
     // - Used when only equations are valid (e.g., solver entry points).
     // - Invariant: Both sides must be valid expressions.
-    EquationPtr Parser::parse_equation() {
+    EquationPtr Parser::parse_equation_impl() {
         auto lhs = parse_expression();
 
         if (current_.type != TokenType::Equals) {
-            throw ParseError(
-                "expected '=' for equation", current_.span, input_);
+            throw MathException(errors::parse("expected '=' for equation",
+                                              current_.span, input_));
         }
 
         Span equals_span = current_.span;
         advance();
 
         if (current_.type == TokenType::End) {
-            throw ParseError(
-                "expected expression after '='", equals_span, input_);
+            throw MathException(errors::parse("expected expression after '='",
+                                              equals_span, input_));
         }
 
         auto rhs = parse_expression();
 
         if (current_.type != TokenType::End) {
-            throw ParseError(
-                "unexpected input after equation", current_.span, input_);
+            throw MathException(errors::parse("unexpected input after equation",
+                                              current_.span, input_));
         }
 
         return std::make_unique<Equation>(std::move(lhs), std::move(rhs));
-    };
+    }
+
+    Result<ExprPtr> Parser::parse() {
+        try {
+            return Result<ExprPtr>::ok(parse_impl());
+        } catch (const MathException& e) {
+            return Result<ExprPtr>::err(e.error());
+        } catch (const std::exception& e) {
+            return Result<ExprPtr>::err(Error::make(
+                e.what(), "E0001", current_.span, input_, "unexpected syntax"));
+        }
+    }
+
+    Result<std::pair<ExprPtr, EquationPtr>>
+    Parser::parse_expression_or_equation() {
+        try {
+            return Result<std::pair<ExprPtr, EquationPtr>>::ok(
+                parse_expression_or_equation_impl());
+        } catch (const MathException& e) {
+            return Result<std::pair<ExprPtr, EquationPtr>>::err(e.error());
+        } catch (const std::exception& e) {
+            return Result<std::pair<ExprPtr, EquationPtr>>::err(Error::make(
+                e.what(), "E0001", current_.span, input_, "unexpected syntax"));
+        }
+    }
+
+    Result<EquationPtr> Parser::parse_equation() {
+        try {
+            return Result<EquationPtr>::ok(parse_equation_impl());
+        } catch (const MathException& e) {
+            return Result<EquationPtr>::err(e.error());
+        } catch (const std::exception& e) {
+            return Result<EquationPtr>::err(Error::make(
+                e.what(), "E0001", current_.span, input_, "unexpected syntax"));
+        }
+    }
 
 } // namespace math_solver

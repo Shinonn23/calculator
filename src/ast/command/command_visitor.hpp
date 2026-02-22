@@ -1,6 +1,7 @@
 #pragma once
 
 namespace math_solver {
+    class DiagnosticSink;
 
     // CommandVisitor provides a closed set of visit methods for all supported
     // command types.
@@ -26,15 +27,15 @@ namespace math_solver {
 
     class CommandVisitor {
         public:
-        virtual ~CommandVisitor()                     = default;
+        virtual ~CommandVisitor() = default;
 
-        virtual void visit(const SystemCommand& cmd)  = 0;
-        virtual void visit(const VarCommand& cmd)     = 0;
-        virtual void visit(const MathCommand& cmd)    = 0;
-        virtual void visit(const EnvCommand& cmd)     = 0;
-        virtual void visit(const ConfigCommand& cmd)  = 0;
-        virtual void visit(const LoadCommand& cmd)    = 0;
-        virtual void visit(const HistoryCommand& cmd) = 0;
-        virtual void visit(const RedoCommand& cmd)    = 0;
+        virtual void visit(const SystemCommand& cmd, DiagnosticSink& sink)  = 0;
+        virtual void visit(const VarCommand& cmd, DiagnosticSink& sink)     = 0;
+        virtual void visit(const MathCommand& cmd, DiagnosticSink& sink)    = 0;
+        virtual void visit(const EnvCommand& cmd, DiagnosticSink& sink)     = 0;
+        virtual void visit(const ConfigCommand& cmd, DiagnosticSink& sink)  = 0;
+        virtual void visit(const LoadCommand& cmd, DiagnosticSink& sink)    = 0;
+        virtual void visit(const HistoryCommand& cmd, DiagnosticSink& sink) = 0;
+        virtual void visit(const RedoCommand& cmd, DiagnosticSink& sink)    = 0;
     };
 } // namespace math_solver
