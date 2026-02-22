@@ -43,6 +43,8 @@ namespace math_solver {
         // - Invariant: registry_ must be valid for the lifetime of this Runner.
         bool run_line(const std::string& line);
 
+        bool last_script_had_errors() const { return last_script_had_errors_; }
+
         private:
         // registry_ must outlive this Runner; all command dispatches are routed
         // through it.
@@ -52,6 +54,8 @@ namespace math_solver {
         // Assumes cmd is a valid, heap-allocated command pointer.
         // May mutate registry state depending on handler implementation.
         bool             dispatch_cmd(CommandPtr& cmd);
+
+        bool             last_script_had_errors_ = false;
     };
 
 } // namespace math_solver

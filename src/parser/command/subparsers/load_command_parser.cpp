@@ -35,6 +35,10 @@ namespace math_solver {
                     flags.dry_run = true;
                 } else if (token_val == "--silent") {
                     flags.silent = true;
+                } else if (token_val == "--strict") {
+                    flags.strict = true;
+                } else if (token_val == "--no-rollback") {
+                    flags.no_rollback = true;
                 } else if (token_val == "--env") {
                     // Correctness: "--env" must be followed by a valid
                     // environment name.
@@ -52,7 +56,8 @@ namespace math_solver {
                     Error err =
                         errors::parse("unknown flag '" + token_val + "'",
                                       find_token_span(raw, token_val), raw);
-                    err.help = "available flags: --dry-run, --silent, --env";
+                    err.help = "available flags: --dry-run, --silent, "
+                               "--strict, --no-rollback, --env";
                     throw MathException(err);
                 }
             } else {

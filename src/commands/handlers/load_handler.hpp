@@ -20,8 +20,16 @@ namespace math_solver {
         // - Any changes to script loading semantics must be coordinated with
         // the REPL runner's state management.
         inline HistoryStatus handle_load(const LoadCommand& cmd, Runner& runner,
-                                         DiagnosticSink& /*sink*/) {
+                                         DiagnosticSink& sink) {
             runner.run_script(cmd.filepath(), cmd.flags());
+
+            if (runner.last_script_had_errors()) {
+                sink.push(Error::make("script '" + cmd.filepath() + "' failed",
+                                      "E0900", {}, cmd.raw_command(),
+                                      "nested script error"));
+                return HistoryStatus::Error;
+            }
+
             return HistoryStatus::Info;
         }
 

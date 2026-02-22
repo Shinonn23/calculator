@@ -52,8 +52,9 @@ namespace math_solver {
 
         // Double-dispatch entry point for visitor pattern.
         // All VarCommand variants must be handled by CommandVisitor.
-        void               accept(CommandVisitor& visitor) const override {
-            visitor.visit(*this);
+        void               accept(CommandVisitor& visitor,
+                                  DiagnosticSink& sink) const override {
+            visitor.visit(*this, sink);
         }
     };
 

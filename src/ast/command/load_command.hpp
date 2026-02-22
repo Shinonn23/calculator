@@ -25,9 +25,11 @@ namespace math_solver {
     class LoadCommand : public Command {
         public:
         struct Flags {
-            bool        dry_run = false;
-            bool        silent  = false;
-            std::string env;
+            bool        dry_run     = false;
+            bool        silent      = false;
+            bool        strict      = false;
+            bool        no_rollback = false;
+            std::string env         = "";
         };
 
         LoadCommand(const std::string& filepath, const Flags& flags,

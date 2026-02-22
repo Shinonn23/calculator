@@ -54,53 +54,56 @@ namespace math_solver {
         }
     }
 
-    void HandlerRegistry::visit(const SystemCommand& cmd) {
+    void HandlerRegistry::visit(const SystemCommand& cmd,
+                                DiagnosticSink&      sink) {
         // System commands may request process exit via should_exit_.
         // last_command_status_ must always reflect the result of handler.
         last_command_status_ =
-            handlers::handle_system(cmd, ctx_, cfg_, should_exit_, sink_);
+            handlers::handle_system(cmd, ctx_, cfg_, should_exit_, sink);
     }
 
-    void HandlerRegistry::visit(const VarCommand& cmd) {
+    void HandlerRegistry::visit(const VarCommand& cmd, DiagnosticSink& sink) {
         // All variable command actions must be registered in var_reg_.
         // Correctness: var_reg_ must not be mutated concurrently.
         last_command_status_ = var_reg_.dispatch(cmd.action(), cmd, ctx_, cfg_,
-                                                 current_env_, sink_);
+                                                 current_env_, sink);
     }
 
-    void HandlerRegistry::visit(const MathCommand& cmd) {
+    void HandlerRegistry::visit(const MathCommand& cmd, DiagnosticSink& sink) {
         // math_reg_ must be fully populated for all MathCommand::Type variants.
         // Any missing handler is a logic error.
-        last_command_status_ = math_reg_.dispatch(cmd.type(), cmd, ctx_, cfg_,
-                                                  current_env_, sink_);
+        last_command_status_ =
+            math_reg_.dispatch(cmd.type(), cmd, ctx_, cfg_, current_env_, sink);
     }
 
-    void HandlerRegistry::visit(const EnvCommand& cmd) {
+    void HandlerRegistry::visit(const EnvCommand& cmd, DiagnosticSink& sink) {
         // env_reg_ must be initialized for all EnvCommand::Action variants.
         // current_env_ must be valid for all env actions.
         last_command_status_ = env_reg_.dispatch(cmd.action(), cmd, ctx_, cfg_,
-                                                 current_env_, sink_);
+                                                 current_env_, sink);
     }
 
-    void HandlerRegistry::visit(const ConfigCommand& cmd) {
+    void HandlerRegistry::visit(const ConfigCommand& cmd,
+                                DiagnosticSink&      sink) {
         // config_reg_ is stateless; only mutates cfg_.
         // All supported ConfigCommand::Action variants must be registered.
         last_command_status_ = config_reg_.dispatch(cmd.action(), cmd, ctx_,
-                                                    cfg_, current_env_, sink_);
+                                                    cfg_, current_env_, sink);
     }
 
-    void HandlerRegistry::visit(const LoadCommand& cmd) {
+    void HandlerRegistry::visit(const LoadCommand& cmd, DiagnosticSink& sink) {
         // runner_ must be set prior to handling LoadCommand.
         // If runner_ is unset, this is a fatal logic error.
         if (!runner_) {
             throw std::runtime_error(
                 "HandlerRegistry: Runner not set; cannot handle :load");
         }
-        handlers::handle_load(cmd, *runner_, sink_);
+        handlers::handle_load(cmd, *runner_, sink);
         last_command_status_ = HistoryStatus::Success;
     }
 
-    void HandlerRegistry::visit(const HistoryCommand& cmd) {
+    void HandlerRegistry::visit(const HistoryCommand& cmd,
+                                DiagnosticSink&       sink) {
         // HistoryCommand::Clear triggers both in-memory and external clear.
         // should_clear_history_ is set for deferred clearing.
         // rx_ must be notified if present.
@@ -110,10 +113,10 @@ namespace math_solver {
                 rx_->history_clear();
         }
         last_command_status_ =
-            handlers::handle_history(cmd, session_history_, sink_);
+            handlers::handle_history(cmd, session_history_, sink);
     }
 
-    void HandlerRegistry::visit(const RedoCommand& cmd) {
+    void HandlerRegistry::visit(const RedoCommand& cmd, DiagnosticSink& sink) {
         // RedoCommand replays a previous command by parsing and dispatching it.
         // - parse_command must not mutate session state.
         // - Recursive dispatch is permitted; correctness relies on
@@ -121,12 +124,12 @@ namespace math_solver {
         //   being side-effect free.
         last_command_status_ = handlers::handle_redo(
             cmd, session_history_,
-            [this](const std::string& raw) {
+            [this, &sink](const std::string& raw) {
                 auto parse_result = parse_command(raw);
                 if (parse_result)
-                    dispatch(*std::move(*parse_result));
+                    dispatch(*std::move(*parse_result), sink);
             },
-            sink_);
+            sink);
     }
 
     HandlerRegistry build_handler_registry(Context& ctx, Config& config,

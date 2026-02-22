@@ -14,7 +14,6 @@
 #include "parser/math/math_parser.hpp"
 #include "runtime/context/context.hpp"
 #include "ui/color.hpp"
-#include "ui/suggestions.hpp"
 
 #include <iostream>
 

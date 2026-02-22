@@ -6,6 +6,22 @@
 
 namespace math_solver {
 
+    Context::Context(const Context& other) {
+        for (const auto& [name, expr] : other.variables_) {
+            variables_[name] = expr->clone();
+        }
+    }
+
+    Context& Context::operator=(const Context& other) {
+        if (this != &other) {
+            variables_.clear();
+            for (const auto& [name, expr] : other.variables_) {
+                variables_[name] = expr->clone();
+            }
+        }
+        return *this;
+    }
+
     // Overwrites any existing binding for `name`.
     // Clones the input expression to avoid aliasing issues.
     void Context::set(const std::string& name, const Expr& expr) {
@@ -47,9 +63,7 @@ namespace math_solver {
 
     // Clears all variable bindings.
     // Used to reset the context between evaluation passes.
-    void Context::clear() {
-        variables_.clear();
-    }
+    void                     Context::clear() { variables_.clear(); }
 
     // Returns all variable names in insertion order is not guaranteed.
     std::vector<std::string> Context::all_names() const {
@@ -78,13 +92,9 @@ namespace math_solver {
     }
 
     // Returns the number of variable bindings.
-    size_t Context::size() const {
-        return variables_.size();
-    }
+    size_t Context::size() const { return variables_.size(); }
 
     // Returns true if there are no variable bindings.
-    bool Context::empty() const {
-        return variables_.empty();
-    }
+    bool   Context::empty() const { return variables_.empty(); }
 
 } // namespace math_solver

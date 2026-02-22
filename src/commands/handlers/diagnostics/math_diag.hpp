@@ -1,6 +1,5 @@
 #pragma once
 
-#include "command_diag.hpp"
 #include "core/error.hpp"
 #include "runtime/context/context.hpp"
 #include "ui/color.hpp"

@@ -29,8 +29,9 @@ namespace math_solver {
 
         // Accept must dispatch to CommandVisitor::visit(SystemCommand).
         // Invariant: visitor must handle all SystemCommand::Type variants.
-        void accept(CommandVisitor& visitor) const override {
-            visitor.visit(*this);
+        void accept(CommandVisitor& visitor,
+                    DiagnosticSink& sink) const override {
+            visitor.visit(*this, sink);
         }
     };
 } // namespace math_solver

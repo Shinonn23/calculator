@@ -2,6 +2,7 @@
 #include "ast/command/load_command.hpp"
 #include "core/error.hpp"
 #include "parser/command/command_parser.hpp"
+#include "runtime/runtime.hpp"
 #include "ui/color.hpp"
 #include "utils/string_utils.hpp"
 
@@ -108,23 +109,46 @@ namespace math_solver {
     // and context management logic.
     void Runner::run_script(const std::string&        filepath,
                             const LoadCommand::Flags& flags) {
+        last_script_had_errors_ = false;
         std::ifstream file(filepath);
         if (!file.is_open()) {
             std::cout << ansi::red << "  Error: " << ansi::reset
                       << "cannot open '" << filepath << "'\n";
+            last_script_had_errors_ = true;
             return;
         }
 
-        std::string old_env;
-        bool        should_switch_back = false;
+        // ── Snapshot before touching anything ────────────────────────────────
+        RuntimeSnapshot snap{registry_.ctx(), registry_.config(),
+                             registry_.current_env()};
+
+        // ── Switch env if requested
+        // ───────────────────────────────────────────
+        std::string     old_env;
+        bool            should_switch_back = false;
         if (!flags.env.empty()) {
-            old_env = registry_.current_env();
-            run_line(":env load " + flags.env);
+            if (!registry_.config().env_exists(flags.env)) {
+                std::cout << ansi::red << "  Error: " << ansi::reset
+                          << "environment '" << flags.env
+                          << "' does not exist\n";
+                last_script_had_errors_ = true;
+                return;
+            }
+            old_env            = registry_.current_env();
             should_switch_back = true;
+            // Temporarily use the fallback sink for run_line
+            run_line(":env load " + flags.env);
         }
 
+        // ── Execute
+        // ───────────────────────────────────────────────────────────
+        DiagnosticSink    sink(DiagnosticSink::Options(50, true, true));
+
         std::string       line;
-        int               line_no = 0, errors = 0;
+        size_t            line_no = 0, total = 0;
+        bool              should_rollback    = false;
+        int               unaccounted_errors = 0;
+
         std::stringstream garbage;
         std::streambuf*   old_cout = std::cout.rdbuf();
 
@@ -133,55 +157,92 @@ namespace math_solver {
             auto trimmed = trim(line);
             if (trimmed.empty() || trimmed[0] == '#')
                 continue;
+            ++total;
 
             if (!flags.silent)
                 std::cout << ansi::dim << "  [" << line_no << "] " << trimmed
                           << ansi::reset << "\n";
 
-            if (!flags.dry_run) {
-                if (flags.silent)
-                    std::cout.rdbuf(garbage.rdbuf());
+            if (flags.dry_run)
+                continue;
 
-                auto parse_result = parse_command(trimmed);
-                if (!parse_result) {
-                    errors++;
-                    std::cout.rdbuf(old_cout);
-                    std::cout << parse_result.error().format();
-                    if (flags.silent)
-                        std::cout.rdbuf(garbage.rdbuf());
-                    continue;
-                }
-                auto cmd = std::move(*parse_result);
+            auto loc    = SourceLocation::from_file(filepath, line_no);
+            auto result = parse_command(trimmed);
 
-                cmd->set_source(filepath, line_no);
-
-                registry_.dispatch(*cmd);
-
-                if (registry_.last_command_status() == HistoryStatus::Error)
-                    errors++;
-
-                std::cout.rdbuf(old_cout);
-                size_t flushed_errs =
-                    registry_.sink().flush(flags.silent ? garbage : std::cout);
-                if (registry_.last_command_status() != HistoryStatus::Error &&
-                    flushed_errs > 0) {
-                    errors += flushed_errs;
-                }
+            if (!result) {
+                sink.push(result.error().with_location(loc));
+                should_rollback = true;
+                if (flags.strict)
+                    break;
+                continue;
             }
+
+            auto& cmd = *result;
+            cmd->set_source(filepath, line_no);
+
+            if (flags.silent)
+                std::cout.rdbuf(garbage.rdbuf());
+            size_t errors_before = sink.error_count();
+            registry_.dispatch(*cmd, sink);
+            if (flags.silent)
+                std::cout.rdbuf(old_cout);
+
+            if (registry_.last_command_status() == HistoryStatus::Error) {
+                if (sink.error_count() == errors_before) {
+                    // Handler failed but didn't push to sink; it emitted
+                    // directly.
+                    unaccounted_errors++;
+                }
+                should_rollback = true;
+                if (flags.strict)
+                    break;
+            } else if (sink.has_errors()) {
+                should_rollback = true;
+                if (flags.strict)
+                    break;
+            }
+        }
+
+        // ── Rollback if any error
+        // ─────────────────────────────────────────────
+        if (should_rollback) {
+            last_script_had_errors_ = true;
+        }
+
+        if (should_rollback && !flags.no_rollback) {
+            registry_.ctx()             = snap.ctx;
+            registry_.config()          = snap.config;
+            registry_.current_env_mut() = snap.current_env;
+
+            registry_.config().save();
+
+            sink.flush_summary(filepath, total);
+            std::cout << ansi::yellow << ansi::dim
+                      << "  Rolled back — env and config unchanged\n"
+                      << ansi::reset;
+            return;
         }
 
         if (should_switch_back) {
             run_line(":env load " + old_env);
         }
 
-        // Always print summary if errors occurred, even in silent mode.
-        if (!flags.silent || errors > 0) {
-            std::cout << "  Loaded '" << filepath << "' (" << line_no
-                      << " lines";
-            if (errors)
-                std::cout << ", " << ansi::red << errors << " error(s)"
+        int total_errors = sink.error_count() + unaccounted_errors;
+
+        if (unaccounted_errors > 0 || (!flags.silent && total_errors > 0)) {
+            sink.flush(); // Flush any warnings/errors inside sink
+            std::cout << "  Loaded '" << filepath << "' (" << total
+                      << (total == 1 ? " line)" : " lines)");
+            if (total_errors > 0)
+                std::cout << ", " << ansi::red << total_errors << " error(s)"
                           << ansi::reset;
-            std::cout << ")\n";
+            std::cout << "\n";
+        } else if (!flags.silent) {
+            sink.flush_summary(filepath, total);
+        } else if (total_errors == 0) {
+            // Flush warnings without the summary if it was silent and
+            // successful
+            sink.flush();
         }
     }
 

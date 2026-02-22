@@ -31,15 +31,13 @@ namespace math_solver {
 
         public:
         // The raw string is preserved for diagnostics and round-tripping.
-        MathCommand(Type               type,
-                    const std::string& payload,
+        MathCommand(Type type, const std::string& payload,
                     const std::string& raw)
             : Command(raw), type_(type), payload_(payload) {}
 
         // set_flags must be called before execution if any flags are present in
         // the input. The default values correspond to the absence of flags.
-        void set_flags(bool                            isolated,
-                       bool                            fraction,
+        void set_flags(bool isolated, bool fraction,
                        const std::vector<std::string>& vars = {}) {
             isolated_      = isolated;
             as_fraction_   = fraction;
@@ -57,8 +55,9 @@ namespace math_solver {
         // Double-dispatch entry point; required for integration with the
         // visitor framework. All MathCommand variants must be handled by
         // CommandVisitor::visit.
-        void accept(CommandVisitor& visitor) const override {
-            visitor.visit(*this);
+        void accept(CommandVisitor& visitor,
+                    DiagnosticSink& sink) const override {
+            visitor.visit(*this, sink);
         }
     };
 } // namespace math_solver

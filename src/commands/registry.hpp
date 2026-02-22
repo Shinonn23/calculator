@@ -127,12 +127,14 @@ namespace math_solver {
 
         // Returns false if the command signals process exit.
         // Main loop must call clear_history() if should_clear_history_ is set.
-        bool dispatch(const Command& cmd) {
+        bool dispatch(const Command& cmd, DiagnosticSink& sink) {
             should_exit_          = false;
             should_clear_history_ = false;
-            cmd.accept(*this);
+            cmd.accept(*this, sink);
             return !should_exit_;
         }
+
+        bool dispatch(const Command& cmd) { return dispatch(cmd, sink_); }
 
         bool should_clear_history() const { return should_clear_history_; }
 
@@ -160,6 +162,10 @@ namespace math_solver {
         }
 
         const std::string& current_env() const { return current_env_; }
+        std::string&       current_env_mut() { return current_env_; }
+
+        Context&           ctx() { return ctx_; }
+        Config&            config() { return cfg_; }
 
         void               set_runner(Runner& runner) { runner_ = &runner; }
         DiagnosticSink&    sink() { return sink_; }
@@ -167,14 +173,14 @@ namespace math_solver {
         // CommandVisitor overrides. Each handler is responsible for updating
         // last_command_status_, should_exit_, and should_clear_history_ as
         // needed.
-        void               visit(const SystemCommand& cmd) override;
-        void               visit(const VarCommand& cmd) override;
-        void               visit(const MathCommand& cmd) override;
-        void               visit(const EnvCommand& cmd) override;
-        void               visit(const ConfigCommand& cmd) override;
-        void               visit(const LoadCommand& cmd) override;
-        void               visit(const HistoryCommand& cmd) override;
-        void               visit(const RedoCommand& cmd) override;
+        void visit(const SystemCommand& cmd, DiagnosticSink& sink) override;
+        void visit(const VarCommand& cmd, DiagnosticSink& sink) override;
+        void visit(const MathCommand& cmd, DiagnosticSink& sink) override;
+        void visit(const EnvCommand& cmd, DiagnosticSink& sink) override;
+        void visit(const ConfigCommand& cmd, DiagnosticSink& sink) override;
+        void visit(const LoadCommand& cmd, DiagnosticSink& sink) override;
+        void visit(const HistoryCommand& cmd, DiagnosticSink& sink) override;
+        void visit(const RedoCommand& cmd, DiagnosticSink& sink) override;
 
         private:
         Context&                  ctx_;

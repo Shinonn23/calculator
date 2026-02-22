@@ -31,6 +31,10 @@ namespace math_solver {
 
         public:
         Context() = default;
+        Context(const Context& other);
+        Context& operator=(const Context& other);
+        Context(Context&&) noexcept = default;
+        Context& operator=(Context&&) noexcept = default;
 
         // Overwrites or inserts a variable binding.
         // The Expr is copied or moved as appropriate.

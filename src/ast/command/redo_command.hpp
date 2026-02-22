@@ -21,8 +21,9 @@ namespace math_solver {
         // Accepts a visitor for double-dispatch; relies on CommandVisitor
         // implementations to correctly handle the redo semantics.
         // Correctness depends on the visitor not mutating this object.
-        void                    accept(CommandVisitor& visitor) const override {
-            visitor.visit(*this);
+        void                    accept(CommandVisitor& visitor,
+                                       DiagnosticSink& sink) const override {
+            visitor.visit(*this, sink);
         }
     };
 } // namespace math_solver
