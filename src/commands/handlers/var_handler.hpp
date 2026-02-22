@@ -256,7 +256,7 @@ namespace math_solver {
                 return handle_set(cmd, ctx, config);
             case VarCommand::Action::Unset:
                 return handle_unset(cmd, ctx);
-            case VarCommand::Action::Unknown:
+            case VarCommand::Action::Unknown: {
                 std::string input   = cmd.raw_command();
                 std::string bad_cmd = input.substr(0, input.find(' '));
 
@@ -265,6 +265,7 @@ namespace math_solver {
 
                 std::cout << e.format() << "\n";
                 return HistoryStatus::Error;
+            }
             }
             return HistoryStatus::Unknown;
         }

@@ -51,9 +51,14 @@ namespace math_solver {
                                Config& config, std::string& current_env,
                                DiagnosticSink& sink) const {
             auto it = handlers_.find(key);
-            if (it == handlers_.end())
+            if (it == handlers_.end()) {
+                std::cerr << "[Fatal Error] CommandRegistry: no handler "
+                             "registered for command key "
+                          << static_cast<int>(key)
+                          << ". This is an internal bug.\n";
                 throw std::out_of_range("CommandRegistry: unregistered key " +
                                         std::to_string(static_cast<int>(key)));
+            }
             return it->second(cmd, ctx, config, current_env, sink);
         }
 

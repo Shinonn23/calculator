@@ -38,8 +38,9 @@ namespace math_solver {
         enum class Flag { None, Errors, Success, Warning, Info };
         std::vector<Flag> flags_;
 
-        // Only Errors and Success are currently supported for filtering.
-        // Any other flag is mapped to None to avoid accidental propagation.
+        // Only Errors, Success, Warning, and Info are currently supported for
+        // filtering. Any other flag is mapped to None to avoid accidental
+        // propagation.
         void              set_flags(const std::vector<Flag>& flags) {
             std::vector<Flag> new_flags;
             for (const auto& flag : flags) {
@@ -47,6 +48,10 @@ namespace math_solver {
                     new_flags.push_back(Flag::Errors);
                 else if (flag == HistoryCommand::Flag::Success)
                     new_flags.push_back(Flag::Success);
+                else if (flag == HistoryCommand::Flag::Warning)
+                    new_flags.push_back(Flag::Warning);
+                else if (flag == HistoryCommand::Flag::Info)
+                    new_flags.push_back(Flag::Info);
                 else
                     new_flags.push_back(Flag::None);
             }

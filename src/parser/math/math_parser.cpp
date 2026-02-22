@@ -70,19 +70,16 @@ namespace math_solver {
     }
 
     // Parses right-associative exponentiation.
-    // - Repeatedly parses chains of '^' operators.
-    // - Note: This implementation is left-associative due to the loop
-    // structure,
-    //   which may differ from mathematical convention (right-associative).
-    //   If right-associativity is required, refactor to recursive structure.
+    // - Repeatedly parses chains of '^' operators using recursion to ensure
+    // right-associativity.
     ExprPtr Parser::parse_power() {
         auto left = parse_unary();
 
-        while (current_.type == TokenType::Pow) {
+        if (current_.type == TokenType::Pow) {
             advance();
-            auto right       = parse_unary();
+            auto right       = parse_power();
             Span result_span = left->span().merge(right->span());
-            left = std::make_unique<BinaryOp>(std::move(left), std::move(right),
+            return std::make_unique<BinaryOp>(std::move(left), std::move(right),
                                               BinaryOpType::Pow, result_span);
         }
 

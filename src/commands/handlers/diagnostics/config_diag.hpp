@@ -119,23 +119,21 @@ namespace math_solver {
             std::cout << d.build();
         }
 
-        // Emits warning for referencing a non-existent environment.
-        // - Returns true for use in control flow (e.g., has_warning).
+        // Emits error for referencing a non-existent environment.
         // - Suggests similar env name if available.
         // - Assumes config.list_envs() is up-to-date.
-        inline bool emit_env_ref_warning(const DiagnosticBuilder& base,
-                                         const std::string&       env_name,
-                                         const Config&            config) {
+        inline void emit_env_ref_error(const DiagnosticBuilder& base,
+                                       const std::string&       env_name,
+                                       const Config&            config) {
             auto d    = base;
-            d.level   = "warning";
             d.message = "environment `" + env_name + "` does not exist yet";
             d.span    = find_token_span(base.input, env_name);
+            d.code    = "E0505";
             d.inline_label = "not yet created";
             d.note         = "create it with `:env new " + env_name + "`";
             if (auto m = suggest(env_name, config.list_envs()))
                 d.help = "did you mean `" + *m + "`?";
             std::cout << d.build();
-            return true;
         }
 
         // Emits diagnostic for unknown config subcommand.

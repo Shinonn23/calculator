@@ -10,6 +10,8 @@
 
 namespace math_solver {
 
+    constexpr double kEpsilon = 1e-12;
+
     // Converts an Expr AST to a Polynomial, rejecting non-polynomial
     // constructs.
     //
@@ -53,12 +55,13 @@ namespace math_solver {
         }
 
         void visit(const BinaryOp& node) override {
-            // Each operand is lowered independently to ensure error isolation.
-            ASTToPolynomial left_conv(input_);
-            Polynomial      left = left_conv.convert(node.left());
+            // Lower left operand and store result
+            node.left().accept(*this);
+            Polynomial left = result_;
 
-            ASTToPolynomial right_conv(input_);
-            Polynomial      right = right_conv.convert(node.right());
+            // Lower right operand and store result
+            node.right().accept(*this);
+            Polynomial right = result_;
 
             switch (node.op()) {
             case BinaryOpType::Add:
@@ -83,7 +86,7 @@ namespace math_solver {
                 }
                 // Eagerly check for division by zero to avoid undefined
                 // behavior.
-                if (std::abs(right.constant_value()) < 1e-12) {
+                if (std::abs(right.constant_value()) < kEpsilon) {
                     throw MathException(errors::polynomial(
                         "division by zero", node.right().span(), input_));
                 }
@@ -101,7 +104,7 @@ namespace math_solver {
                 int    exp_int = static_cast<int>(std::round(exp_val));
                 // Reject fractional or negative exponents; only allow integer
                 // >= 0.
-                if (std::abs(exp_val - exp_int) > 1e-9 || exp_int < 0) {
+                if (std::abs(exp_val - exp_int) > kEpsilon || exp_int < 0) {
                     throw MathException(errors::polynomial(
                         "exponent must be a non-negative integer",
                         node.right().span(), input_));

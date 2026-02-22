@@ -61,23 +61,22 @@ namespace math_solver {
                     return HistoryStatus::Error;
                 }
 
+                if (key == "auto_load_env" && !value.empty() &&
+                    !config.env_exists(value)) {
+                    diag::emit_env_ref_error(base, value, config);
+                    return HistoryStatus::Error;
+                }
+
                 std::string err_msg = config.settings().set(key, value);
                 if (!err_msg.empty()) {
                     diag::emit_invalid_setting_value(base, key, value, err_msg);
                     return HistoryStatus::Error;
                 }
 
-                bool has_warning = false;
-                if (key == "auto_load_env" && !value.empty() &&
-                    !config.env_exists(value))
-                    has_warning =
-                        diag::emit_env_ref_warning(base, value, config);
-
                 config.save();
                 cout << "  " << key << " = " << config.settings().get(key)
                      << "\n";
-                return has_warning ? HistoryStatus::Warning
-                                   : HistoryStatus::Success;
+                return HistoryStatus::Success;
             }
 
             case ConfigCommand::Action::Path:
