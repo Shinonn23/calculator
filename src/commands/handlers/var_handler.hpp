@@ -72,7 +72,11 @@ namespace math_solver {
                 return HistoryStatus::Error;
             }
 
-            const std::string& payload     = cmd.payload();
+            const std::string& payload = cmd.payload();
+            if (!cmd.has_math_action()) {
+                cout << diag::missing_expr(base, var).build();
+                return HistoryStatus::Error;
+            }
             const std::string& math_action = cmd.math_action();
 
             // "solve" action:
@@ -129,6 +133,7 @@ namespace math_solver {
                         std::cout << sr.error().format();
                         return HistoryStatus::Error;
                     }
+                    // Only set after successful parse
                     ctx.set(var, std::move(*sr));
                     cout << "  " << var << " = " << poly.to_string() << "\n";
                     return HistoryStatus::Success;
@@ -161,6 +166,7 @@ namespace math_solver {
                         std::cout << sr.error().format();
                         return HistoryStatus::Error;
                     }
+                    // Only set after successful parse
                     ctx.set(var, std::move(*sr));
                     cout << "  " << var << " = " << str << "\n";
                     return HistoryStatus::Success;

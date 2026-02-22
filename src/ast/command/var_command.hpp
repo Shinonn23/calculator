@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cassert>
 #include <optional>
 #include <string>
 
@@ -48,7 +49,12 @@ namespace math_solver {
         const std::string& var_name() const { return var_name_; }
         bool               has_payload() const { return payload_.has_value(); }
         const std::string& payload() const { return *payload_; }
-        const std::string& math_action() const { return *math_action_; }
+        const std::string& math_action() const {
+            assert(math_action_.has_value() && "math_action() called when math_action_ is not set");
+            return *math_action_;
+        }
+
+        bool has_math_action() const { return math_action_.has_value(); }
 
         // Double-dispatch entry point for visitor pattern.
         // All VarCommand variants must be handled by CommandVisitor.

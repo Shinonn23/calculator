@@ -30,8 +30,14 @@ namespace math_solver {
                   1000;
 
         std::stringstream ss;
-        ss << std::put_time(std::localtime(&time_t_now), "%Y-%m-%d %H:%M:%S")
-           << '.' << std::setfill('0') << std::setw(3) << ms.count();
+#if defined(__unix__) || defined(__APPLE__)
+        struct tm  buf;
+        struct tm* timeinfo = localtime_r(&time_t_now, &buf);
+#else
+        struct tm* timeinfo = std::localtime(&time_t_now);
+#endif
+        ss << std::put_time(timeinfo, "%Y-%m-%d %H:%M:%S") << '.'
+           << std::setfill('0') << std::setw(3) << ms.count();
         return ss.str();
     }
 
