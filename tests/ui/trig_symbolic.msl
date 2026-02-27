@@ -1,0 +1,11 @@
+# Trigonometric checks
+
+sin(pi/2)
+cos(0)
+tan(pi/4)
+
+:expand sin(pi/2) + cos(0)
+
+:solve sin(x) = 0
+:solve cos(x) = 1
+:solve sin(x) + cos(x) = 1

@@ -13,7 +13,7 @@
 
 using namespace math_solver;
 
-static const std::string VERSION = "1.1.1";
+static const std::string VERSION = "1.1.5";
 
 static int               run_script_mode(const std::string& filepath) {
     Config      config;

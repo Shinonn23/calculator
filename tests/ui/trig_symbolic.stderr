@@ -1,0 +1,45 @@
+  [3] sin(pi/2)
+  [4] cos(0)
+  [5] tan(pi/4)
+  [7] :expand sin(pi/2) + cos(0)
+  0.5pisin
+  [9] :solve sin(x) = 0
+  [10] :solve cos(x) = 1
+  [11] :solve sin(x) + cos(x) = 1
+error[E0425]: cannot find value `sin` in this scope
+  --> <repl>:1:1
+   |
+ 1 | sin(pi/2)
+   | ^^^ not found in this scope
+error[E0425]: cannot find value `pi` in this scope
+  --> <repl>:1:5
+   |
+ 1 | sin(pi/2)
+   |     ^^ not found in this scope
+error[E0425]: cannot find value `cos` in this scope
+  --> <repl>:1:1
+   |
+ 1 | cos(0)
+   | ^^^ not found in this scope
+error[E0425]: cannot find value `tan` in this scope
+  --> <repl>:1:1
+   |
+ 1 | tan(pi/4)
+   | ^^^ not found in this scope
+error[E0308]: non-linear term: variables multiplied together
+  --> trig_symbolic.msl:9:1
+   |
+ 9 | sin(x) = 0
+   | ^^^^^^ non-linear
+error[E0308]: non-linear term: variables multiplied together
+   --> trig_symbolic.msl:10:1
+    |
+ 10 | cos(x) = 1
+    | ^^^^^^ non-linear
+error[E0308]: non-linear term: variables multiplied together
+   --> trig_symbolic.msl:11:1
+    |
+ 11 | sin(x) + cos(x) = 1
+    | ^^^^^^ non-linear
+  Loaded 'trig_symbolic.msl' (7 line(s), 7 error(s))
+  Rolled back — env and config unchanged

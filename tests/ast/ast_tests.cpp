@@ -92,11 +92,12 @@ using namespace math_solver;
 
 // Records which node type was last visited.
 struct MockExprVisitor : ExprVisitor {
-    enum class LastVisit { None, Number, Variable, BinaryOp };
+    enum class LastVisit { None, Number, Variable, BinaryOp, UnaryOp };
     LastVisit last = LastVisit::None;
 
     void visit(const Number&) override   { last = LastVisit::Number; }
     void visit(const BinaryOp&) override { last = LastVisit::BinaryOp; }
+    void visit(const UnaryOp&) override  { last = LastVisit::UnaryOp; }
     void visit(const Variable&) override { last = LastVisit::Variable; }
 };
 
