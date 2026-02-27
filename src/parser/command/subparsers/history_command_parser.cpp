@@ -4,7 +4,7 @@
 
 namespace math_solver {
 
-    CommandPtr HistoryCommandParser::parse(ITokenStream& stream) {
+    Result<CommandPtr> HistoryCommandParser::parse(ITokenStream& stream) {
         stream.advance(); // consume ":history" token
 
         // Flag parsing must precede positional arguments. Unknown flags are
@@ -36,7 +36,7 @@ namespace math_solver {
                 HistoryCommand::Action::Show, stream.raw_input());
             cmd->set_limit(20);
             cmd->set_flags(flags);
-            return cmd;
+            return Result<CommandPtr>::ok(std::move(cmd));
         }
 
         const std::string& word = stream.peek().value;
@@ -45,8 +45,8 @@ namespace math_solver {
             // "clear" is a hard reset; all history is dropped.
             // No flags or arguments are permitted after "clear".
             stream.advance();
-            return std::make_unique<HistoryCommand>(
-                HistoryCommand::Action::Clear, stream.raw_input());
+            return Result<CommandPtr>::ok(std::make_unique<HistoryCommand>(
+                HistoryCommand::Action::Clear, stream.raw_input()));
         }
 
         if (word == "search") {
@@ -71,7 +71,7 @@ namespace math_solver {
                 HistoryCommand::Action::Show, stream.raw_input());
             cmd->set_limit(0);
             cmd->set_flags(flags);
-            return cmd;
+            return Result<CommandPtr>::ok(std::move(cmd));
         }
 
         // Accepts range syntax only if token starts with a digit and contains a
@@ -87,14 +87,13 @@ namespace math_solver {
 
             // Range parsing is fallible; errors are deferred to downstream
             // error handling.
-            try {
-                auto range = HistoryRange::parse(range_str);
-                cmd->set_range(range);
-            } catch (...) {
-                // Range is intentionally left unset; error will be surfaced
-                // later.
+            auto range_r = HistoryRange::parse(range_str);
+            if (range_r) {
+                cmd->set_range(*range_r);
+            } else {
+                return Result<CommandPtr>::err(range_r.error());
             }
-            return cmd;
+            return Result<CommandPtr>::ok(std::move(cmd));
         }
 
         // Accepts positional numeric arguments only if the first token is
@@ -112,11 +111,11 @@ namespace math_solver {
             HistoryCommand::Action::Show, stream.raw_input());
         cmd->set_limit(20);
         cmd->set_flags(flags);
-        return cmd;
+        return Result<CommandPtr>::ok(std::move(cmd));
     }
 
-    CommandPtr HistoryCommandParser::parse_show(ITokenStream& stream,
-                                                int           first) {
+    Result<CommandPtr> HistoryCommandParser::parse_show(ITokenStream& stream,
+                                                        int           first) {
         // All flags after the first positional argument are parsed here.
         // Invariant: flags must follow the first positional argument.
         std::vector<HistoryCommand::Flag> flags;
@@ -155,7 +154,7 @@ namespace math_solver {
                 HistoryCommand::Action::ShowRange, stream.raw_input());
             cmd->set_range(range);
             cmd->set_flags(flags);
-            return cmd;
+            return Result<CommandPtr>::ok(std::move(cmd));
         }
 
         // Defensive: If a range token (e.g., "9999-10000") was not handled
@@ -166,13 +165,13 @@ namespace math_solver {
             HistoryCommand::Action::Show, stream.raw_input());
         cmd->set_limit(first);
         cmd->set_flags(flags);
-        return cmd;
+        return Result<CommandPtr>::ok(std::move(cmd));
     }
 
-    CommandPtr HistoryCommandParser::parse_save(ITokenStream& stream) {
+    Result<CommandPtr> HistoryCommandParser::parse_save(ITokenStream& stream) {
         if (stream.is_eof()) {
-            return std::make_unique<HistoryCommand>(
-                HistoryCommand::Action::Save, stream.raw_input());
+            return Result<CommandPtr>::ok(std::make_unique<HistoryCommand>(
+                HistoryCommand::Action::Save, stream.raw_input()));
         }
 
         std::string filepath = stream.peek().value;
@@ -191,18 +190,20 @@ namespace math_solver {
 
             if (!full_selector.empty() &&
                 std::isdigit(static_cast<unsigned char>(full_selector[0]))) {
-                try {
-                    auto range = HistoryRange::parse(full_selector);
-                    cmd->set_range(range);
-                } catch (...) {
+                auto range_r = HistoryRange::parse(full_selector);
+                if (range_r) {
+                    cmd->set_range(*range_r);
+                } else {
+                    return Result<CommandPtr>::err(range_r.error());
                 }
             }
         }
 
-        return cmd;
+        return Result<CommandPtr>::ok(std::move(cmd));
     }
 
-    CommandPtr HistoryCommandParser::parse_search(ITokenStream& stream) {
+    Result<CommandPtr>
+    HistoryCommandParser::parse_search(ITokenStream& stream) {
         auto cmd = std::make_unique<HistoryCommand>(
             HistoryCommand::Action::Search, stream.raw_input());
 
@@ -212,7 +213,7 @@ namespace math_solver {
             cmd->set_pattern(stream.consume_remaining());
         }
 
-        return cmd;
+        return Result<CommandPtr>::ok(std::move(cmd));
     }
 
 } // namespace math_solver

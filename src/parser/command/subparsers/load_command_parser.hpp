@@ -10,7 +10,7 @@ namespace math_solver {
     // handling.
     class LoadCommandParser : public ICommandSubparser {
         public:
-        CommandPtr parse(ITokenStream& stream) override;
+        Result<CommandPtr> parse(ITokenStream& stream) override;
     };
 
 } // namespace math_solver

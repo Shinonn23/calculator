@@ -2,51 +2,64 @@
 
 #include "ast/math/equation_expr.hpp"
 #include "ast/math/expr.hpp"
-#include "core/error.hpp"
-#include "core/result.hpp"
+#include "diagnostics/diagnostic.hpp"
 #include "lexer/math/math_lexer.hpp"
 #include "lexer/math/math_token.hpp"
+#include <optional>
 #include <string>
 
 namespace math_solver {
 
     class Parser {
         private:
-        Lexer       lexer_;
-        Token       current_;
-        std::string input_;
+        Lexer                     lexer_;
+        Token                     current_;
+        std::string               input_;
+        std::optional<Diagnostic> last_error_;
 
         // Advances to the next token. Must be called after consuming a token to
         // maintain parser invariants. Assumes lexer_ is always ahead of
         // current_.
-        void        advance() { current_ = lexer_.next_token(); }
+        bool                      advance() {
+            auto t = lexer_.next_token();
+            if (!t) {
+                if (!last_error_)
+                    last_error_ = t.error();
+                return false;
+            }
+            current_ = *t;
+            return true;
+        }
 
         // Checks that the current token matches the expected type, otherwise
         // emits a ParseError with context. This is the main guard against
         // malformed input; all parser routines rely on this for error recovery.
-        void        expect(TokenType type, const std::string& msg) {
+        bool expect(TokenType type, const std::string& msg) {
             if (current_.type != type) {
-                throw MathException(errors::parse(msg, current_.span, input_));
+                if (!last_error_)
+                    last_error_ = errors::parse(msg, current_.span, input_);
+                return false;
             }
-            advance();
+            (void)advance();
+            return true;
         }
 
         // Precedence climbing parser entry points.
         // Each function is responsible for a specific precedence level.
         // Assumes input is well-formed up to the current token.
-        ExprPtr parse_primary();
-        ExprPtr parse_unary();
-        ExprPtr parse_power();
-        ExprPtr parse_multiplicative();
-        ExprPtr parse_additive();
-        ExprPtr parse_expression();
+        Result<ExprPtr> parse_primary();
+        Result<ExprPtr> parse_unary();
+        Result<ExprPtr> parse_power();
+        Result<ExprPtr> parse_multiplicative();
+        Result<ExprPtr> parse_additive();
+        Result<ExprPtr> parse_expression();
 
         public:
         // Initializes the parser and primes the first token.
         // The input string must remain valid for the lifetime of the parser.
         explicit Parser(const std::string& input)
             : lexer_(input), input_(input) {
-            current_ = lexer_.next_token();
+            (void)advance();
         }
 
         // Returns the original input string. Used for diagnostics and error
@@ -63,8 +76,9 @@ namespace math_solver {
         Result<EquationPtr>                     parse_equation();
 
         private:
-        ExprPtr                         parse_impl();
-        std::pair<ExprPtr, EquationPtr> parse_expression_or_equation_impl();
-        EquationPtr                     parse_equation_impl();
+        Result<ExprPtr> parse_impl();
+        Result<std::pair<ExprPtr, EquationPtr>>
+                            parse_expression_or_equation_impl();
+        Result<EquationPtr> parse_equation_impl();
     };
 } // namespace math_solver

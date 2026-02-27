@@ -6,9 +6,10 @@
 #include "algebra/solver/solver.hpp"
 #include "ast/command/history_entry.hpp"
 #include "ast/command/math_command.hpp"
-#include "commands/handlers/diagnostics/math_diag.hpp"
 #include "config/config.hpp"
-#include "core/diagnostic_sink.hpp"
+#include "diagnostics/diagnostic.hpp"
+#include "diagnostics/kinds/command_errors.hpp"
+#include "diagnostics/sink.hpp"
 #include "eval/evaluator.hpp"
 #include "parser/math/math_parser.hpp"
 #include "runtime/context/context.hpp"
@@ -30,9 +31,11 @@ namespace math_solver {
         // - Invariant: result.variable is always set on success.
         inline HistoryStatus do_solve(const std::string& payload,
                                       const MathCommand& cmd, Context& ctx,
-                                      Config& /*config*/) {
+                                      Config& /*config*/,
+                                      DiagnosticSink& sink) {
             if (payload.empty()) {
-                diag::emit_usage(":solve <lhs> = <rhs>");
+                (void)ctx;
+                sink.push_output("  Usage: :solve <lhs> = <rhs>\n");
                 return HistoryStatus::Error;
             }
             try {
@@ -40,7 +43,7 @@ namespace math_solver {
                 auto   parse_result = parser.parse_equation().with_location(
                     cmd.source_file(), cmd.source_line());
                 if (!parse_result) {
-                    std::cout << parse_result.error().format();
+                    sink.push(parse_result.error());
                     return HistoryStatus::Error;
                 }
                 auto                  eq = std::move(*parse_result);
@@ -48,14 +51,26 @@ namespace math_solver {
 
                 try {
                     LinearCollector lc(&ctx, payload, false);
-                    unknowns = (lc.collect(eq->lhs()) - lc.collect(eq->rhs()))
-                                   .variables();
-                } catch (...) {
+                    auto            lhs_r = lc.collect(eq->lhs());
+                    auto            rhs_r = lc.collect(eq->rhs());
+                    if (lhs_r && rhs_r)
+                        unknowns = ((*lhs_r) - (*rhs_r)).variables();
+                } catch (const std::exception& e) {
+                    Diagnostic d = Diagnostic::make(e.what(), "E0200", Span{},
+                                                    payload, "operation failed")
+                                       .with_location(cmd.source_file(),
+                                                      cmd.source_line());
+                    sink.push(d);
+                }
+
+                if (unknowns.empty()) {
                     // Fallback: contextless collection, e.g. for malformed or
                     // incomplete input.
                     LinearCollector lc(nullptr, payload, true);
-                    unknowns = (lc.collect(eq->lhs()) - lc.collect(eq->rhs()))
-                                   .variables();
+                    auto            lhs_r = lc.collect(eq->lhs());
+                    auto            rhs_r = lc.collect(eq->rhs());
+                    if (lhs_r && rhs_r)
+                        unknowns = ((*lhs_r) - (*rhs_r)).variables();
                 }
 
                 const Context* solve_ctx = &ctx;
@@ -74,19 +89,27 @@ namespace math_solver {
                 }
 
                 EquationSolver solver(solve_ctx, payload);
-                SolveResult    result = solver.solve(*eq);
+                auto           result_r = solver.solve(*eq);
+                if (!result_r) {
+                    sink.push(result_r.error().with_location(
+                        cmd.source_file(), cmd.source_line()));
+                    return HistoryStatus::Error;
+                }
+                SolveResult result = *result_r;
 
                 ctx.set(result.variable, result.value);
-                std::cout << "  " << result.variable << " = " << result.value
-                          << ansi::dim << " (saved)" << ansi::reset << "\n";
+                std::ostringstream oss;
+                oss << "  " << result.variable << " = " << result.value
+                    << ansi::dim << " (saved)" << ansi::reset << "\n";
+                sink.push_output(oss.str());
                 return HistoryStatus::Success;
 
-            } catch (const MathException& e) {
-                if (e.error().code == "E0425") {
-                    diag::emit_undefined_var(e.error(), ctx);
-                } else {
-                    diag::emit_math_error_with_hint(e.error());
-                }
+            } catch (const std::exception& e) {
+                Diagnostic d =
+                    Diagnostic::make(e.what(), "E0200", Span{}, payload,
+                                     "operation failed")
+                        .with_location(cmd.source_file(), cmd.source_line());
+                sink.push(d);
                 return HistoryStatus::Error;
             }
         }
@@ -100,10 +123,12 @@ namespace math_solver {
         // - Invariant: result.canonical is always printable.
         inline HistoryStatus do_simplify(const std::string& payload,
                                          const MathCommand& cmd, Context& ctx,
-                                         Config& config) {
+                                         Config& config, DiagnosticSink& sink) {
             if (payload.empty()) {
-                diag::emit_usage(":simplify <lhs> = <rhs> "
-                                 "[--vars x y] [--isolated] [--fraction]");
+                (void)ctx;
+                (void)config;
+                sink.push_output("  Usage: :simplify <lhs> = <rhs> [--vars x "
+                                 "y] [--isolated] [--fraction]\n");
                 return HistoryStatus::Error;
             }
             try {
@@ -111,7 +136,7 @@ namespace math_solver {
                 auto   parse_result = parser.parse_equation().with_location(
                     cmd.source_file(), cmd.source_line());
                 if (!parse_result) {
-                    std::cout << parse_result.error().format();
+                    sink.push(parse_result.error());
                     return HistoryStatus::Error;
                 }
                 auto            eq = std::move(*parse_result);
@@ -126,29 +151,31 @@ namespace math_solver {
                 bool           has_warning = false;
 
                 for (const auto& w : result.warnings) {
-                    std::cout << ansi::yellow << "  Warning: " << ansi::reset
-                              << w << "\n";
+                    Diagnostic d = Diagnostic::warning(w).with_location(
+                        cmd.source_file(), cmd.source_line());
+                    sink.push(d);
                     has_warning = true;
                 }
 
-                std::cout << "  " << result.canonical;
+                std::ostringstream oss;
+                oss << "  " << result.canonical;
                 if (result.is_no_solution())
-                    std::cout << "\n  => " << ansi::red << "no solution"
-                              << ansi::reset;
+                    oss << "\n  => " << ansi::red << "no solution"
+                        << ansi::reset;
                 else if (result.is_infinite_solutions())
-                    std::cout << "\n  => " << ansi::green
-                              << "infinite solutions" << ansi::reset;
-                std::cout << "\n";
+                    oss << "\n  => " << ansi::green << "infinite solutions"
+                        << ansi::reset;
+                oss << "\n";
+                sink.push_output(oss.str());
 
                 return has_warning ? HistoryStatus::Warning
                                    : HistoryStatus::Success;
 
-            } catch (const MathException& e) {
-                if (e.error().code == "E0425") {
-                    diag::emit_undefined_var(e.error(), ctx);
-                } else {
-                    diag::emit_math_error(e.error());
-                }
+            } catch (const std::exception& e) {
+                Diagnostic d =
+                    Diagnostic::make(e.what(), "E0200")
+                        .with_location(cmd.source_file(), cmd.source_line());
+                sink.push(d);
                 return HistoryStatus::Error;
             }
         }
@@ -158,9 +185,11 @@ namespace math_solver {
         // diagnostics.
         // - No side effects on context.
         inline HistoryStatus do_expand(const std::string& payload,
-                                       const MathCommand& cmd, Context& ctx) {
+                                       const MathCommand& cmd, Context& ctx,
+                                       DiagnosticSink& sink) {
             if (payload.empty()) {
-                diag::emit_usage(":expand <expr>");
+                (void)ctx;
+                sink.push_output("  Usage: :expand <expr>\n");
                 return HistoryStatus::Error;
             }
             try {
@@ -168,19 +197,24 @@ namespace math_solver {
                 auto   parse_result = parser.parse().with_location(
                     cmd.source_file(), cmd.source_line());
                 if (!parse_result) {
-                    std::cout << parse_result.error().format();
+                    sink.push(parse_result.error());
                     return HistoryStatus::Error;
                 }
-                auto       expr = std::move(*parse_result);
-                Polynomial poly = ASTToPolynomial(payload).convert(*expr);
-                std::cout << "  " << poly.to_string() << "\n";
-                return HistoryStatus::Success;
-            } catch (const MathException& e) {
-                if (e.error().code == "E0425") {
-                    diag::emit_undefined_var(e.error(), ctx);
-                } else {
-                    diag::emit_math_error(e.error());
+                auto expr   = std::move(*parse_result);
+                auto poly_r = ASTToPolynomial(payload).convert(*expr);
+                if (!poly_r) {
+                    sink.push(poly_r.error().with_location(cmd.source_file(),
+                                                           cmd.source_line()));
+                    return HistoryStatus::Error;
                 }
+                Polynomial poly = *poly_r;
+                sink.push_output("  " + poly.to_string() + "\n");
+                return HistoryStatus::Success;
+            } catch (const std::exception& e) {
+                Diagnostic d =
+                    Diagnostic::make(e.what(), "E0200")
+                        .with_location(cmd.source_file(), cmd.source_line());
+                sink.push(d);
                 return HistoryStatus::Error;
             }
         }
@@ -192,9 +226,11 @@ namespace math_solver {
         // - Performance: factorization may be expensive for high-degree
         // polynomials.
         inline HistoryStatus do_factor(const std::string& payload,
-                                       const MathCommand& cmd, Context& ctx) {
+                                       const MathCommand& cmd, Context& ctx,
+                                       DiagnosticSink& sink) {
             if (payload.empty()) {
-                diag::emit_usage(":factor <expr>");
+                (void)ctx;
+                sink.push_output("  Usage: :factor <expr>\n");
                 return HistoryStatus::Error;
             }
             try {
@@ -202,20 +238,25 @@ namespace math_solver {
                 auto   parse_result = parser.parse().with_location(
                     cmd.source_file(), cmd.source_line());
                 if (!parse_result) {
-                    std::cout << parse_result.error().format();
+                    sink.push(parse_result.error());
                     return HistoryStatus::Error;
                 }
-                auto expr     = std::move(*parse_result);
-                auto poly     = ASTToPolynomial(payload).convert(*expr);
-                auto factored = factor_polynomial(poly);
-                std::cout << "  " << factored.to_string() << "\n";
-                return HistoryStatus::Success;
-            } catch (const MathException& e) {
-                if (e.error().code == "E0425") {
-                    diag::emit_undefined_var(e.error(), ctx);
-                } else {
-                    diag::emit_math_error(e.error());
+                auto expr   = std::move(*parse_result);
+                auto poly_r = ASTToPolynomial(payload).convert(*expr);
+                if (!poly_r) {
+                    sink.push(poly_r.error().with_location(cmd.source_file(),
+                                                           cmd.source_line()));
+                    return HistoryStatus::Error;
                 }
+                auto poly     = *poly_r;
+                auto factored = factor_polynomial(poly);
+                sink.push_output("  " + factored.to_string() + "\n");
+                return HistoryStatus::Success;
+            } catch (const std::exception& e) {
+                Diagnostic d =
+                    Diagnostic::make(e.what(), "E0200")
+                        .with_location(cmd.source_file(), cmd.source_line());
+                sink.push(d);
                 return HistoryStatus::Error;
             }
         }
@@ -227,7 +268,8 @@ namespace math_solver {
         // - Handles runtime exceptions explicitly to avoid silent failures.
         inline HistoryStatus do_evaluate(const std::string& payload,
                                          const MathCommand& cmd, Context& ctx,
-                                         Config& /*config*/) {
+                                         Config& /*config*/,
+                                         DiagnosticSink& sink) {
             if (payload.empty())
                 return HistoryStatus::Error;
             try {
@@ -236,35 +278,40 @@ namespace math_solver {
                     parser.parse_expression_or_equation().with_location(
                         cmd.source_file(), cmd.source_line());
                 if (!parse_result) {
-                    std::cout << parse_result.error().format();
+                    sink.push(parse_result.error());
                     return HistoryStatus::Error;
                 }
                 auto [expr, eq] = std::move(*parse_result);
 
                 if (eq) {
-                    Evaluator eval(&ctx, payload);
-                    double    lhs = eval.evaluate(eq->lhs());
-                    double    rhs = eval.evaluate(eq->rhs());
-                    bool      ok  = std::abs(lhs - rhs) < 1e-12;
-                    std::cout << "  " << lhs << " = " << rhs << "  "
-                              << (ok ? ansi::green : ansi::red)
-                              << (ok ? "(true)" : "(false)") << ansi::reset
-                              << "\n";
+                    Evaluator eval(&ctx, payload, &sink);
+                    size_t    err_count = sink.error_count();
+                    double    lhs       = eval.evaluate(eq->lhs());
+                    double    rhs       = eval.evaluate(eq->rhs());
+                    if (sink.error_count() > err_count)
+                        return HistoryStatus::Error;
+                    bool               ok = std::abs(lhs - rhs) < 1e-12;
+                    std::ostringstream oss;
+                    oss << "  " << lhs << " = " << rhs << "  "
+                        << (ok ? ansi::green : ansi::red)
+                        << (ok ? "(true)" : "(false)") << ansi::reset << "\n";
+                    sink.push_output(oss.str());
                 } else {
-                    Evaluator eval(&ctx, payload);
-                    std::cout << "  = " << eval.evaluate(*expr) << "\n";
+                    Evaluator eval(&ctx, payload, &sink);
+                    size_t    err_count = sink.error_count();
+                    double    val       = eval.evaluate(*expr);
+                    if (sink.error_count() > err_count)
+                        return HistoryStatus::Error;
+                    std::ostringstream oss;
+                    oss << "  = " << val << "\n";
+                    sink.push_output(oss.str());
                 }
                 return HistoryStatus::Success;
-
-            } catch (const MathException& e) {
-                if (e.error().code == "E0425") {
-                    diag::emit_undefined_var(e.error(), ctx);
-                } else {
-                    diag::emit_math_error_with_hint(e.error());
-                }
-                return HistoryStatus::Error;
             } catch (const std::exception& e) {
-                diag::emit_runtime_exception(e);
+                Diagnostic d =
+                    Diagnostic::make(e.what(), "E0200")
+                        .with_location(cmd.source_file(), cmd.source_line());
+                sink.push(d);
                 return HistoryStatus::Error;
             }
         }
@@ -273,24 +320,27 @@ namespace math_solver {
         // - Unknown commands are surfaced with diagnostics.
         // - Invariant: returns a valid HistoryStatus for all cases.
         inline HistoryStatus handle_math(const MathCommand& cmd, Context& ctx,
-                                         Config& config,
-                                         DiagnosticSink& /*sink*/) {
+                                         Config& config, DiagnosticSink& sink) {
             const std::string& payload = cmd.payload();
             switch (cmd.type()) {
             case MathCommand::Type::Solve:
-                return do_solve(payload, cmd, ctx, config);
+                return do_solve(payload, cmd, ctx, config, sink);
             case MathCommand::Type::Simplify:
-                return do_simplify(payload, cmd, ctx, config);
+                return do_simplify(payload, cmd, ctx, config, sink);
             case MathCommand::Type::Expand:
-                return do_expand(payload, cmd, ctx);
+                return do_expand(payload, cmd, ctx, sink);
             case MathCommand::Type::Factor:
-                return do_factor(payload, cmd, ctx);
+                return do_factor(payload, cmd, ctx, sink);
             case MathCommand::Type::Evaluate:
-                return do_evaluate(payload, cmd, ctx, config);
-            case MathCommand::Type::Unknown:
-                diag::emit_unknown_math_command(
-                    cmd.raw_command(),
-                    cmd.raw_command().substr(0, cmd.raw_command().find(' ')));
+                return do_evaluate(payload, cmd, ctx, config, sink);
+            case MathCommand::Type::Unknown: {
+                std::string raw = cmd.raw_command();
+                std::string bad = raw.substr(0, raw.find(' '));
+                Diagnostic  d   = errors::unknown_command(
+                    bad, find_token_span(raw, bad), raw);
+                d = d.with_location(cmd.source_file(), cmd.source_line());
+                sink.push(d);
+            }
                 return HistoryStatus::Error;
             }
             return HistoryStatus::Unknown;

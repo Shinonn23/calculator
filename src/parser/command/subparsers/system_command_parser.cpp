@@ -22,27 +22,27 @@ namespace math_solver {
     //
     // Note: This parser is decoupled from the main expression parser to avoid
     // polluting the core grammar with REPL-specific constructs.
-    CommandPtr SystemCommandParser::parse(ITokenStream& stream) {
+    Result<CommandPtr> SystemCommandParser::parse(ITokenStream& stream) {
         std::string cmd = stream.peek().value;
         if (cmd == ":exit" || cmd == ":quit" || cmd == ":q" || cmd == "exit" ||
             cmd == "quit" || cmd == "q") {
-            return std::make_unique<SystemCommand>(SystemCommand::Type::Exit,
-                                                   stream.raw_input());
+            return Result<CommandPtr>::ok(std::make_unique<SystemCommand>(
+                SystemCommand::Type::Exit, stream.raw_input()));
         }
         if (cmd == ":help" || cmd == ":h" || cmd == "help" || cmd == "h") {
-            return std::make_unique<SystemCommand>(SystemCommand::Type::Help,
-                                                   stream.raw_input());
+            return Result<CommandPtr>::ok(std::make_unique<SystemCommand>(
+                SystemCommand::Type::Help, stream.raw_input()));
         }
         if (cmd == ":clear" || cmd == ":cls" || cmd == "clear" ||
             cmd == "cls") {
-            return std::make_unique<SystemCommand>(SystemCommand::Type::Clear,
-                                                   stream.raw_input());
+            return Result<CommandPtr>::ok(std::make_unique<SystemCommand>(
+                SystemCommand::Type::Clear, stream.raw_input()));
         }
         if (cmd == ":ls") {
-            return std::make_unique<SystemCommand>(SystemCommand::Type::Ls,
-                                                   stream.raw_input());
+            return Result<CommandPtr>::ok(std::make_unique<SystemCommand>(
+                SystemCommand::Type::Ls, stream.raw_input()));
         }
-        return nullptr;
+        return Result<CommandPtr>::ok(nullptr);
     }
 
 } // namespace math_solver

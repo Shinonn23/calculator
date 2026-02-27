@@ -4,6 +4,7 @@
 #include "ast/math/expr_visitor.hpp"
 #include "ast/math/number_expr.hpp"
 #include "ast/math/variable_expr.hpp"
+#include "diagnostics/sink.hpp"
 #include "runtime/context/context.hpp"
 
 namespace math_solver {
@@ -34,16 +35,19 @@ namespace math_solver {
         double                                result_;
         const Context*                        context_;
         std::string                           input_;
+        DiagnosticSink*                       sink_;
         std::unordered_map<std::string, Span> visited_;
 
         public:
-        Evaluator() : result_(0.0), context_(nullptr), input_() {}
+        Evaluator()
+            : result_(0.0), context_(nullptr), input_(), sink_(nullptr) {}
 
-        explicit Evaluator(const Context* ctx)
-            : result_(0.0), context_(ctx), input_() {}
+        explicit Evaluator(const Context* ctx, DiagnosticSink* sink = nullptr)
+            : result_(0.0), context_(ctx), input_(), sink_(sink) {}
 
-        Evaluator(const Context* ctx, const std::string& input)
-            : result_(0.0), context_(ctx), input_(input) {}
+        Evaluator(const Context* ctx, const std::string& input,
+                  DiagnosticSink* sink = nullptr)
+            : result_(0.0), context_(ctx), input_(input), sink_(sink) {}
 
         void   set_input(const std::string& input) { input_ = input; }
 

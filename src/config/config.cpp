@@ -1,12 +1,12 @@
 #include "config/config.hpp"
 #include "config/environment.hpp"
 #include "config/settings.hpp"
+#include "diagnostics/kinds/env_errors.hpp"
 
 #include <algorithm>
 #include <fstream>
 #include <iostream>
 #include <nlohmann/json.hpp>
-#include <stdexcept>
 
 namespace math_solver {
 
@@ -254,35 +254,37 @@ namespace math_solver {
         return envs_.count(name) > 0;
     }
 
-    Environment& Config::get_env(const std::string& name) {
-        // Panics if environment does not exist.
-        // Used in contexts where absence is a logic error.
+    Result<Environment*> Config::get_env(const std::string& name) {
         auto it = envs_.find(name);
         if (it == envs_.end())
-            throw std::runtime_error("environment '" + name + "' not found");
-        return it->second;
+            return Result<Environment*>::err(errors::env_not_found(
+                "<config>", name, *this, __FILE__, __LINE__));
+        return Result<Environment*>::ok(&it->second);
     }
 
-    const Environment& Config::get_env(const std::string& name) const {
+    Result<const Environment*> Config::get_env(const std::string& name) const {
         auto it = envs_.find(name);
         if (it == envs_.end())
-            throw std::runtime_error("environment '" + name + "' not found");
-        return it->second;
+            return Result<const Environment*>::err(errors::env_not_found(
+                "<config>", name, *this, __FILE__, __LINE__));
+        return Result<const Environment*>::ok(&it->second);
     }
 
-    void Config::create_env(const std::string& name) {
-        // Fails if environment already exists.
-        // Used to guarantee environment name uniqueness.
+    Result<bool> Config::create_env(const std::string& name) {
         if (envs_.count(name))
-            throw std::runtime_error("environment '" + name +
-                                     "' already exists");
+            return Result<bool>::err(
+                Diagnostic::make("environment '" + name + "' already exists",
+                                 "E0602")
+                    .with_location(__FILE__, __LINE__));
         envs_[name].name = name;
+        return Result<bool>::ok(true);
     }
 
-    void Config::delete_env(const std::string& name) {
-        // Fails if environment does not exist.
+    Result<bool> Config::delete_env(const std::string& name) {
         if (!envs_.erase(name))
-            throw std::runtime_error("environment '" + name + "' not found");
+            return Result<bool>::err(errors::env_not_found(
+                "<config>", name, *this, __FILE__, __LINE__));
+        return Result<bool>::ok(true);
     }
 
     std::vector<std::string> Config::list_envs() const {
@@ -302,6 +304,35 @@ namespace math_solver {
         // Used by REPL and scripting subsystems.
         envs_[env_name].name      = env_name;
         envs_[env_name].variables = vars;
+    }
+
+    Result<bool> Config::rename_env(const std::string& src,
+                                    const std::string& dest) {
+        if (!env_exists(src))
+            return Result<bool>::err(errors::env_not_found(
+                "<config>", src, *this, __FILE__, __LINE__));
+        if (env_exists(dest))
+            return Result<bool>::err(
+                Diagnostic::make("environment '" + dest + "' already exists",
+                                 "E0602")
+                    .with_location(__FILE__, __LINE__));
+        envs_[dest] = envs_[src];
+        envs_.erase(src);
+        return Result<bool>::ok(true);
+    }
+
+    Result<bool> Config::copy_env(const std::string& src,
+                                  const std::string& dest) {
+        if (!env_exists(src))
+            return Result<bool>::err(errors::env_not_found(
+                "<config>", src, *this, __FILE__, __LINE__));
+        if (env_exists(dest))
+            return Result<bool>::err(
+                Diagnostic::make("environment '" + dest + "' already exists",
+                                 "E0602")
+                    .with_location(__FILE__, __LINE__));
+        envs_[dest] = envs_[src];
+        return Result<bool>::ok(true);
     }
 
     std::string Config::resolve_config_path() {

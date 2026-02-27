@@ -5,15 +5,14 @@
 #include "algebra/solver/solver.hpp"
 #include "ast/command/history_entry.hpp"
 #include "ast/command/var_command.hpp"
-#include "commands/handlers/diagnostics/var_diag.hpp"
 #include "config/config.hpp"
-#include "core/diagnostic_sink.hpp"
-#include "core/error.hpp"
+#include "diagnostics/diagnostic.hpp"
+#include "diagnostics/kinds/command_errors.hpp"
+#include "diagnostics/kinds/var_errors.hpp"
+#include "diagnostics/sink.hpp"
 #include "eval/evaluator.hpp"
-#include "eval/expander.hpp"
 #include "parser/math/math_parser.hpp"
 #include "runtime/context/context.hpp"
-#include "ui/color.hpp"
 
 #include <iostream>
 
@@ -26,7 +25,7 @@ namespace math_solver {
         // - This is relied upon by downstream parsing and symbol table logic.
         // - Reserved keywords are disallowed to avoid shadowing and semantic
         // ambiguity.
-        inline bool validate_var_name(const std::string& name) {
+        inline bool is_valid_identifier(const std::string& name) {
             if (name.empty() || !(std::isalpha(name[0]) || name[0] == '_'))
                 return false;
             for (char c : name)
@@ -48,33 +47,35 @@ namespace math_solver {
         // - Correctness: relies on parser and solver subsystems for semantic
         // checks.
         inline HistoryStatus handle_set(const VarCommand& cmd, Context& ctx,
-                                        Config& config) {
+                                        Config& config, DiagnosticSink& sink) {
             (void)config;
             using std::cout;
             const std::string& var  = cmd.var_name();
-            auto               base = diag::from_cmd(cmd);
+            const std::string& raw  = cmd.raw_command();
+            const std::string& file = cmd.source_file();
+            size_t             line = cmd.source_line();
 
             if (var.empty()) {
-                cout << diag::missing_var_name(base, ":set",
-                                               "`set <var> <expr>`")
-                            .build();
+                sink.push(errors::missing_var_name(
+                    raw, ":set", "`:set <var> <expr>`", file, line));
                 return HistoryStatus::Error;
             }
-            if (!validate_var_name(var)) {
-                if (is_reserved_keyword(var))
-                    cout << diag::reserved_keyword(base, var).build();
-                else
-                    cout << diag::invalid_identifier(base, var).build();
+            if (!is_valid_identifier(var)) {
+                if (is_reserved_keyword(var)) {
+                    sink.push(errors::reserved_keyword(raw, var, file, line));
+                } else {
+                    sink.push(errors::invalid_identifier(raw, var, file, line));
+                }
                 return HistoryStatus::Error;
             }
-            if (!cmd.has_payload()) {
-                cout << diag::missing_expr(base, var).build();
+            if (cmd.payload().empty()) {
+                sink.push(errors::missing_expr(raw, var, file, line));
                 return HistoryStatus::Error;
             }
 
             const std::string& payload = cmd.payload();
             if (!cmd.has_math_action()) {
-                cout << diag::missing_expr(base, var).build();
+                sink.push(errors::missing_expr(raw, var, file, line));
                 return HistoryStatus::Error;
             }
             const std::string& math_action = cmd.math_action();
@@ -91,7 +92,7 @@ namespace math_solver {
                     auto   parse_result = parser.parse_equation().with_location(
                         cmd.source_file(), cmd.source_line());
                     if (!parse_result) {
-                        std::cout << parse_result.error().format();
+                        sink.push(parse_result.error());
                         return HistoryStatus::Error;
                     }
                     auto    eq = std::move(*parse_result);
@@ -100,14 +101,17 @@ namespace math_solver {
                         if (n != var)
                             temp_ctx.set(n, *e);
 
-                    EquationSolver solver(&temp_ctx, payload);
-                    SolveResult    result = solver.solve(*eq);
+                    EquationSolver      solver(&temp_ctx, payload);
+                    Result<SolveResult> result = solver.solve(*eq);
 
-                    ctx.set(var, result.value);
-                    cout << "  " << var << " = " << result.value << "\n";
+                    ctx.set(var, result->value);
+                    std::ostringstream oss;
+                    oss << "  " << var << " = " << result->value << "\n";
+                    sink.push_output(oss.str());
                     return HistoryStatus::Success;
-                } catch (const MathException& e) {
-                    cout << e.error().format() << "\n";
+                } catch (const std::exception& e) {
+                    // TODO: convert solver to Result-based flow.
+                    (void)e;
                     return HistoryStatus::Error;
                 }
             }
@@ -122,23 +126,33 @@ namespace math_solver {
                     auto   parse_result = parser.parse().with_location(
                         cmd.source_file(), cmd.source_line());
                     if (!parse_result) {
-                        std::cout << parse_result.error().format();
+                        sink.push(parse_result.error());
                         return HistoryStatus::Error;
                     }
-                    auto       expr = std::move(*parse_result);
-                    Polynomial poly = ASTToPolynomial(payload).convert(*expr);
+                    auto expr   = std::move(*parse_result);
+                    auto poly_r = ASTToPolynomial(payload).convert(*expr);
+                    if (!poly_r) {
+                        sink.push(poly_r.error().with_location(
+                            cmd.source_file(), cmd.source_line()));
+                        return HistoryStatus::Error;
+                    }
+                    Polynomial poly = *poly_r;
                     Parser     sp(poly.to_string());
                     auto       sr = sp.parse();
                     if (!sr) {
-                        std::cout << sr.error().format();
+                        sink.push(sr.error().with_location(cmd.source_file(),
+                                                           cmd.source_line()));
                         return HistoryStatus::Error;
                     }
                     // Only set after successful parse
                     ctx.set(var, std::move(*sr));
-                    cout << "  " << var << " = " << poly.to_string() << "\n";
+                    std::ostringstream oss;
+                    oss << "  " << var << " = " << poly.to_string() << "\n";
+                    sink.push_output(oss.str());
                     return HistoryStatus::Success;
-                } catch (const MathException& e) {
-                    cout << e.error().format() << "\n";
+                } catch (const std::exception& e) {
+                    // TODO: convert ASTToPolynomial to Result-based flow.
+                    (void)e;
                     return HistoryStatus::Error;
                 }
             }
@@ -153,25 +167,34 @@ namespace math_solver {
                     auto   parse_result = parser.parse().with_location(
                         cmd.source_file(), cmd.source_line());
                     if (!parse_result) {
-                        std::cout << parse_result.error().format();
+                        sink.push(parse_result.error());
                         return HistoryStatus::Error;
                     }
-                    auto        expr = std::move(*parse_result);
-                    auto        poly = ASTToPolynomial(payload).convert(*expr);
-                    auto        factored = factor_polynomial(poly);
+                    auto expr   = std::move(*parse_result);
+                    auto poly_r = ASTToPolynomial(payload).convert(*expr);
+                    if (!poly_r) {
+                        sink.push(poly_r.error().with_location(
+                            cmd.source_file(), cmd.source_line()));
+                        return HistoryStatus::Error;
+                    }
+                    auto        factored = factor_polynomial(*poly_r);
                     std::string str      = factored.to_string();
                     Parser      sp(str);
                     auto        sr = sp.parse();
                     if (!sr) {
-                        std::cout << sr.error().format();
+                        sink.push(sr.error().with_location(cmd.source_file(),
+                                                           cmd.source_line()));
                         return HistoryStatus::Error;
                     }
                     // Only set after successful parse
                     ctx.set(var, std::move(*sr));
-                    cout << "  " << var << " = " << str << "\n";
+                    std::ostringstream oss;
+                    oss << "  " << var << " = " << str << "\n";
+                    sink.push_output(oss.str());
                     return HistoryStatus::Success;
-                } catch (const MathException& e) {
-                    cout << e.error().format() << "\n";
+                } catch (const std::exception& e) {
+                    // TODO: convert factor_polynomial to Result-based flow.
+                    (void)e;
                     return HistoryStatus::Error;
                 }
             }
@@ -186,66 +209,49 @@ namespace math_solver {
                 auto   parse_result = parser.parse().with_location(
                     cmd.source_file(), cmd.source_line());
                 if (!parse_result) {
-                    std::cout << parse_result.error().format();
+                    sink.push(parse_result.error());
                     return HistoryStatus::Error;
                 }
                 ctx.set(var, std::move(*parse_result));
 
                 try {
-                    Evaluator eval(&ctx, payload);
-                    double    val = eval.evaluate(ctx.get_expr(var));
-                    cout << "  " << var << " = " << val << "\n";
+                    Evaluator          eval(&ctx, payload);
+                    double             val = eval.evaluate(ctx.get_expr(var));
+                    std::ostringstream oss;
+                    oss << "  " << var << " = " << val << "\n";
+                    sink.push_output(oss.str());
                     return HistoryStatus::Success;
-                } catch (const MathException& e) {
-                    if (e.error().code == "E0425") { // UndefinedVariable
-                        Expander expander(ctx, payload);
-                        try {
-                            auto expanded = expander.expand(ctx.get_expr(var));
-                            cout << "  " << var << " = "
-                                 << expanded->to_string() << "\n";
-                            return HistoryStatus::Success;
-                        } catch (const MathException& inner_e) {
-                            if (inner_e.error().code ==
-                                "E0391") { // CircularDependency
-                                cout << "  " << var << " = "
-                                     << ctx.get_expr(var).to_string()
-                                     << ansi::dim << " (unexpanded)"
-                                     << ansi::reset << "\n";
-                                return HistoryStatus::Warning;
-                            }
-                            cout << inner_e.error().format() << "\n";
-                            return HistoryStatus::Error;
-                        }
-                    }
-                    cout << e.error().format() << "\n";
+                } catch (const std::exception& e) {
+                    // TODO: convert evaluator to Result-based flow.
+                    (void)e;
                     return HistoryStatus::Error;
                 }
-            } catch (const MathException& e) {
-                cout << e.error().format() << "\n";
+            } catch (const std::exception& e) {
+                // TODO: convert parser to Result-based flow.
+                (void)e;
                 return HistoryStatus::Error;
             }
             return HistoryStatus::Error;
         }
 
         // Removes a variable binding from the context.
-        // - If the variable does not exist, suggests similar names.
-        // - No-op if the variable is not present.
-        // - Suggestion logic is best-effort and may not always be helpful.
-        inline HistoryStatus handle_unset(const VarCommand& cmd, Context& ctx) {
-            const std::string& var  = cmd.var_name();
-            auto               base = diag::from_cmd(cmd);
+        // - If the variable does not exist, prints an error.
+        inline HistoryStatus handle_unset(const VarCommand& cmd, Context& ctx,
+                                          DiagnosticSink& sink) {
+            const std::string& var = cmd.var_name();
 
             if (var.empty()) {
-                std::cout << diag::missing_var_name(base, ":unset",
-                                                    "`unset <var>`")
-                                 .build();
+                sink.push_output("  Usage: `:unset <var>`\n");
                 return HistoryStatus::Error;
             }
-            if (ctx.unset(var)) {
-                std::cout << "  Removed: " << var << "\n";
+
+            if (ctx.has(var)) {
+                ctx.unset(var);
+                sink.push_output("  Removed: " + var + "\n");
                 return HistoryStatus::Success;
             }
-            std::cout << diag::var_not_found(base, var, ctx).build();
+
+            sink.push_output("  Error: variable `" + var + "` not found\n");
             return HistoryStatus::Error;
         }
 
@@ -255,21 +261,21 @@ namespace math_solver {
         // - Returns HistoryStatus::Unknown for unhandled actions (should be
         // unreachable).
         inline HistoryStatus handle_var(const VarCommand& cmd, Context& ctx,
-                                        Config& config, std::string&,
-                                        DiagnosticSink& /*sink*/) {
+                                        Config& config, std::string& raw,
+                                        DiagnosticSink& sink) {
             switch (cmd.action()) {
             case VarCommand::Action::Set:
-                return handle_set(cmd, ctx, config);
+                return handle_set(cmd, ctx, config, sink);
             case VarCommand::Action::Unset:
-                return handle_unset(cmd, ctx);
+                return handle_unset(cmd, ctx, sink);
             case VarCommand::Action::Unknown: {
                 std::string input   = cmd.raw_command();
                 std::string bad_cmd = input.substr(0, input.find(' '));
 
-                Error       e       = errors::unknown_command(
-                    bad_cmd, find_token_span(input, bad_cmd), input);
-
-                std::cout << e.format() << "\n";
+                Diagnostic  e       = errors::unknown_command(
+                    bad_cmd, find_token_span(raw, bad_cmd), raw);
+                e = e.with_location(cmd.source_file(), cmd.source_line());
+                sink.push(e);
                 return HistoryStatus::Error;
             }
             }

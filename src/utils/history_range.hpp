@@ -1,8 +1,7 @@
 #pragma once
 
+#include "diagnostics/result.hpp"
 #include <algorithm>
-#include <stdexcept>
-#include <string>
 #include <vector>
 
 namespace math_solver {
@@ -31,7 +30,7 @@ namespace math_solver {
         // Performance:
         //   - Sorting and deduplication are O(n log n), where n is the number
         //   of indices parsed.
-        static std::vector<int> parse(const std::string& selector) {
+        static Result<std::vector<int>> parse(const std::string& selector) {
             std::vector<int> result;
 
             std::string      token;
@@ -47,25 +46,44 @@ namespace math_solver {
 
                     auto dash = token.find('-');
                     if (dash != std::string::npos) {
-                        int lo = std::stoi(token.substr(0, dash));
-                        int hi = std::stoi(token.substr(dash + 1));
+                        try {
+                            int lo = std::stoi(token.substr(0, dash));
+                            int hi = std::stoi(token.substr(dash + 1));
 
-                        if (lo < 1 || hi < 1)
-                            throw std::invalid_argument(
-                                "history index must be >= 1");
-                        if (lo > hi)
-                            throw std::invalid_argument(
-                                "invalid range: " + token +
-                                " (start must be <= end)");
+                            if (lo < 1 || hi < 1)
+                                return Result<std::vector<int>>::err(
+                                    Diagnostic::make(
+                                        "history index must be >= 1", "E0000",
+                                        Span{}));
+                            if (lo > hi)
+                                return Result<std::vector<int>>::err(
+                                    Diagnostic::make(
+                                        "invalid range: " + token +
+                                            " (start must be <= end)",
+                                        "E0000", Span{}));
 
-                        for (int i = lo; i <= hi; ++i)
-                            result.push_back(i);
+                            for (int i = lo; i <= hi; ++i)
+                                result.push_back(i);
+                        } catch (...) {
+                            return Result<std::vector<int>>::err(
+                                Diagnostic::make("invalid integer in range: " +
+                                                     token,
+                                                 "E0000", Span{}));
+                        }
                     } else {
-                        int idx = std::stoi(token);
-                        if (idx < 1)
-                            throw std::invalid_argument(
-                                "history index must be >= 1");
-                        result.push_back(idx);
+                        try {
+                            int idx = std::stoi(token);
+                            if (idx < 1)
+                                return Result<std::vector<int>>::err(
+                                    Diagnostic::make(
+                                        "history index must be >= 1", "E0000",
+                                        Span{}));
+                            result.push_back(idx);
+                        } catch (...) {
+                            return Result<std::vector<int>>::err(
+                                Diagnostic::make("invalid integer: " + token,
+                                                 "E0000", Span{}));
+                        }
                     }
 
                     token.clear();
@@ -79,7 +97,7 @@ namespace math_solver {
             result.erase(std::unique(result.begin(), result.end()),
                          result.end());
 
-            return result;
+            return Result<std::vector<int>>::ok(std::move(result));
         }
     };
 

@@ -12,7 +12,7 @@ namespace math_solver {
     // - Performance: parse() is on the critical path for command dispatch; avoid unnecessary allocations.
     class MathCommandParser : public ICommandSubparser {
         public:
-        CommandPtr parse(ITokenStream& stream) override;
+        Result<CommandPtr> parse(ITokenStream& stream) override;
     };
 
 } // namespace math_solver

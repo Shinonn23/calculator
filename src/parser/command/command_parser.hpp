@@ -3,7 +3,7 @@
 #include <string>
 
 #include "ast/command/command.hpp"
-#include "core/result.hpp"
+#include "diagnostics/result.hpp"
 
 namespace math_solver {
 

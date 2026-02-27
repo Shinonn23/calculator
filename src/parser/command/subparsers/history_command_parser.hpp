@@ -24,18 +24,18 @@ namespace math_solver {
     //   syntactic dispatcher.
     class HistoryCommandParser : public ICommandSubparser {
         public:
-        CommandPtr parse(ITokenStream& stream) override;
+        Result<CommandPtr> parse(ITokenStream& stream) override;
 
         private:
         // Parses the "show" variant, possibly with range or limit arguments.
         // Assumes `first` is the first numeric argument already parsed.
-        CommandPtr parse_show(ITokenStream& stream, int first);
+        Result<CommandPtr> parse_show(ITokenStream& stream, int first);
 
         // Parses the "save" subcommand, handling both full and range forms.
-        CommandPtr parse_save(ITokenStream& stream);
+        Result<CommandPtr> parse_save(ITokenStream& stream);
 
         // Parses the "search" subcommand, extracting the pattern argument.
-        CommandPtr parse_search(ITokenStream& stream);
+        Result<CommandPtr> parse_search(ITokenStream& stream);
     };
 
 } // namespace math_solver

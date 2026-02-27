@@ -2,10 +2,16 @@
 #include "ast/math/binary_expr.hpp"
 #include "ast/math/number_expr.hpp"
 #include "ast/math/variable_expr.hpp"
-#include "core/error.hpp"
+#include "diagnostics/kinds/math_errors.hpp"
+#include "diagnostics/kinds/runtime_errors.hpp"
+#include "diagnostics/kinds/runtime_errors_extra.hpp"
+#include "diagnostics/sink.hpp"
 #include <cmath>
 
 namespace math_solver {
+    using errors::circular_dependency;
+    using errors::math;
+    using errors::undefined_variable;
 
     void Evaluator::visit(const Number& node) {
         // Numbers are terminal nodes; evaluation is trivial.
@@ -15,12 +21,16 @@ namespace math_solver {
     void Evaluator::visit(const Variable& node) {
         // Variable resolution requires a valid context.
         if (!context_) {
-            throw MathException(
-                errors::undefined_variable(node.name(), node.span(), input_));
+            auto d = undefined_variable(node.name(), node.span(), input_);
+            if (sink_)
+                sink_->push(d);
+            return;
         }
         if (!context_->has(node.name())) {
-            throw MathException(
-                errors::undefined_variable(node.name(), node.span(), input_));
+            auto d = undefined_variable(node.name(), node.span(), input_);
+            if (sink_)
+                sink_->push(d);
+            return;
         }
 
         const std::string& name = node.name();
@@ -29,8 +39,10 @@ namespace math_solver {
         // This is critical to avoid infinite recursion in cases like `a = a +
         // 1`.
         if (auto it = visited_.find(name); it != visited_.end()) {
-            throw MathException(
-                errors::circular_dependency(name, it->second, input_));
+            auto d = circular_dependency(name, it->second, input_);
+            if (sink_)
+                sink_->push(d);
+            return;
         }
 
         // Recursively evaluate the expression bound to this variable.
@@ -66,8 +78,10 @@ namespace math_solver {
             // Division by zero is explicitly checked to avoid undefined
             // behavior.
             if (right_val == 0) {
-                throw MathException(errors::math("division by zero",
-                                                 node.right().span(), input_));
+                auto d = math("division by zero", node.right().span(), input_);
+                if (sink_)
+                    sink_->push(d);
+                break;
             }
             result_ = left_val / right_val;
             break;

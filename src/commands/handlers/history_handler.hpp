@@ -2,16 +2,17 @@
 
 #include "ast/command/history_command.hpp"
 #include "ast/command/history_entry.hpp"
-#include "commands/handlers/diagnostics/command_diag.hpp"
-#include "commands/handlers/diagnostics/history_diag.hpp"
-#include "core/diagnostic_sink.hpp"
+#include "diagnostics/kinds/history_errors.hpp"
+#include "diagnostics/sink.hpp"
 #include "ui/color.hpp"
 #include "utils/path_utils.hpp"
 #include "utils/string_utils.hpp"
 
+#include "diagnostics/sink.hpp"
 #include <fstream>
 #include <iostream>
 #include <nlohmann/json.hpp>
+#include <sstream>
 #include <string>
 #include <vector>
 
@@ -105,20 +106,23 @@ namespace math_solver {
         }
 
         inline void print_history_entries(
-            const std::vector<std::pair<int, HistoryEntry>>& entries) {
+            const std::vector<std::pair<int, HistoryEntry>>& entries,
+            DiagnosticSink&                                  sink) {
+            std::ostringstream oss;
             for (const auto& [idx, entry] : entries) {
-                std::cout << "  " << ansi::dim << "[" << idx << "] "
-                          << entry.timestamp << ansi::reset;
+                oss << "  " << ansi::dim << "[" << idx << "] "
+                    << entry.timestamp << ansi::reset;
                 if (entry.is_success())
-                    std::cout << ansi::green << " [ok]    ";
+                    oss << ansi::green << " [ok]    ";
                 else if (entry.is_error())
-                    std::cout << ansi::red << " [error] ";
+                    oss << ansi::red << " [error] ";
                 else if (entry.is_warning())
-                    std::cout << ansi::yellow << " [warn]  ";
+                    oss << ansi::yellow << " [warn]  ";
                 else
-                    std::cout << ansi::dim << " [info]  ";
-                std::cout << ansi::reset << entry.command << "\n";
+                    oss << ansi::dim << " [info]  ";
+                oss << ansi::reset << entry.command << "\n";
             }
+            sink.push_output(oss.str());
         }
 
         inline bool save_history_to_file(
@@ -172,16 +176,17 @@ namespace math_solver {
         inline HistoryStatus
         handle_history(const HistoryCommand&            cmd,
                        const std::vector<HistoryEntry>& session_history,
-                       DiagnosticSink& /*sink*/) {
+                       DiagnosticSink&                  sink) {
 
             const std::string& raw  = cmd.raw_command();
-            const auto         base = diag::from_cmd(cmd);
+            const std::string& file = cmd.source_file();
+            size_t             line = cmd.source_line();
 
             switch (cmd.action()) {
 
             case HistoryCommand::Action::Show: {
                 if (session_history.empty()) {
-                    std::cout << "  No history\n";
+                    sink.push_output("  No history\n");
                     return HistoryStatus::Info;
                 }
                 int total = static_cast<int>(session_history.size());
@@ -193,7 +198,7 @@ namespace math_solver {
                     if (should_show_entry(session_history[i], cmd))
                         entries.emplace_back(i + 1, session_history[i]);
 
-                print_history_entries(entries);
+                print_history_entries(entries, sink);
                 return HistoryStatus::Success;
             }
 
@@ -203,8 +208,8 @@ namespace math_solver {
                 if (!resolve_range(cmd.range(),
                                    extract_commands(session_history), indices,
                                    err)) {
-                    diag::emit_history_range_error(base, err,
-                                                   selector_span(raw));
+                    sink.push(errors::history_range_error(
+                        raw, err, selector_span(raw), file, line));
                     return HistoryStatus::Error;
                 }
                 std::vector<std::pair<int, HistoryEntry>> entries;
@@ -212,14 +217,15 @@ namespace math_solver {
                     if (should_show_entry(session_history[i], cmd))
                         entries.emplace_back(i + 1, session_history[i]);
 
-                print_history_entries(entries);
+                print_history_entries(entries, sink);
                 return HistoryStatus::Success;
             }
 
             case HistoryCommand::Action::Search: {
                 if (cmd.pattern().empty()) {
-                    diag::emit_history_missing_arg(
-                        base, "search", "`:history search <pattern>`");
+                    sink.push(errors::history_missing_arg(
+                        raw, "search", "`:history search <pattern>`", file,
+                        line));
                     return HistoryStatus::Error;
                 }
                 std::vector<std::pair<int, HistoryEntry>> matches;
@@ -231,20 +237,22 @@ namespace math_solver {
                         matches.emplace_back(i + 1, session_history[i]);
 
                 if (matches.empty()) {
-                    std::cout
-                        << "  No matches found for '" << cmd.pattern() << "'"
+                    std::ostringstream oss;
+                    oss << "  No matches found for '" << cmd.pattern() << "'"
                         << (cmd.has_any_flag() ? " with current filters" : "")
                         << "\n";
+                    sink.push_output(oss.str());
                     return HistoryStatus::Info;
                 }
-                print_history_entries(matches);
+                print_history_entries(matches, sink);
                 return HistoryStatus::Success;
             }
 
             case HistoryCommand::Action::Save: {
                 if (cmd.filepath().empty()) {
-                    diag::emit_history_missing_arg(
-                        base, "save", "`:history save <file> [selector]`");
+                    sink.push(errors::history_missing_arg(
+                        raw, "save", "`:history save <file> [selector]`", file,
+                        line));
                     return HistoryStatus::Error;
                 }
 
@@ -260,9 +268,10 @@ namespace math_solver {
                     std::vector<int> indices;
                     std::string      err;
                     if (!resolve_range(cmd.range(), cmds, indices, err)) {
-                        diag::emit_history_range_error(
-                            base, err,
-                            Span(raw.find_last_of(" \t") + 1, raw.length()));
+                        sink.push(errors::history_range_error(
+                            raw, err,
+                            Span(raw.find_last_of(" \t") + 1, raw.length()),
+                            file, line));
                         return HistoryStatus::Error;
                     }
                     for (int i : indices)
@@ -271,25 +280,29 @@ namespace math_solver {
                 }
 
                 if (!save_history_to_file(cmd.filepath(), entries)) {
-                    diag::emit_history_write_error(base, cmd.filepath());
+                    sink.push(errors::history_write_error(raw, cmd.filepath(),
+                                                          file, line));
                     return HistoryStatus::Error;
                 }
-                std::cout << "  Saved " << entries.size()
-                          << (cmd.has_any_flag() ? " filtered" : "")
-                          << " entry(s) to '" << cmd.filepath() << "'\n";
+                std::ostringstream oss;
+                oss << "  Saved " << entries.size()
+                    << (cmd.has_any_flag() ? " filtered" : "")
+                    << " entry(s) to '" << cmd.filepath() << "'\n";
+                sink.push_output(oss.str());
                 return HistoryStatus::Success;
             }
 
             case HistoryCommand::Action::Clear: {
                 std::ofstream file(get_history_file_path(),
                                    std::ios::trunc | std::ios::out);
-                std::cout << "  History cleared\n";
+                sink.push_output("  History cleared\n");
                 return HistoryStatus::Info;
             }
 
             case HistoryCommand::Action::Unknown: {
                 const std::string& sub = cmd.raw_command();
-                diag::emit_unknown_history_subcommand(base, sub);
+                sink.push(
+                    errors::unknown_history_subcommand(raw, sub, file, line));
                 return HistoryStatus::Error;
             }
             }

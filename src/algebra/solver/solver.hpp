@@ -1,6 +1,7 @@
 #pragma once
 
 #include "ast/math/equation_expr.hpp"
+#include "diagnostics/result.hpp"
 #include "runtime/context/context.hpp"
 #include <string>
 
@@ -44,7 +45,7 @@ namespace math_solver {
         EquationSolver(const Context* ctx, const std::string& input)
             : context_(ctx), input_(input) {}
 
-        void        set_input(const std::string& input);
+        void                set_input(const std::string& input);
 
         // Entry point for solving a linear equation with a single unknown.
         //
@@ -56,7 +57,7 @@ namespace math_solver {
         // unique unknown.
         // - Relies on prior syntactic and semantic validation; correctness
         // depends on upstream passes.
-        SolveResult solve(const Equation& eq);
+        Result<SolveResult> solve(const Equation& eq);
 
         // Attempts to solve for a specific variable, substituting others from
         // context.
@@ -70,8 +71,8 @@ namespace math_solver {
         // - Subtle: Care required to avoid accidental elimination of target
         // variable via substitution.
         // - Correctness depends on context consistency and upstream validation.
-        SolveResult solve_for(const Equation&    eq,
-                              const std::string& target_var);
+        Result<SolveResult> solve_for(const Equation&    eq,
+                                      const std::string& target_var);
     };
 
 } // namespace math_solver

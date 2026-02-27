@@ -2,7 +2,8 @@
 
 #include "ast/command/history_entry.hpp"
 #include "ast/command/load_command.hpp"
-#include "core/diagnostic_sink.hpp"
+#include "diagnostics/diagnostic.hpp"
+#include "diagnostics/sink.hpp"
 #include "ui/repl/runner.hpp"
 
 namespace math_solver {
@@ -24,9 +25,12 @@ namespace math_solver {
             runner.run_script(cmd.filepath(), cmd.flags());
 
             if (runner.last_script_had_errors()) {
-                sink.push(Error::make("script '" + cmd.filepath() + "' failed",
-                                      "E0900", {}, cmd.raw_command(),
-                                      "nested script error"));
+                Diagnostic d =
+                    Diagnostic::make("script '" + cmd.filepath() + "' failed",
+                                     "E0900", {}, cmd.raw_command(),
+                                     "nested script error")
+                        .with_location(cmd.source_file(), cmd.source_line());
+                sink.push(d);
                 return HistoryStatus::Error;
             }
 

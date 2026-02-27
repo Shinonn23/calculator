@@ -1,6 +1,6 @@
 #include "runner.hpp"
 #include "ast/command/load_command.hpp"
-#include "core/error.hpp"
+#include "diagnostics/sink.hpp"
 #include "parser/command/command_parser.hpp"
 #include "runtime/runtime.hpp"
 #include "ui/color.hpp"
@@ -27,7 +27,8 @@ namespace math_solver {
     bool Runner::run_line(const std::string& line) {
         auto parse_result = parse_command(line);
         if (!parse_result) {
-            std::cout << parse_result.error().format();
+            registry_.sink().push(parse_result.error());
+            registry_.sink().flush(std::cout);
             return true;
         }
         auto cmd    = std::move(*parse_result);
@@ -73,10 +74,7 @@ namespace math_solver {
                 status = registry_.last_command_status();
             }
 
-            catch (const MathException& e) {
-                std::cout << e.error().format() << "\n";
-                status = HistoryStatus::Error;
-            } catch (const std::exception& e) {
+            catch (const std::exception& e) {
                 std::cout << ansi::red << "  Error: " << ansi::reset << e.what()
                           << "\n";
                 status = HistoryStatus::Error;
@@ -142,15 +140,12 @@ namespace math_solver {
 
         // ── Execute
         // ───────────────────────────────────────────────────────────
-        DiagnosticSink    sink(DiagnosticSink::Options(50, true, true));
+        DiagnosticSink sink(DiagnosticSink::Options(50, true, true));
 
-        std::string       line;
-        size_t            line_no = 0, total = 0;
-        bool              should_rollback    = false;
-        int               unaccounted_errors = 0;
-
-        std::stringstream garbage;
-        std::streambuf*   old_cout = std::cout.rdbuf();
+        std::string    line;
+        size_t         line_no = 0, total = 0;
+        bool           should_rollback    = false;
+        int            unaccounted_errors = 0;
 
         while (std::getline(file, line)) {
             ++line_no;
@@ -180,12 +175,13 @@ namespace math_solver {
             auto& cmd = *result;
             cmd->set_source(filepath, line_no);
 
-            if (flags.silent)
-                std::cout.rdbuf(garbage.rdbuf());
             size_t errors_before = sink.error_count();
             registry_.dispatch(*cmd, sink);
-            if (flags.silent)
-                std::cout.rdbuf(old_cout);
+            if (!flags.silent) {
+                sink.flush_outputs(std::cout);
+            } else {
+                sink.clear_outputs();
+            }
 
             if (registry_.last_command_status() == HistoryStatus::Error) {
                 if (sink.error_count() == errors_before) {

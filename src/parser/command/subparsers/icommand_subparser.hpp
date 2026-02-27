@@ -1,6 +1,7 @@
 #pragma once
 
 #include "ast/command/command.hpp"
+#include "diagnostics/result.hpp"
 #include "lexer/command/token_stream.hpp"
 
 namespace math_solver {
@@ -22,7 +23,7 @@ namespace math_solver {
     class ICommandSubparser {
         public:
         virtual ~ICommandSubparser()                   = default;
-        virtual CommandPtr parse(ITokenStream& stream) = 0;
+        virtual Result<CommandPtr> parse(ITokenStream& stream) = 0;
     };
 
 } // namespace math_solver

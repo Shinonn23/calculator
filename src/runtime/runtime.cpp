@@ -36,21 +36,21 @@ namespace math_solver {
         save_environment();
 
         context_.clear();
-        const auto& env = config_.get_env(env_name);
+        auto env_res = config_.get_env(env_name);
+        if (!env_res)
+            return false;
 
         // Restore all variables from the target environment.
         // Parsing failures are tolerated (e.g., due to legacy or malformed
         // data). If parsing as an expression fails, fallback to parsing as a
         // double. Variables that fail both are silently skipped to maximize
         // robustness.
-        for (const auto& [name, expr_str] : env.variables) {
-            try {
-                Parser parser(expr_str);
-                auto   parse_result = parser.parse();
-                if (!parse_result)
-                    throw std::runtime_error("parse failed");
+        for (const auto& [name, expr_str] : (*env_res)->variables) {
+            Parser parser(expr_str);
+            auto   parse_result = parser.parse();
+            if (parse_result) {
                 context_.set(name, std::move(*parse_result));
-            } catch (...) {
+            } else {
                 try {
                     double val = std::stod(expr_str);
                     context_.set(name, val);
@@ -63,7 +63,7 @@ namespace math_solver {
         return true;
     }
 
-    double Runtime::evaluate(const std::string& var_name) const {
+    Result<double> Runtime::evaluate(const std::string& var_name) const {
         // Delegates to Resolver for variable evaluation.
         // Assumes context_ is up-to-date and consistent.
         return Resolver::evaluate_variable(var_name, context_);

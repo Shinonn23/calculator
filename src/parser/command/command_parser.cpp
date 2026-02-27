@@ -2,7 +2,6 @@
 #include "ast/command/math_command.hpp"
 #include "ast/command/system_command.hpp"
 #include "command_parser_registry.hpp"
-#include "core/error.hpp"
 #include "lexer/command/command_token_stream.hpp"
 #include "subparsers/system_command_parser.hpp"
 #include "utils/string_utils.hpp"
@@ -37,12 +36,10 @@ namespace math_solver {
             auto                     it       = registry.find(cmd);
             if (it != registry.end()) {
                 try {
-                    return Result<CommandPtr>::ok(it->second->parse(stream));
-                } catch (const MathException& e) {
-                    return Result<CommandPtr>::err(e.error());
+                    return it->second->parse(stream);
                 } catch (const std::exception& e) {
                     auto t = stream.peek();
-                    return Result<CommandPtr>::err(Error::make(
+                    return Result<CommandPtr>::err(Diagnostic::make(
                         e.what(), "E0200", Span{t.start, t.end}, raw_input_));
                 }
             }
@@ -62,13 +59,11 @@ namespace math_solver {
             static SystemCommandParser sys_parser;
             try {
                 auto sys = sys_parser.parse(stream);
-                if (sys)
-                    return Result<CommandPtr>::ok(std::move(sys));
-            } catch (const MathException& e) {
-                return Result<CommandPtr>::err(e.error());
+                if (sys && *sys != nullptr)
+                    return Result<CommandPtr>::ok(std::move(*sys));
             } catch (const std::exception& e) {
                 auto t = stream.peek();
-                return Result<CommandPtr>::err(Error::make(
+                return Result<CommandPtr>::err(Diagnostic::make(
                     e.what(), "E0200", Span{t.start, t.end}, raw_input_));
             }
         }

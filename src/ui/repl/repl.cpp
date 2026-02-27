@@ -2,7 +2,7 @@
 #include "commands/handlers/env_handler.hpp"
 #include "commands/registry.hpp"
 #include "completions.hpp"
-#include "core/diagnostic_sink.hpp"
+#include "diagnostics/sink.hpp"
 #include "hints.hpp"
 #include "history.hpp"
 #include "runner.hpp"

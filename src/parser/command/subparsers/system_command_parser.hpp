@@ -16,7 +16,7 @@ namespace math_solver {
     //   correctness and robustness are prioritized over micro-optimizations.
     class SystemCommandParser : public ICommandSubparser {
         public:
-        CommandPtr parse(ITokenStream& stream) override;
+        Result<CommandPtr> parse(ITokenStream& stream) override;
     };
 
 } // namespace math_solver

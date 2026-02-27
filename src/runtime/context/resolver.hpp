@@ -2,6 +2,7 @@
 
 #include "ast/math/expr.hpp"
 #include "context.hpp"
+#include "diagnostics/result.hpp"
 #include <string>
 #include <unordered_set>
 
@@ -16,23 +17,23 @@ namespace math_solver {
         // - Panics (throws) if evaluation encounters an unbound variable or
         // cyclic dependency.
         // - Used by higher-level passes that require concrete numeric results.
-        static double evaluate(const Expr& expr, const Context& ctx);
+        static Result<double> evaluate(const Expr& expr, const Context& ctx);
 
         // Resolves a variable by name in the given context.
         // - Assumes 'name' is present in 'ctx'; otherwise, behavior is
         // undefined.
         // - Used internally by expression evaluation and by passes that need
         // direct variable access.
-        static double evaluate_variable(const std::string& name,
-                                        const Context&     ctx);
+        static Result<double> evaluate_variable(const std::string& name,
+                                                const Context&     ctx);
 
         // Attempts to evaluate a variable to a numeric value.
         // - Returns true if the variable is fully resolved to a constant.
         // - Returns false if the variable is undefined or depends on unresolved
         // symbols.
         // - Used by constant folding and dead code elimination passes.
-        static bool
-        try_evaluate(const std::string& name, const Context& ctx, double& out);
+        static bool try_evaluate(const std::string& name, const Context& ctx,
+                                 double& out);
 
         private:
         // Recursive evaluation helper.
@@ -42,9 +43,8 @@ namespace math_solver {
         // - Assumes 'expr' is acyclic and all variable references are valid in
         // 'ctx'.
         // - Any violation results in immediate termination (panic/throw).
-        static double
-        resolve_recursive(const Expr&                      expr,
-                          const Context&                   ctx,
+        static Result<double>
+        resolve_recursive(const Expr& expr, const Context& ctx,
                           std::unordered_set<std::string>& visited);
     };
 

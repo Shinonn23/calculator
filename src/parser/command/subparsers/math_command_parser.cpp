@@ -17,7 +17,7 @@ namespace math_solver {
         return MathCommand::Type::Factor;
     }
 
-    CommandPtr MathCommandParser::parse(ITokenStream& stream) {
+    Result<CommandPtr> MathCommandParser::parse(ITokenStream& stream) {
         // Entry point for parsing math commands.
         // - Expects the stream to be positioned at the command token (e.g.,
         // ":solve").
@@ -55,7 +55,7 @@ namespace math_solver {
         auto cmd = std::make_unique<MathCommand>(
             type, stream.consume_remaining(), stream.raw_input());
         cmd->set_flags(isolated, fraction, vars);
-        return cmd;
+        return Result<CommandPtr>::ok(std::move(cmd));
     }
 
 } // namespace math_solver

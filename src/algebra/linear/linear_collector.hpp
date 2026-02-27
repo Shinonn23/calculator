@@ -10,7 +10,9 @@
 #include "ast/math/expr_visitor.hpp"
 #include "ast/math/number_expr.hpp"
 #include "ast/math/variable_expr.hpp"
-#include "core/error.hpp"
+#include "diagnostics/kinds/math_errors.hpp"
+#include "diagnostics/kinds/solver_errors.hpp"
+#include "diagnostics/result.hpp"
 #include "runtime/context/context.hpp"
 
 namespace math_solver {
@@ -127,12 +129,13 @@ namespace math_solver {
     // rounding.
     class LinearCollector : public ExprVisitor {
         private:
-        LinearForm            result_;
-        const Context*        context_;
-        std::string           input_;
-        bool                  isolated_;
+        LinearForm                result_;
+        std::optional<Diagnostic> error_;
+        const Context*            context_;
+        std::string               input_;
+        bool                      isolated_;
 
-        std::set<std::string> shadowed_vars_;
+        std::set<std::string>     shadowed_vars_;
 
         public:
         LinearCollector() : context_(nullptr), input_(), isolated_(false) {}
@@ -144,17 +147,20 @@ namespace math_solver {
                         bool isolated = false)
             : context_(ctx), input_(input), isolated_(isolated) {}
 
-        void       set_input(const std::string& input) { input_ = input; }
-        void       set_isolated(bool isolated) { isolated_ = isolated; }
+        void set_input(const std::string& input) { input_ = input; }
+        void set_isolated(bool isolated) { isolated_ = isolated; }
 
         // Entry point: collects a LinearForm from the given expression.
         // Resets internal state for each call.
-        LinearForm collect(const Expr& expr) {
+        Result<LinearForm> collect(const Expr& expr) {
             result_ = LinearForm();
+            error_.reset();
             shadowed_vars_.clear();
             expr.accept(*this);
+            if (error_)
+                return Result<LinearForm>::err(*error_);
             result_.simplify();
-            return result_;
+            return Result<LinearForm>::ok(result_);
         }
 
         // Returns variables that were present in the context but not
@@ -187,11 +193,19 @@ namespace math_solver {
         }
 
         void visit(const BinaryOp& node) override {
+            if (error_)
+                return;
             node.left().accept(*this);
             LinearForm left = result_;
 
+            if (error_)
+                return;
+
             node.right().accept(*this);
             LinearForm right = result_;
+
+            if (error_)
+                return;
 
             switch (node.op()) {
             case BinaryOpType::Add:
@@ -211,9 +225,10 @@ namespace math_solver {
                 } else if (right.is_constant()) {
                     result_ = left * right.constant;
                 } else {
-                    throw MathException(errors::non_linear(
+                    error_ = errors::non_linear(
                         "non-linear term: variables multiplied together",
-                        node.span(), input_));
+                        node.span(), input_);
+                    return;
                 }
                 break;
 
@@ -221,13 +236,15 @@ namespace math_solver {
                 // Division is only linear if the divisor is constant and
                 // nonzero.
                 if (!right.is_constant()) {
-                    throw MathException(errors::non_linear(
+                    error_ = errors::non_linear(
                         "non-linear term: division by variable", node.span(),
-                        input_));
+                        input_);
+                    return;
                 }
                 if (std::abs(right.constant) < 1e-12) {
-                    throw MathException(errors::math(
-                        "division by zero", node.right().span(), input_));
+                    error_ = errors::math("division by zero",
+                                          node.right().span(), input_);
+                    return;
                 }
                 result_ = left * (1.0 / right.constant);
                 break;
@@ -236,9 +253,10 @@ namespace math_solver {
                 // Exponentiation is only linear if the exponent is constant and
                 // equals 1.
                 if (!right.is_constant()) {
-                    throw MathException(
+                    error_ =
                         errors::non_linear("non-linear term: variable exponent",
-                                           node.right().span(), input_));
+                                           node.right().span(), input_);
+                    return;
                 }
 
                 double exp = right.constant;
@@ -257,10 +275,11 @@ namespace math_solver {
 
                 // For all other exponents, only allow if base is constant.
                 if (!left.is_constant()) {
-                    throw MathException(errors::non_linear(
+                    error_ = errors::non_linear(
                         "non-linear term: variable raised to power " +
                             std::to_string(static_cast<int>(exp)),
-                        node.span(), input_));
+                        node.span(), input_);
+                    return;
                 }
 
                 result_ = LinearForm(std::pow(left.constant, exp));

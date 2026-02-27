@@ -1,13 +1,13 @@
-#include "result.hpp"
+#include "diagnostics/diagnostic.hpp"
 #include "ui/color.hpp"
 
 namespace math_solver {
 
-    std::string Error::format() const {
+    std::string Diagnostic::format() const {
         std::string out;
 
         // Header
-        const bool  is_warn = (level == "warning");
+        const bool is_warn = (level == "warning");
         out += is_warn ? ansi::yellow : ansi::red;
         out += ansi::bold;
         out += level;
@@ -36,14 +36,14 @@ namespace math_solver {
         size_t line_end = input.find('\n', line_start);
         if (line_end == std::string::npos)
             line_end = input.size();
-        std::string src      = input.substr(line_start, line_end - line_start);
+        std::string src = input.substr(line_start, line_end - line_start);
 
-        std::string line_str = std::to_string(loc.line);
-        std::string margin_pad(line_str.size(), ' ');
+        std::string line_str   = std::to_string(loc.line);
+        std::string margin_pad = std::string(line_str.size(), ' ');
 
         // Arrow
-        out +=
-            std::string(ansi::cyan) + " " + margin_pad + "--> " + ansi::reset;
+        out += std::string(ansi::cyan) + " " + margin_pad + "--> " +
+               ansi::reset;
         out += loc.file + ":" + line_str + ":" + std::to_string(col) + "\n";
 
         // Gutter + source
@@ -75,4 +75,15 @@ namespace math_solver {
         return out;
     }
 
+    Diagnostic Diagnostic::make(const std::string& msg, const std::string& code,
+                                const Span& span, const std::string& input,
+                                const std::string& label) {
+        Diagnostic d;
+        d.message      = msg;
+        d.code         = code;
+        d.span         = span;
+        d.input        = input;
+        d.inline_label = label;
+        return d;
+    }
 } // namespace math_solver

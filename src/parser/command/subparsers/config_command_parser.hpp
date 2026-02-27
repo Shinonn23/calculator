@@ -16,7 +16,7 @@ namespace math_solver {
     // is expected to be invoked only via the main command parser dispatch.
     class ConfigCommandParser : public ICommandSubparser {
         public:
-        CommandPtr parse(ITokenStream& stream) override;
+        Result<CommandPtr> parse(ITokenStream& stream) override;
     };
 
 } // namespace math_solver

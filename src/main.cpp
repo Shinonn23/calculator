@@ -30,13 +30,16 @@ static int               run_cli(int argc, char* argv[]) {
             std::cerr << parse_result.error().format();
             return 1;
         }
-        auto      expr = std::move(*parse_result);
-        Evaluator eval(&ctx, expr_str);
-        std::cout << eval.evaluate(*expr) << '\n';
+        auto           expr = std::move(*parse_result);
+        DiagnosticSink sink;
+        Evaluator      eval(&ctx, expr_str, &sink);
+        double         result = eval.evaluate(*expr);
+        if (sink.has_errors()) {
+            sink.flush(std::cerr);
+            return 1;
+        }
+        std::cout << result << '\n';
         return 0;
-    } catch (const MathException& e) {
-        std::cerr << "Initialization error: " << e.error().message << '\n';
-        return 1;
     } catch (const std::exception& e) {
         std::cerr << "Error: " << e.what() << '\n';
         return 1;
@@ -56,15 +59,16 @@ static void load_startup_env(const std::string& env_name, Config& config,
     if (!config.env_exists(env_name))
         return;
 
-    const auto& env = config.get_env(env_name);
-    for (const auto& [name, expr_str] : env.variables) {
-        try {
-            Parser parser(expr_str);
-            auto   parse_result = parser.parse();
-            if (!parse_result)
-                throw std::runtime_error("parse failed");
+    auto env_res = config.get_env(env_name);
+    if (!env_res)
+        return;
+
+    for (const auto& [name, expr_str] : (*env_res)->variables) {
+        Parser parser(expr_str);
+        auto   parse_result = parser.parse();
+        if (parse_result) {
             ctx.set(name, std::move(*parse_result));
-        } catch (...) {
+        } else {
             try {
                 ctx.set(name, std::stod(expr_str));
             } catch (...) {

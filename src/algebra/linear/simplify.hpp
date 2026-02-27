@@ -81,11 +81,11 @@ namespace math_solver {
                 // collides with a context variable. This is a best-effort pass
                 // and may not catch all cases if the expression is not purely
                 // linear.
-                try {
-                    LinearCollector shadow_check(nullptr, input_, true);
-                    LinearForm      lhs_vars = shadow_check.collect(eq.lhs());
-                    LinearForm      rhs_vars = shadow_check.collect(eq.rhs());
-                    LinearForm      all_vars = lhs_vars - rhs_vars;
+                LinearCollector shadow_check(nullptr, input_, true);
+                auto            lhs_vars_r = shadow_check.collect(eq.lhs());
+                auto            rhs_vars_r = shadow_check.collect(eq.rhs());
+                if (lhs_vars_r && rhs_vars_r) {
+                    LinearForm all_vars = *lhs_vars_r - *rhs_vars_r;
 
                     for (const auto& var : all_vars.variables()) {
                         if (context_->has(var)) {
@@ -95,19 +95,27 @@ namespace math_solver {
                                 "(use --isolated to keep as variable)");
                         }
                     }
-                } catch (...) {
-                    // Shadowing check is intentionally best-effort and may fail
-                    // for non-linear or context-dependent expressions.
                 }
             }
 
             // Main collection pass: context is used unless isolated is
             // requested.
-            LinearCollector collector(
-                opts.isolated ? nullptr : context_, input_, false);
+            LinearCollector collector(opts.isolated ? nullptr : context_,
+                                      input_, false);
 
-            LinearForm lhs        = collector.collect(eq.lhs());
-            LinearForm rhs        = collector.collect(eq.rhs());
+            auto lhs_r = collector.collect(eq.lhs());
+            auto rhs_r = collector.collect(eq.rhs());
+            if (!lhs_r || !rhs_r) {
+                // Preserve existing API shape: SimplifyResult has no error
+                // channel.
+                result.warnings.insert(
+                    "simplify failed: expression is not linear");
+                result.form      = LinearForm();
+                result.canonical = "";
+                return result;
+            }
+            LinearForm lhs        = *lhs_r;
+            LinearForm rhs        = *rhs_r;
 
             // Normalize: move all terms to the left, so the equation is of the
             // form (lhs - rhs) = 0. This ensures canonicalization for
@@ -142,10 +150,18 @@ namespace math_solver {
                       const SimplifyOptions& opts = SimplifyOptions()) {
             SimplifyResult  result;
 
-            LinearCollector collector(
-                opts.isolated ? nullptr : context_, input_, opts.isolated);
+            LinearCollector collector(opts.isolated ? nullptr : context_,
+                                      input_, opts.isolated);
 
-            LinearForm form = collector.collect(expr);
+            auto form_r = collector.collect(expr);
+            if (!form_r) {
+                result.warnings.insert(
+                    "simplify failed: expression is not linear");
+                result.form      = LinearForm();
+                result.canonical = "";
+                return result;
+            }
+            LinearForm form = *form_r;
             form.simplify();
 
             result.form = form;

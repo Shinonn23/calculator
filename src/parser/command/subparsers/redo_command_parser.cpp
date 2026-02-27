@@ -4,7 +4,7 @@
 
 namespace math_solver {
 
-    CommandPtr RedoCommandParser::parse(ITokenStream& stream) {
+    Result<CommandPtr> RedoCommandParser::parse(ITokenStream& stream) {
         stream.advance(); // always consume ":redo" token; parser invariant
 
         auto cmd = std::make_unique<RedoCommand>(stream.raw_input());
@@ -12,7 +12,7 @@ namespace math_solver {
         // If no argument is present, default to redoing the last command.
         // This is the only case where an empty range is valid.
         if (stream.is_eof())
-            return cmd;
+            return Result<CommandPtr>::ok(std::move(cmd));
 
         const std::string& selector = stream.peek().value;
 
@@ -22,17 +22,21 @@ namespace math_solver {
         // intent is acted upon.
         if (selector.empty() ||
             !std::isdigit(static_cast<unsigned char>(selector[0])))
-            return cmd;
+            return Result<CommandPtr>::ok(std::move(cmd));
 
         stream.advance();
 
         // Pass INT_MAX as the upper bound since the parser does not have access
         // to the actual history size. Responsibility for validating the
         // resolved range is deferred to the handler.
-        auto range = HistoryRange::parse(selector);
-        cmd->set_range(range);
+        auto range_r = HistoryRange::parse(selector);
+        if (range_r) {
+            cmd->set_range(*range_r);
+        } else {
+            return Result<CommandPtr>::err(range_r.error());
+        }
 
-        return cmd;
+        return Result<CommandPtr>::ok(std::move(cmd));
     }
 
 } // namespace math_solver

@@ -16,7 +16,7 @@ namespace math_solver {
     // in the pipeline.
     class VarCommandParser : public ICommandSubparser {
         public:
-        CommandPtr parse(ITokenStream& stream) override;
+        Result<CommandPtr> parse(ITokenStream& stream) override;
     };
 
 } // namespace math_solver

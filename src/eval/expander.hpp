@@ -6,7 +6,6 @@
 #include "ast/math/expr_visitor.hpp"
 #include "ast/math/number_expr.hpp"
 #include "ast/math/variable_expr.hpp"
-#include "core/error.hpp"
 #include "runtime/context/context.hpp"
 #include <memory>
 #include <string>
@@ -75,8 +74,10 @@ namespace math_solver {
             // This is required for soundness; otherwise, infinite recursion is
             // possible.
             if (visited_.count(name)) {
-                throw MathException(
-                    errors::circular_dependency(name, node.span(), input_));
+                // Strict diagnostics are reported at higher layers via Result.
+                // For now, avoid exceptions: leave variable unexpanded.
+                result_ = node.clone();
+                return;
             }
             visited_[name] = node.span();
             context_.get_expr(name).accept(*this);

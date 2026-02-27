@@ -3,8 +3,9 @@
 #include "ast/command/history_entry.hpp"
 #include "ast/command/system_command.hpp"
 #include "config/config.hpp"
-#include "core/diagnostic_sink.hpp"
-#include "core/error.hpp"
+#include "diagnostics/diagnostic.hpp"
+#include "diagnostics/kinds/command_errors.hpp"
+#include "diagnostics/sink.hpp"
 #include "runtime/context/context.hpp"
 #include "ui/color.hpp"
 
@@ -22,33 +23,33 @@ namespace math_solver {
         // - If the command set grows substantially, consider extracting help
         //   text to a single authoritative source to avoid duplication.
         // - Not performance critical; invoked only on explicit user request.
-        inline void print_help() {
-            using std::cout;
+        inline void print_help(DiagnosticSink& sink) {
+            std::ostringstream oss;
 
-            auto section = [&](const char* title) {
-                cout << "\n" << ansi::bold << title << ansi::reset << "\n";
+            auto               section = [&](const char* title) {
+                oss << "\n" << ansi::bold << title << ansi::reset << "\n";
             };
 
             auto cmd = [&](const char* name, const char* desc) {
-                cout << "  " << ansi::bold << std::left << std::setw(32) << name
-                     << ansi::reset << desc << "\n";
+                oss << "  " << ansi::bold << std::left << std::setw(32) << name
+                    << ansi::reset << desc << "\n";
             };
 
             auto flag = [&](const char* name, const char* desc) {
-                cout << "    " << ansi::dim << std::left << std::setw(30)
-                     << name << ansi::reset << desc << "\n";
+                oss << "    " << ansi::dim << std::left << std::setw(30) << name
+                    << ansi::reset << desc << "\n";
             };
 
             auto note = [&](const char* text) {
-                cout << "  " << ansi::dim << text << ansi::reset << "\n";
+                oss << "  " << ansi::dim << text << ansi::reset << "\n";
             };
 
-            cout << "\n"
-                 << ansi::bold
-                 << "╔══════════════════════════════════════════════════════╗\n"
-                 << "║              CMath Solver  —  Help Menu              ║\n"
-                 << "╚══════════════════════════════════════════════════════╝"
-                 << ansi::reset << "\n";
+            oss << "\n"
+                << ansi::bold
+                << "╔══════════════════════════════════════════════════════╗\n"
+                << "║              CMath Solver  —  Help Menu              ║\n"
+                << "╚══════════════════════════════════════════════════════╝"
+                << ansi::reset << "\n";
 
             section("1. Evaluation & Equations");
             cmd("<expr>", "Evaluate an expression");
@@ -141,7 +142,8 @@ namespace math_solver {
             cmd(":clear  /  :cls", "Clear the terminal screen");
             cmd("exit  /  quit  /  :q", "Exit the solver");
 
-            cout << "\n" << std::string(56, '-') << "\n";
+            oss << "\n" << std::string(56, '-') << "\n";
+            sink.push_output(oss.str());
         }
 
         // Handles system-level commands (exit, help, clear, ls).
@@ -160,7 +162,7 @@ namespace math_solver {
         inline HistoryStatus handle_system(const SystemCommand& cmd,
                                            Context& ctx, Config& /*config*/,
                                            bool&    out_should_exit,
-                                           DiagnosticSink& /*sink*/) {
+                                           DiagnosticSink& sink) {
             out_should_exit = false;
 
             switch (cmd.type()) {
@@ -175,14 +177,14 @@ namespace math_solver {
             case SystemCommand::Type::Help:
                 // Help output is side-effect free and does not mutate any
                 // state.
-                print_help();
+                print_help(sink);
                 return HistoryStatus::Info;
 
             case SystemCommand::Type::Clear:
                 // Emits ANSI escape codes to clear the terminal.
                 // Not guaranteed to work on all terminals; no fallback
                 // provided.
-                std::cout << "\033[2J\033[H";
+                sink.push_output("\033[2J\033[H");
                 return HistoryStatus::Info;
 
             case SystemCommand::Type::Ls: {
@@ -190,18 +192,21 @@ namespace math_solver {
                 // a stable view of the current context. Output is aligned for
                 // readability. If context is empty, emits a message.
                 if (ctx.empty()) {
-                    std::cout << "  No variables defined\n";
+                    sink.push_output("  No variables defined\n");
                     return HistoryStatus::Info;
                 }
                 size_t max_len = 0;
                 for (const auto& [name, _] : ctx.all())
                     max_len = std::max(max_len, name.size());
+
+                std::ostringstream oss;
                 for (const auto& [name, expr] : ctx.all()) {
-                    std::cout << "  " << name;
+                    oss << "  " << name;
                     for (size_t i = name.size(); i < max_len; ++i)
-                        std::cout << ' ';
-                    std::cout << "  =  " << expr->to_string() << "\n";
+                        oss << ' ';
+                    oss << "  =  " << expr->to_string() << "\n";
                 }
+                sink.push_output(oss.str());
                 return HistoryStatus::Success;
             }
             case SystemCommand::Type::Unknown: {
@@ -212,10 +217,10 @@ namespace math_solver {
 
                 std::string bad_cmd = input.substr(0, input.find(' '));
 
-                Error       e       = errors::unknown_command(
+                Diagnostic  e       = errors::unknown_command(
                     bad_cmd, find_token_span(input, bad_cmd), input);
-
-                std::cout << e.format() << "\n";
+                e = e.with_location(cmd.source_file(), cmd.source_line());
+                sink.push(e);
                 return HistoryStatus::Error;
             }
             }

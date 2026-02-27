@@ -3,8 +3,9 @@
 #include "ast/command/history_entry.hpp"
 #include "ast/command/redo_command.hpp"
 #include "commands/handlers/history_handler.hpp"
-#include "core/diagnostic_sink.hpp"
-#include "core/error.hpp"
+#include "diagnostics/diagnostic.hpp"
+#include "diagnostics/kinds/math_errors.hpp"
+#include "diagnostics/sink.hpp"
 #include "ui/color.hpp"
 
 #include <iostream>
@@ -68,13 +69,14 @@ namespace math_solver {
                 indices.push_back(static_cast<int>(session_history.size()) - 1);
             } else {
                 if (!resolve_range(cmd.range(), commands, indices, err)) {
-                    Error e = errors::math(err,
-                                           Span(raw.find_last_of(" \t") + 1,
-                                                raw.length()),
-                                           raw)
-                                  .with_label("invalid range");
-                    e.code = "E0801";
-                    sink.push(e);
+                    Diagnostic d =
+                        errors::math(
+                            err,
+                            Span(raw.find_last_of(" \t") + 1, raw.length()),
+                            raw)
+                            .with_label("invalid range");
+                    d.code = "E0801";
+                    sink.push(d);
                     return HistoryStatus::Error;
                 }
             }

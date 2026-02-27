@@ -1,19 +1,20 @@
 #include "load_command_parser.hpp"
 #include "ast/command/load_command.hpp"
-#include "core/error.hpp"
+#include "diagnostics/kinds/math_errors.hpp"
 
 namespace math_solver {
 
-    CommandPtr LoadCommandParser::parse(ITokenStream& stream) {
+    Result<CommandPtr> LoadCommandParser::parse(ITokenStream& stream) {
         std::string raw = stream.raw_input();
         stream.advance(); // consume ":load" token
 
         // Defensive: Require at least one argument after ":load".
         if (stream.is_eof()) {
-            throw MathException(
+            Diagnostic err =
                 errors::parse("missing filepath for ':load' command",
-                              find_token_span(raw, ":load"), raw))
-                .with_help("Usage: :load [flags] <filepath>");
+                              find_token_span(raw, ":load"), raw);
+            err.help = "Usage: :load [flags] <filepath>";
+            return Result<CommandPtr>::err(err);
         }
 
         LoadCommand::Flags flags;
@@ -43,22 +44,22 @@ namespace math_solver {
                     // Correctness: "--env" must be followed by a valid
                     // environment name.
                     if (stream.is_eof()) {
-                        Error err = errors::parse(
+                        Diagnostic err = errors::parse(
                             "expected environment name after '--env'",
                             find_token_span(raw, "--env"), raw);
                         err.help = "example: :load script.msl --env production";
-                        throw MathException(err);
+                        return Result<CommandPtr>::err(err);
                     }
                     flags.env = stream.advance().value;
                 } else {
                     // Strict: Disallow unknown flags to prevent accidental
                     // misuse.
-                    Error err =
+                    Diagnostic err =
                         errors::parse("unknown flag '" + token_val + "'",
                                       find_token_span(raw, token_val), raw);
                     err.help = "available flags: --dry-run, --silent, "
                                "--strict, --no-rollback, --env";
-                    throw MathException(err);
+                    return Result<CommandPtr>::err(err);
                 }
             } else {
                 // Only a single filepath is permitted; extra positional
@@ -66,27 +67,28 @@ namespace math_solver {
                 if (filepath.empty()) {
                     filepath = stream.advance().value;
                 } else {
-                    Error err = errors::parse(
+                    Diagnostic err = errors::parse(
                         "unexpected positional argument '" + token_val + "'",
                         find_token_span(raw, token_val), raw);
                     err.inline_label = "extra argument";
                     err.help = "only one filepath is supported per command.";
-                    throw MathException(err);
+                    return Result<CommandPtr>::err(err);
                 }
             }
         }
 
         // Final check: At least one filepath must be provided.
         if (filepath.empty()) {
-            Error err = errors::parse("no filepath provided",
-                                      find_token_span(raw, ":load"), raw);
-            err.help  = "you must specify a file to load. Example: :load "
-                        "script.msl";
-            throw MathException(err);
+            Diagnostic err = errors::parse("no filepath provided",
+                                           find_token_span(raw, ":load"), raw);
+            err.help       = "you must specify a file to load. Example: :load "
+                             "script.msl";
+            return Result<CommandPtr>::err(err);
         }
 
         // Returns a LoadCommand instance with parsed flags and filepath.
-        return std::make_unique<LoadCommand>(filepath, flags, raw);
+        return Result<CommandPtr>::ok(
+            std::make_unique<LoadCommand>(filepath, flags, raw));
     }
 
 } // namespace math_solver

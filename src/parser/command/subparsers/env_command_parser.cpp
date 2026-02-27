@@ -3,15 +3,15 @@
 
 namespace math_solver {
 
-    CommandPtr EnvCommandParser::parse(ITokenStream& stream) {
+    Result<CommandPtr> EnvCommandParser::parse(ITokenStream& stream) {
         stream
             .advance(); // always consume the ":env" prefix; required invariant
 
         // If no further tokens, default to Show action. This is the fallback
         // for bare ":env".
         if (stream.is_eof()) {
-            return std::make_unique<EnvCommand>(
-                EnvCommand::Action::Show, "", stream.raw_input());
+            return Result<CommandPtr>::ok(std::make_unique<EnvCommand>(
+                EnvCommand::Action::Show, "", stream.raw_input()));
         }
 
         std::string action_str = stream.peek().value;
@@ -54,12 +54,13 @@ namespace math_solver {
             stream.advance();
         }
 
-        return std::make_unique<EnvCommand>(
-            action, target_env, stream.raw_input());
+        return Result<CommandPtr>::ok(std::make_unique<EnvCommand>(
+            action, target_env, stream.raw_input()));
     }
 
-    CommandPtr EnvCommandParser::parse_move_copy(ITokenStream&      stream,
-                                                 EnvCommand::Action action) {
+    Result<CommandPtr>
+    EnvCommandParser::parse_move_copy(ITokenStream&      stream,
+                                      EnvCommand::Action action) {
         EnvCommand::Flags flags;
         std::string       source_env;
         std::string       target_env;
@@ -89,11 +90,11 @@ namespace math_solver {
 
             // Note: set_flags and set_vars_to_save must be called to preserve
             // mode and selection.
-            auto cmd = std::make_unique<EnvCommand>(
-                action, flags.to_env, stream.raw_input());
+            auto cmd = std::make_unique<EnvCommand>(action, flags.to_env,
+                                                    stream.raw_input());
             cmd->set_flags(flags);
             cmd->set_vars_to_save(vars);
-            return cmd;
+            return Result<CommandPtr>::ok(std::move(cmd));
         }
 
         // env mode: expects two positional arguments (source_env, target_env).
@@ -107,14 +108,14 @@ namespace math_solver {
             stream.advance();
         }
 
-        auto cmd = std::make_unique<EnvCommand>(
-            action, target_env, stream.raw_input());
+        auto cmd = std::make_unique<EnvCommand>(action, target_env,
+                                                stream.raw_input());
         cmd->set_source_env(source_env);
         cmd->set_flags(flags); // vars_mode = false by default
-        return cmd;
+        return Result<CommandPtr>::ok(std::move(cmd));
     }
 
-    CommandPtr EnvCommandParser::parse_save(ITokenStream& stream) {
+    Result<CommandPtr> EnvCommandParser::parse_save(ITokenStream& stream) {
         std::string              target_env;
         std::vector<std::string> vars;
 
@@ -134,11 +135,11 @@ namespace math_solver {
             }
         }
 
-        auto cmd = std::make_unique<EnvCommand>(
-            EnvCommand::Action::Save, target_env, stream.raw_input());
+        auto cmd = std::make_unique<EnvCommand>(EnvCommand::Action::Save,
+                                                target_env, stream.raw_input());
         if (!vars.empty())
             cmd->set_vars_to_save(vars);
-        return cmd;
+        return Result<CommandPtr>::ok(std::move(cmd));
     }
 
 } // namespace math_solver

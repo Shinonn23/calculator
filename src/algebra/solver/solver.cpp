@@ -1,7 +1,6 @@
 #include "solver.hpp"
 #include "algebra/linear/linear_collector.hpp"
 #include "ast/math/equation_expr.hpp"
-#include "core/error.hpp"
 #include <cmath>
 #include <string>
 #include <vector>
@@ -10,17 +9,23 @@ namespace math_solver {
 
     void EquationSolver::set_input(const std::string& input) { input_ = input; }
 
-    SolveResult EquationSolver::solve(const Equation& eq) {
+    Result<SolveResult> EquationSolver::solve(const Equation& eq) {
         // Canonicalize equation to lhs - rhs = 0.
         // This normalization is required for downstream passes and ensures
         // variable collection is consistent. Assumes context_ is valid and
         // input_ is canonical for error reporting.
         LinearCollector collector(context_, input_, false);
 
-        LinearForm      lhs        = collector.collect(eq.lhs());
-        LinearForm      rhs        = collector.collect(eq.rhs());
+        auto            lhs_r = collector.collect(eq.lhs());
+        auto            rhs_r = collector.collect(eq.rhs());
+        if (!lhs_r)
+            return Result<SolveResult>::err(lhs_r.error());
+        if (!rhs_r)
+            return Result<SolveResult>::err(rhs_r.error());
+        LinearForm lhs        = *lhs_r;
+        LinearForm rhs        = *rhs_r;
 
-        LinearForm      normalized = lhs - rhs;
+        LinearForm normalized = lhs - rhs;
         normalized.simplify();
 
         std::set<std::string> unknowns = normalized.variables();
@@ -31,10 +36,10 @@ namespace math_solver {
         //   - constant != 0: contradiction, no solution.
         if (unknowns.empty()) {
             if (std::abs(normalized.constant) < 1e-12) {
-                throw MathException(errors::infinite_solutions(
+                return Result<SolveResult>::err(errors::infinite_solutions(
                     "equation is always true (0 = 0)", eq.span(), input_));
             } else {
-                throw MathException(errors::no_solution(
+                return Result<SolveResult>::err(errors::no_solution(
                     "equation has no solution (" +
                         std::to_string(normalized.constant) + " != 0)",
                     eq.span(), input_));
@@ -45,7 +50,7 @@ namespace math_solver {
         // Multiple unknowns: user error or unsupported input.
         if (unknowns.size() > 1) {
             std::vector<std::string> vars(unknowns.begin(), unknowns.end());
-            throw MathException(
+            return Result<SolveResult>::err(
                 errors::multiple_unknowns(vars, eq.span(), input_));
         }
 
@@ -59,11 +64,11 @@ namespace math_solver {
         // If a == 0, check for tautology or contradiction.
         if (std::abs(a) < 1e-12) {
             if (std::abs(b) < 1e-12) {
-                throw MathException(errors::infinite_solutions(
+                return Result<SolveResult>::err(errors::infinite_solutions(
                     "equation has infinite solutions (0*" + var + " = 0)",
                     eq.span(), input_));
             } else {
-                throw MathException(
+                return Result<SolveResult>::err(
                     errors::no_solution("equation has no solution (0*" + var +
                                             " = " + std::to_string(-b) + ")",
                                         eq.span(), input_));
@@ -77,22 +82,27 @@ namespace math_solver {
         result.value        = -b / a;
         result.has_solution = true;
 
-        return result;
+        return Result<SolveResult>::ok(result);
     }
 
-    SolveResult EquationSolver::solve_for(const Equation&    eq,
-                                          const std::string& target_var) {
+    Result<SolveResult>
+    EquationSolver::solve_for(const Equation&    eq,
+                              const std::string& target_var) {
         // Defensive: ensure target_var is present in the equation prior to
         // substitutions. Avoids misleading diagnostics if variable was never
         // present or eliminated by prior passes.
         LinearCollector check_collector(nullptr, input_, true);
-        LinearForm      lhs_check = check_collector.collect(eq.lhs());
-        LinearForm      rhs_check = check_collector.collect(eq.rhs());
-        LinearForm      all_vars  = lhs_check - rhs_check;
+        auto            lhs_check_r = check_collector.collect(eq.lhs());
+        auto            rhs_check_r = check_collector.collect(eq.rhs());
+        if (!lhs_check_r)
+            return Result<SolveResult>::err(lhs_check_r.error());
+        if (!rhs_check_r)
+            return Result<SolveResult>::err(rhs_check_r.error());
+        LinearForm all_vars = *lhs_check_r - *rhs_check_r;
 
-        auto            vars      = all_vars.variables();
+        auto       vars     = all_vars.variables();
         if (vars.find(target_var) == vars.end()) {
-            throw MathException(errors::invalid_equation(
+            return Result<SolveResult>::err(errors::invalid_equation(
                 "variable '" + target_var + "' not found in equation",
                 eq.span(), input_));
         }
@@ -100,9 +110,15 @@ namespace math_solver {
         // Substitute known variables from context.
         // May eliminate variables, including the target, if already defined.
         LinearCollector collector(context_, input_, false);
-        LinearForm      lhs        = collector.collect(eq.lhs());
-        LinearForm      rhs        = collector.collect(eq.rhs());
-        LinearForm      normalized = lhs - rhs;
+        auto            lhs_r = collector.collect(eq.lhs());
+        auto            rhs_r = collector.collect(eq.rhs());
+        if (!lhs_r)
+            return Result<SolveResult>::err(lhs_r.error());
+        if (!rhs_r)
+            return Result<SolveResult>::err(rhs_r.error());
+        LinearForm lhs        = *lhs_r;
+        LinearForm rhs        = *rhs_r;
+        LinearForm normalized = lhs - rhs;
         normalized.simplify();
 
         std::set<std::string> unknowns = normalized.variables();
@@ -116,7 +132,7 @@ namespace math_solver {
         // If target_var was fully substituted, solving is not possible.
         // This can occur if the context provides a value for the target.
         if (unknowns.find(target_var) == unknowns.end()) {
-            throw MathException(errors::invalid_equation(
+            return Result<SolveResult>::err(errors::invalid_equation(
                 "variable '" + target_var +
                     "' was substituted from context; cannot solve for it",
                 eq.span(), input_));
@@ -133,7 +149,7 @@ namespace math_solver {
                 hint += remaining[i];
             }
         }
-        throw MathException(
+        return Result<SolveResult>::err(
             errors::multiple_unknowns(remaining, eq.span(), input_));
     }
 

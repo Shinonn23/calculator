@@ -1,5 +1,4 @@
 #include "commands/registry.hpp"
-
 #include "ast/command/math_command.hpp"
 #include "ast/command/var_command.hpp"
 #include "commands/handlers/config_handler.hpp"
@@ -101,8 +100,11 @@ namespace math_solver {
         // runner_ must be set prior to handling LoadCommand.
         // If runner_ is unset, this is a fatal logic error.
         if (!runner_) {
-            throw std::runtime_error(
-                "HandlerRegistry: Runner not set; cannot handle :load");
+            sink.push(Diagnostic::make(
+                "HandlerRegistry: Runner not set; cannot handle :load", "E9999",
+                Span{}));
+            last_command_status_ = HistoryStatus::Error;
+            return;
         }
         handlers::handle_load(cmd, *runner_, sink);
         last_command_status_ = HistoryStatus::Success;

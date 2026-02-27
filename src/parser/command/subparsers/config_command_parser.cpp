@@ -3,14 +3,14 @@
 
 namespace math_solver {
 
-    CommandPtr ConfigCommandParser::parse(ITokenStream& stream) {
+    Result<CommandPtr> ConfigCommandParser::parse(ITokenStream& stream) {
         stream.advance(); // Advance past "config" token; required invariant.
 
         if (stream.is_eof()) {
             // No subcommand provided; default to List action.
             // This branch is hit for bare "config" invocations.
-            return std::make_unique<ConfigCommand>(ConfigCommand::Action::List,
-                                                   stream.raw_input());
+            return Result<CommandPtr>::ok(std::make_unique<ConfigCommand>(
+                ConfigCommand::Action::List, stream.raw_input()));
         }
 
         std::string sub = stream.peek().value;
@@ -38,7 +38,7 @@ namespace math_solver {
         // command verbatim.
         if (action == ConfigCommand::Action::Unknown) {
             config_cmd->set_kv(sub, "");
-            return config_cmd;
+            return Result<CommandPtr>::ok(std::move(config_cmd));
         }
 
         std::string key, value;
@@ -51,7 +51,7 @@ namespace math_solver {
             value = stream.consume_remaining();
 
         config_cmd->set_kv(key, value);
-        return config_cmd;
+        return Result<CommandPtr>::ok(std::move(config_cmd));
     }
 
 } // namespace math_solver

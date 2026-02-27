@@ -12,12 +12,11 @@
 #include "ast/command/system_command.hpp"
 #include "ast/command/var_command.hpp"
 #include "config/config.hpp"
-#include "core/diagnostic_sink.hpp"
+#include "diagnostics/sink.hpp"
 #include "replxx.hxx"
 #include "runtime/context/context.hpp"
 
 #include <functional>
-#include <stdexcept>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -52,12 +51,11 @@ namespace math_solver {
                                DiagnosticSink& sink) const {
             auto it = handlers_.find(key);
             if (it == handlers_.end()) {
-                std::cerr << "[Fatal Error] CommandRegistry: no handler "
-                             "registered for command key "
-                          << static_cast<int>(key)
-                          << ". This is an internal bug.\n";
-                throw std::out_of_range("CommandRegistry: unregistered key " +
-                                        std::to_string(static_cast<int>(key)));
+                sink.push(
+                    Diagnostic::make("CommandRegistry: unregistered key " +
+                                         std::to_string(static_cast<int>(key)),
+                                     "E9999", Span{}));
+                return HistoryStatus::Error;
             }
             return it->second(cmd, ctx, config, current_env, sink);
         }

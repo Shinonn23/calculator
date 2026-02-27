@@ -2,7 +2,7 @@
 #include "ast/math/expr.hpp"
 #include "ast/math/number_expr.hpp"
 
-#include <stdexcept>
+#include <cstdlib>
 
 namespace math_solver {
 
@@ -45,7 +45,7 @@ namespace math_solver {
     const Expr& Context::get_expr(const std::string& name) const {
         auto it = variables_.find(name);
         if (it == variables_.end()) {
-            throw std::runtime_error("undefined variable: " + name);
+            std::abort();
         }
         return *it->second;
     }

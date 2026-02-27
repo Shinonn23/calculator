@@ -22,10 +22,10 @@ namespace math_solver {
     // virtual dispatch.
     class EnvCommandParser : public ICommandSubparser {
         public:
-        CommandPtr parse(ITokenStream& stream) override;
-        CommandPtr parse_move_copy(ITokenStream&      stream,
-                                   EnvCommand::Action action);
-        CommandPtr parse_save(ITokenStream& stream);
+        Result<CommandPtr> parse(ITokenStream& stream) override;
+        Result<CommandPtr> parse_move_copy(ITokenStream&      stream,
+                                           EnvCommand::Action action);
+        Result<CommandPtr> parse_save(ITokenStream& stream);
     };
 
 } // namespace math_solver

@@ -1,7 +1,8 @@
 #pragma once
 
-#include "core/error.hpp"
 #include "core/span.hpp"
+#include "diagnostics/kinds/math_errors.hpp"
+#include "diagnostics/result.hpp"
 #include "math_token.hpp"
 #include <cctype>
 #include <string>
@@ -60,15 +61,15 @@ namespace math_solver {
         // - End-of-input is signaled by TokenType::End.
         //
         // Performance: Single-pass, no backtracking.
-        Token              next_token() {
+        Result<Token>      next_token() {
             skip_whitespace();
 
             size_t start = pos_;
 
             if (current() == '\0') {
                 // End-of-input sentinel. No further tokens will be produced.
-                return Token(TokenType::End, 0,
-                                          Span(pos_ + offset_, pos_ + offset_));
+                return Result<Token>::ok(Token(
+                    TokenType::End, 0, Span(pos_ + offset_, pos_ + offset_)));
             }
 
             // Fast path for numeric literals.
@@ -89,13 +90,14 @@ namespace math_solver {
 
                 // Rejects empty or invalid numbers (e.g., ".").
                 if (num.empty() || num == ".") {
-                    throw MathException(errors::parse(
+                    return Result<Token>::err(errors::parse(
                         "invalid number", Span(start + offset_, pos_ + offset_),
                         input_));
                 }
 
-                return Token(TokenType::Number, std::stod(num),
-                                          Span(start + offset_, pos_ + offset_));
+                return Result<Token>::ok(
+                    Token(TokenType::Number, std::stod(num),
+                               Span(start + offset_, pos_ + offset_)));
             }
 
             // Identifier/keyword path.
@@ -109,15 +111,16 @@ namespace math_solver {
                 }
 
                 if (is_reserved_keyword(name)) {
-                    Error err = errors::parse(
+                    Diagnostic err = errors::parse(
                         "reserved keyword `" + name + "`",
                         Span(start + offset_, pos_ + offset_), input_);
                     err.inline_label = "cannot use as identifier";
-                    throw MathException(err);
+                    return Result<Token>::err(err);
                 }
 
-                return Token(TokenType::Identifier, name,
-                                          Span(start + offset_, pos_ + offset_));
+                return Result<Token>::ok(
+                    Token(TokenType::Identifier, name,
+                               Span(start + offset_, pos_ + offset_)));
             }
 
             // Single-character operator dispatch.
@@ -128,30 +131,30 @@ namespace math_solver {
 
             switch (c) {
             case '+':
-                return Token(TokenType::Plus, 0, span);
+                return Result<Token>::ok(Token(TokenType::Plus, 0, span));
             case '-':
-                return Token(TokenType::Minus, 0, span);
+                return Result<Token>::ok(Token(TokenType::Minus, 0, span));
             case '*':
-                return Token(TokenType::Mul, 0, span);
+                return Result<Token>::ok(Token(TokenType::Mul, 0, span));
             case '/':
-                return Token(TokenType::Div, 0, span);
+                return Result<Token>::ok(Token(TokenType::Div, 0, span));
             case '^':
-                return Token(TokenType::Pow, 0, span);
+                return Result<Token>::ok(Token(TokenType::Pow, 0, span));
             case '(':
-                return Token(TokenType::LParen, 0, span);
+                return Result<Token>::ok(Token(TokenType::LParen, 0, span));
             case ')':
-                return Token(TokenType::RParen, 0, span);
+                return Result<Token>::ok(Token(TokenType::RParen, 0, span));
             case '=':
-                return Token(TokenType::Equals, 0, span);
+                return Result<Token>::ok(Token(TokenType::Equals, 0, span));
             case '!':
-                return Token(TokenType::Bang, 0, span);
+                return Result<Token>::ok(Token(TokenType::Bang, 0, span));
             }
 
             // Any unrecognized character is treated as a hard error.
             // No recovery attempted; caller must handle.
-            throw MathException(errors::parse("unexpected character '" +
-                                                               std::string(1, c) + "'",
-                                                           span, input_));
+            return Result<Token>::err(errors::parse("unexpected character '" +
+                                                             std::string(1, c) + "'",
+                                                         span, input_));
         }
     };
 

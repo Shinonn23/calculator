@@ -2,12 +2,14 @@
 #include "ast/math/binary_expr.hpp"
 #include "ast/math/number_expr.hpp"
 #include "ast/math/variable_expr.hpp"
-#include "core/error.hpp"
+#include "diagnostics/kinds/math_errors.hpp"
+#include "diagnostics/kinds/runtime_errors.hpp"
+#include "diagnostics/kinds/runtime_errors_extra.hpp"
 #include <cmath>
 
 namespace math_solver {
 
-    double Resolver::evaluate(const Expr& expr, const Context& ctx) {
+    Result<double> Resolver::evaluate(const Expr& expr, const Context& ctx) {
         // Entry point for expression evaluation.
         // Each evaluation starts with a fresh visited set to ensure
         // variable cycles are detected per top-level call.
@@ -15,8 +17,8 @@ namespace math_solver {
         return resolve_recursive(expr, ctx, visited);
     }
 
-    double Resolver::evaluate_variable(const std::string& name,
-                                       const Context&     ctx) {
+    Result<double> Resolver::evaluate_variable(const std::string& name,
+                                               const Context&     ctx) {
         // Evaluates a named variable in the given context.
         // The variable is marked as visited to prevent immediate
         // self-reference.
@@ -30,15 +32,15 @@ namespace math_solver {
         // Provides a fallible interface for variable evaluation.
         // Any error (undefined variable, circular dependency, math error)
         // results in a false return; no error details are propagated.
-        try {
-            out = evaluate_variable(name, ctx);
+        auto res = evaluate_variable(name, ctx);
+        if (res) {
+            out = *res;
             return true;
-        } catch (...) {
-            return false;
         }
+        return false;
     }
 
-    double
+    Result<double>
     Resolver::resolve_recursive(const Expr& expr, const Context& ctx,
                                 std::unordered_set<std::string>& visited) {
         // Recursive evaluation of expressions.
@@ -47,23 +49,23 @@ namespace math_solver {
 
         if (auto* num = dynamic_cast<const Number*>(&expr)) {
             // Fast path for literals; no dependencies.
-            return num->value();
+            return Result<double>::ok(num->value());
         }
 
         if (auto* var = dynamic_cast<const Variable*>(&expr)) {
             const std::string& name = var->name();
             // Undefined variables are rejected eagerly.
             if (!ctx.has(name)) {
-                throw MathException(
+                return Result<double>::err(
                     errors::undefined_variable(name, var->span()));
             }
             // Detects cycles in variable dependencies.
             if (visited.count(name)) {
-                throw MathException(
+                return Result<double>::err(
                     errors::circular_dependency(name, var->span()));
             }
             visited.insert(name);
-            double val = resolve_recursive(ctx.get_expr(name), ctx, visited);
+            auto val = resolve_recursive(ctx.get_expr(name), ctx, visited);
             visited.erase(name);
             return val;
         }
@@ -72,30 +74,38 @@ namespace math_solver {
             // Both operands are always evaluated (no short-circuiting).
             // This is required for correct cycle detection and error
             // propagation.
-            double left_val  = resolve_recursive(bin->left(), ctx, visited);
-            double right_val = resolve_recursive(bin->right(), ctx, visited);
+            auto left_r = resolve_recursive(bin->left(), ctx, visited);
+            if (!left_r.ok())
+                return left_r;
+            auto right_r = resolve_recursive(bin->right(), ctx, visited);
+            if (!right_r.ok())
+                return right_r;
+
+            double left_val  = *left_r;
+            double right_val = *right_r;
 
             switch (bin->op()) {
             case BinaryOpType::Add:
-                return left_val + right_val;
+                return Result<double>::ok(left_val + right_val);
             case BinaryOpType::Sub:
-                return left_val - right_val;
+                return Result<double>::ok(left_val - right_val);
             case BinaryOpType::Mul:
-                return left_val * right_val;
+                return Result<double>::ok(left_val * right_val);
             case BinaryOpType::Div:
                 // Division by zero is explicitly checked to avoid UB.
                 if (right_val == 0)
-                    throw MathException(
+                    return Result<double>::err(
                         errors::math("division by zero", bin->right().span()));
-                return left_val / right_val;
+                return Result<double>::ok(left_val / right_val);
             case BinaryOpType::Pow:
                 // std::pow may return NaN or inf for some inputs;
                 // caller is responsible for handling such cases if needed.
-                return std::pow(left_val, right_val);
+                return Result<double>::ok(std::pow(left_val, right_val));
             }
         }
         // Defensive: all expression types must be handled above.
-        throw std::runtime_error("unknown expression type in resolver");
+        return Result<double>::err(Diagnostic::make(
+            "unknown expression type in resolver", "E0000", expr.span()));
     }
 
 } // namespace math_solver

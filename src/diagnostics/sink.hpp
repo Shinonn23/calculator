@@ -1,29 +1,14 @@
 #pragma once
 
-#include "result.hpp"
+#include "diagnostics/result.hpp"
 #include "ui/color.hpp"
+
 #include <algorithm>
 #include <iostream>
 #include <string>
 #include <vector>
 
 namespace math_solver {
-
-    // ── DiagnosticSink ────────────────────────────────────────────────────
-    //
-    // Collects errors and warnings from all layers during command execution.
-    // Passed by reference through the call chain; never stored globally.
-    //
-    // Design decisions:
-    // - Parameter-passing: explicit coupling, no hidden state, testable.
-    // - Batch flush: accumulate everything, render once at end of command.
-    // - Dedup: identical (code, message, loc) pairs are merged.
-    // - Grouping: errors rendered before warnings, sorted by location.
-    // - Limit: after max_errors, further errors are suppressed with a note.
-    //
-    // Invariant: push() is cheap — no I/O, no formatting.
-    //            flush() is the only site that writes to output.
-    //            flush() clears all accumulated diagnostics.
 
     class DiagnosticSink {
         public:
@@ -41,33 +26,28 @@ namespace math_solver {
 
         explicit DiagnosticSink(Options opts = {}) : opts_(opts) {}
 
-        // ── Push ─────────────────────────────────────────────────────────
-
-        void push(Error e) {
-            if (e.level == "warning") {
-                if (opts_.dedup && is_duplicate(e, warnings_))
+        void push(Diagnostic d) {
+            if (d.level == "warning") {
+                if (opts_.dedup && is_duplicate(d, warnings_))
                     return;
-                warnings_.push_back(std::move(e));
+                warnings_.push_back(std::move(d));
             } else {
                 if (error_count_ >= opts_.max_errors) {
                     suppressed_++;
                     return;
                 }
-                if (opts_.dedup && is_duplicate(e, errors_))
+                if (opts_.dedup && is_duplicate(d, errors_))
                     return;
-                errors_.push_back(std::move(e));
+                errors_.push_back(std::move(d));
                 error_count_++;
             }
         }
 
-        // Push all errors from a failed Result.
-        // No-op if Result is ok.
         template <typename T> void push(const Result<T>& result) {
             if (result.failed())
                 push(result.error());
         }
 
-        // Push all errors/warnings from a MultiResult.
         template <typename T> void push(const MultiResult<T>& result) {
             for (const auto& e : result.errors)
                 push(e);
@@ -75,7 +55,24 @@ namespace math_solver {
                 push(w);
         }
 
-        // ── Query ─────────────────────────────────────────────────────────
+        void push_output(std::string text) {
+            outputs_.push_back(std::move(text));
+        }
+
+        bool   has_outputs() const { return !outputs_.empty(); }
+
+        size_t flush_outputs(std::ostream& out = std::cout) {
+            if (outputs_.empty())
+                return 0;
+            size_t n = outputs_.size();
+            for (const auto& s : outputs_) {
+                out << s;
+            }
+            outputs_.clear();
+            return n;
+        }
+
+        void   clear_outputs() { outputs_.clear(); }
 
         bool   has_errors() const { return !errors_.empty(); }
         bool   has_warnings() const { return !warnings_.empty(); }
@@ -83,20 +80,16 @@ namespace math_solver {
         size_t error_count() const { return error_count_; }
         size_t warning_count() const { return warnings_.size(); }
 
-        const std::vector<Error>& errors() const { return errors_; }
-        const std::vector<Error>& warnings() const { return warnings_; }
+        const std::vector<Diagnostic>& errors() const { return errors_; }
+        const std::vector<Diagnostic>& warnings() const { return warnings_; }
 
-        // ── Flush ─────────────────────────────────────────────────────────
-        //
-        // Renders all diagnostics to `out`, sorted and grouped per options.
-        // Clears all state after rendering.
-        // Returns number of errors flushed (for exit code / HistoryStatus).
+        size_t                         flush(std::ostream& out = std::cout) {
+            flush_outputs(out);
 
-        size_t                    flush(std::ostream& out = std::cout) {
             if (empty() && suppressed_ == 0)
                 return 0;
 
-            std::vector<Error> to_render;
+            std::vector<Diagnostic> to_render;
 
             if (opts_.sort_by_loc) {
                 sort_by_location(errors_);
@@ -105,16 +98,15 @@ namespace math_solver {
 
             if (opts_.warnings_last) {
                 to_render.insert(to_render.end(), errors_.begin(),
-                                                    errors_.end());
+                                                         errors_.end());
                 to_render.insert(to_render.end(), warnings_.begin(),
-                                                    warnings_.end());
+                                                         warnings_.end());
             } else {
-                // interleave by location
                 to_render = merge_by_location(errors_, warnings_);
             }
 
-            for (const auto& e : to_render)
-                out << e.format();
+            for (const auto& d : to_render)
+                out << d.format();
 
             if (suppressed_ > 0) {
                 out << "\n  " << ansi::dim << "... " << suppressed_
@@ -127,12 +119,11 @@ namespace math_solver {
             return n;
         }
 
-        // Flush summary only — used by run_script for the final line.
         void flush_summary(const std::string& source, size_t total_lines,
                            std::ostream& out = std::cout) {
             size_t errs  = error_count_;
             size_t warns = warnings_.size();
-            flush(out); // render all first
+            flush(out);
 
             out << "  Loaded '" << source << "' (" << total_lines << " line(s)";
             if (errs)
@@ -146,40 +137,41 @@ namespace math_solver {
         void clear() {
             errors_.clear();
             warnings_.clear();
+            outputs_.clear();
             error_count_ = 0;
             suppressed_  = 0;
         }
 
         private:
-        Options            opts_;
-        std::vector<Error> errors_;
-        std::vector<Error> warnings_;
-        size_t             error_count_ = 0;
-        size_t             suppressed_  = 0;
+        Options                  opts_;
+        std::vector<Diagnostic>  errors_;
+        std::vector<Diagnostic>  warnings_;
+        std::vector<std::string> outputs_;
+        size_t                   error_count_ = 0;
+        size_t                   suppressed_  = 0;
 
-        // Dedup: same code + message + loc.line = duplicate.
-        static bool        is_duplicate(const Error&              e,
-                                        const std::vector<Error>& existing) {
+        static bool              is_duplicate(const Diagnostic&              d,
+                                              const std::vector<Diagnostic>& existing) {
             return std::any_of(
-                existing.begin(), existing.end(), [&](const Error& x) {
-                    return x.code == e.code && x.message == e.message &&
-                           x.loc.line == e.loc.line;
+                existing.begin(), existing.end(), [&](const Diagnostic& x) {
+                    return x.code == d.code && x.message == d.message &&
+                           x.loc.line == d.loc.line;
                 });
         }
 
-        static void sort_by_location(std::vector<Error>& v) {
+        static void sort_by_location(std::vector<Diagnostic>& v) {
             std::stable_sort(v.begin(), v.end(),
-                             [](const Error& a, const Error& b) {
+                             [](const Diagnostic& a, const Diagnostic& b) {
                                  if (a.loc.file != b.loc.file)
                                      return a.loc.file < b.loc.file;
                                  return a.loc.line < b.loc.line;
                              });
         }
 
-        static std::vector<Error>
-        merge_by_location(const std::vector<Error>& a,
-                          const std::vector<Error>& b) {
-            std::vector<Error> out;
+        static std::vector<Diagnostic>
+        merge_by_location(const std::vector<Diagnostic>& a,
+                          const std::vector<Diagnostic>& b) {
+            std::vector<Diagnostic> out;
             out.reserve(a.size() + b.size());
             out.insert(out.end(), a.begin(), a.end());
             out.insert(out.end(), b.begin(), b.end());

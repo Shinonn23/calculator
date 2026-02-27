@@ -2,6 +2,7 @@
 
 #include "config/config.hpp"
 #include "context/context.hpp"
+#include "diagnostics/result.hpp"
 #include <string>
 
 namespace math_solver {
@@ -57,7 +58,7 @@ namespace math_solver {
         // Evaluates the named variable using the current Context.
         // Assumes Context is up-to-date with the intended environment.
         // May throw or assert if var_name is not present.
-        double             evaluate(const std::string& var_name) const;
+        Result<double>     evaluate(const std::string& var_name) const;
 
         // ── Snapshot / Restore ────────────────────────────────────────────
         RuntimeSnapshot    snapshot() const {
