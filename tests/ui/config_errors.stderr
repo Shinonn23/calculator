@@ -1,0 +1,30 @@
+  [1] :config set
+  [2] :config set output.mode invalid_mode
+  [3] :config set unknown_key val
+  [4] :config badcmd
+error[E0502]: missing key or value
+  --> config_errors.msl:1:9
+   |
+ 1 | :config set
+   |         ^^^ key and value required
+   = help: Usage: `:config set <key> <value>`
+error[E0504]: invalid value for `output.mode`
+  --> config_errors.msl:2:25
+   |
+ 2 | :config set output.mode invalid_mode
+   |                         ^^^^^^^^^^^^ invalid value
+   = note: must be 'auto', 'decimal', or 'exact'
+error[E0503]: unknown setting `unknown_key`
+  --> config_errors.msl:3:13
+   |
+ 3 | :config set unknown_key val
+   |             ^^^^^^^^^^^ unknown setting key
+   = note: valid categories: output.*, solver.*, history.*, repl.*, auto_load_env
+error[E0002]: unknown config subcommand `badcmd`
+  --> config_errors.msl:4:9
+   |
+ 4 | :config badcmd
+   |         ^^^^^^ unrecognized subcommand
+   = help: available: list, get, set, path, reset
+  Loaded 'config_errors.msl' (4 line(s), 4 error(s))
+  Rolled back — env and config unchanged

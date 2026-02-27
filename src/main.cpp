@@ -1,8 +1,12 @@
+#include "ast/command/load_command.hpp"
+#include "commands/registry.hpp"
 #include "config/config.hpp"
+#include "diagnostics/sink.hpp"
 #include "eval/evaluator.hpp"
 #include "parser/math/math_parser.hpp"
 #include "runtime/context/context.hpp"
 #include "ui/repl/repl.hpp"
+#include "ui/repl/runner.hpp"
 
 #include <iostream>
 #include <string>
@@ -11,11 +15,27 @@ using namespace math_solver;
 
 static const std::string VERSION = "1.1.1";
 
+static int               run_script_mode(const std::string& filepath) {
+    Config      config;
+    Context     ctx;
+    std::string current_env = "default";
+    config.load();
+
+    DiagnosticSink  sink;
+    HandlerRegistry registry =
+        build_handler_registry(ctx, config, current_env, sink);
+    Runner             runner(registry);
+
+    LoadCommand::Flags flags;
+    runner.run_script(filepath, flags);
+    return runner.last_script_had_errors() ? 1 : 0;
+}
+
 // CLI entrypoint. This path is only taken if arguments are provided.
 // Context is stack-local to prevent transient CLI computations from polluting
 // global state. This separation is relied upon by REPL startup, which expects
 // ctx to be unmodified by CLI invocations.
-static int               run_cli(int argc, char* argv[]) {
+static int run_cli_mode(int argc, char* argv[]) {
     std::string expr_str;
     for (int i = 1; i < argc; ++i) {
         if (i > 1)
@@ -85,8 +105,12 @@ static void load_startup_env(const std::string& env_name, Config& config,
 // - Any mutation to ctx or config after this point is observable by REPL
 //   and persists for the process lifetime.
 int main(int argc, char* argv[]) {
+    for (int i = 1; i < argc - 1; ++i) {
+        if (std::string(argv[i]) == "--script")
+            return run_script_mode(argv[i + 1]);
+    }
     if (argc > 1)
-        return run_cli(argc, argv);
+        return run_cli_mode(argc, argv);
 
     Config      config;
     Context     ctx;

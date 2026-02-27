@@ -40,7 +40,17 @@ FetchContent_Declare(
 set(REPLXX_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
 set(REPLXX_BUILD_PACKAGE OFF CACHE BOOL "" FORCE)
 
-FetchContent_MakeAvailable(json replxx)
+# Google Test
+FetchContent_Declare(
+    googletest
+    GIT_REPOSITORY https://github.com/google/googletest.git
+    GIT_TAG v1.17.0
+    GIT_SHALLOW TRUE
+)
+set(BUILD_GMOCK   OFF CACHE BOOL "" FORCE)
+set(INSTALL_GTEST OFF CACHE BOOL "" FORCE)
+
+FetchContent_MakeAvailable(json replxx googletest)
 
 # ===== Core Library =====
 add_library(math_core
@@ -114,3 +124,62 @@ target_compile_options(math-solver PRIVATE
 if(MSVC)
     target_compile_definitions(math-solver PRIVATE _CRT_SECURE_NO_WARNINGS)
 endif()
+
+# ===== AST Unit Tests =====
+enable_testing()
+include(GoogleTest)
+
+add_executable(ast_tests
+    tests/ast/math/test_span.cpp
+    tests/ast/math/test_number_expr.cpp
+    tests/ast/math/test_variable_expr.cpp
+    tests/ast/math/test_binary_expr.cpp
+    tests/ast/math/test_equation_expr.cpp
+    tests/ast/math/test_expr_visitor.cpp
+    tests/ast/command/test_history_entry.cpp
+    tests/ast/command/test_command_base.cpp
+    tests/ast/command/test_system_command.cpp
+    tests/ast/command/test_math_command.cpp
+    tests/ast/command/test_var_command.cpp
+    tests/ast/command/test_config_command.cpp
+    tests/ast/command/test_env_command.cpp
+    tests/ast/command/test_load_command.cpp
+    tests/ast/command/test_history_command.cpp
+    tests/ast/command/test_redo_command.cpp
+    src/diagnostics/diagnostic.cpp
+)
+
+target_include_directories(ast_tests PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/src
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests
+)
+
+target_compile_features(ast_tests PRIVATE cxx_std_17)
+
+target_link_libraries(ast_tests PRIVATE
+    GTest::gtest_main
+    nlohmann_json::nlohmann_json
+    replxx::replxx
+)
+
+target_compile_options(ast_tests PRIVATE
+    $<$<CXX_COMPILER_ID:MSVC>:/W4>
+    $<$<NOT:$<CXX_COMPILER_ID:MSVC>>:-Wall -Wextra>
+)
+
+gtest_discover_tests(ast_tests)
+
+# ===== UI Integration Tests =====
+find_package(Python3 COMPONENTS Interpreter REQUIRED)
+
+add_test(
+    NAME ui_tests
+    COMMAND ${Python3_EXECUTABLE}
+        ${CMAKE_CURRENT_SOURCE_DIR}/tests/run_ui_tests.py
+        --binary $<TARGET_FILE:math-solver>
+        --tests-dir ${CMAKE_CURRENT_SOURCE_DIR}/tests/ui
+    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+)
+set_tests_properties(ui_tests PROPERTIES
+    DEPENDS math-solver
+)

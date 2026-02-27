@@ -1,0 +1,8 @@
+:config reset
+:config get output.mode
+:config get output.decimals
+:config get solver.tolerance
+:config get history.dedup
+:config get auto_load_env
+:config path
+:config get

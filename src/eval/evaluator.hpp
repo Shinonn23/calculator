@@ -3,6 +3,7 @@
 #include "ast/math/binary_expr.hpp"
 #include "ast/math/expr_visitor.hpp"
 #include "ast/math/number_expr.hpp"
+#include "ast/math/unary_expr.hpp"
 #include "ast/math/variable_expr.hpp"
 #include "diagnostics/sink.hpp"
 #include "runtime/context/context.hpp"
@@ -65,6 +66,7 @@ namespace math_solver {
         // value.
         void visit(const Number& node) override;
         void visit(const BinaryOp& node) override;
+        void visit(const UnaryOp& node) override;
         void visit(const Variable& node) override;
         // Equation nodes are not handled here; see solver logic for details.
     };

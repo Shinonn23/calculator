@@ -1,0 +1,14 @@
+  [1] :ls
+  No variables defined
+  [2] :set a 10
+  a = 10
+  [3] :set b 20
+  b = 20
+  [4] :ls
+  b  =  20
+  a  =  10
+  [5] :unset a
+  Removed: a
+  [6] :ls
+  b  =  20
+  Loaded 'var_ls.msl' (6 line(s))

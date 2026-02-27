@@ -1,0 +1,17 @@
+  [1] :env new ui_test_e2e_tmp
+  Created environment 'ui_test_e2e_tmp'
+  [2] :set x 42
+  x = 42
+  [3] :env save ui_test_e2e_tmp
+  Saved to environment 'ui_test_e2e_tmp'
+  [4] :env delete ui_test_e2e_tmp
+  Deleted environment 'ui_test_e2e_tmp'
+  [5] :config get
+error[E0502]: missing setting key
+  --> env_lifecycle.msl:5:9
+   |
+ 5 | :config get
+   |         ^^^ key expected here
+   = help: Usage: `config get <key>`
+  Loaded 'env_lifecycle.msl' (5 line(s), 1 error(s))
+  Rolled back — env and config unchanged

@@ -1,0 +1,27 @@
+  [1] :config reset
+  Settings reset to defaults
+  [2] :config set output.mode decimal
+  output.mode = decimal
+  [3] :config get output.mode
+  output.mode = decimal
+  [4] :config set output.decimals 8
+  output.decimals = 8
+  [5] :config get output.decimals
+  output.decimals = 8
+  [6] :config set output.fraction true
+  output.fraction = true
+  [7] :config get output.fraction
+  output.fraction = true
+  [8] :config set repl.show_timing true
+  repl.show_timing = true
+  [9] :config get repl.show_timing
+  repl.show_timing = true
+  [10] :config get
+error[E0502]: missing setting key
+   --> config_set_valid.msl:10:9
+    |
+ 10 | :config get
+    |         ^^^ key expected here
+    = help: Usage: `config get <key>`
+  Loaded 'config_set_valid.msl' (10 line(s), 1 error(s))
+  Rolled back — env and config unchanged

@@ -1,0 +1,5 @@
+:env new ui_test_e2e_tmp
+:set x 42
+:env save ui_test_e2e_tmp
+:env delete ui_test_e2e_tmp
+:config get

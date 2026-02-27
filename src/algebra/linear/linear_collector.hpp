@@ -9,6 +9,7 @@
 #include "ast/math/expr.hpp"
 #include "ast/math/expr_visitor.hpp"
 #include "ast/math/number_expr.hpp"
+#include "ast/math/unary_expr.hpp"
 #include "ast/math/variable_expr.hpp"
 #include "diagnostics/kinds/math_errors.hpp"
 #include "diagnostics/kinds/solver_errors.hpp"
@@ -190,6 +191,19 @@ namespace math_solver {
             }
 
             result_ = LinearForm(name, 1.0);
+        }
+
+        void visit(const UnaryOp& node) override {
+            if (error_)
+                return;
+            node.operand().accept(*this);
+            if (error_)
+                return;
+            switch (node.op()) {
+            case UnaryOpType::Neg:
+                result_ = -result_;
+                break;
+            }
         }
 
         void visit(const BinaryOp& node) override {

@@ -2,6 +2,7 @@
 #include "ast/math/binary_expr.hpp"
 #include "ast/math/expr.hpp"
 #include "ast/math/number_expr.hpp"
+#include "ast/math/unary_expr.hpp"
 #include "ast/math/variable_expr.hpp"
 
 #include <memory>
@@ -51,7 +52,9 @@ namespace math_solver {
 
     // Handles unary prefix operators.
     // - Only supports unary minus and plus.
-    // - For minus, desugars to (0 - x) to simplify downstream handling.
+    // - For minus, emits a UnaryOp node whose span covers the operator and
+    //   operand, fixing the phantom-zero span bug from the old desugar approach.
+    // - For plus (identity), no node is emitted.
     // - Recursively parses further unary operators for correct associativity.
     Result<ExprPtr> Parser::parse_unary() {
         if (current_.type == TokenType::Minus) {
@@ -60,11 +63,9 @@ namespace math_solver {
             auto expr = parse_unary();
             if (!expr)
                 return Result<ExprPtr>::err(expr.error());
-            auto zero        = std::make_unique<Number>(0, op_span);
             Span result_span = op_span.merge((*expr)->span());
-            return Result<ExprPtr>::ok(
-                std::make_unique<BinaryOp>(std::move(zero), std::move(*expr),
-                                           BinaryOpType::Sub, result_span));
+            return Result<ExprPtr>::ok(std::make_unique<UnaryOp>(
+                std::move(*expr), UnaryOpType::Neg, result_span));
         }
         if (current_.type == TokenType::Plus) {
             (void)advance();

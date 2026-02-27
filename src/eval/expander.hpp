@@ -5,6 +5,7 @@
 #include "ast/math/expr.hpp"
 #include "ast/math/expr_visitor.hpp"
 #include "ast/math/number_expr.hpp"
+#include "ast/math/unary_expr.hpp"
 #include "ast/math/variable_expr.hpp"
 #include "runtime/context/context.hpp"
 #include <memory>
@@ -82,6 +83,13 @@ namespace math_solver {
             visited_[name] = node.span();
             context_.get_expr(name).accept(*this);
             visited_.erase(name);
+        }
+
+        void visit(const UnaryOp& node) override {
+            node.operand().accept(*this);
+            ExprPtr operand = std::move(result_);
+            result_ = std::make_unique<UnaryOp>(std::move(operand), node.op(),
+                                                node.span());
         }
 
         void visit(const BinaryOp& node) override {

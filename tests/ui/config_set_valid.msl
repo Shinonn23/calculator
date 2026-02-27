@@ -1,0 +1,10 @@
+:config reset
+:config set output.mode decimal
+:config get output.mode
+:config set output.decimals 8
+:config get output.decimals
+:config set output.fraction true
+:config get output.fraction
+:config set repl.show_timing true
+:config get repl.show_timing
+:config get

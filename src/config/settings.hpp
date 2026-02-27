@@ -79,8 +79,11 @@ namespace math_solver {
                 return output_trailing_zeros ? "true" : "false";
             if (key == "output.thousands_sep")
                 return output_thousands_sep ? "true" : "false";
-            if (key == "solver.tolerance")
-                return std::to_string(solver_tolerance);
+            if (key == "solver.tolerance") {
+                int exponent =
+                    static_cast<int>(std::round(-std::log10(solver_tolerance)));
+                return "1e-" + std::to_string(exponent);
+            }
             if (key == "solver.max_iter")
                 return std::to_string(solver_max_iter);
             if (key == "history.size")

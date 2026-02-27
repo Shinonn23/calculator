@@ -3,6 +3,7 @@
 #include "ast/math/binary_expr.hpp"
 #include "ast/math/expr_visitor.hpp"
 #include "ast/math/number_expr.hpp"
+#include "ast/math/unary_expr.hpp"
 #include "ast/math/variable_expr.hpp"
 #include "diagnostics/diagnostic.hpp"
 #include "diagnostics/kinds/polynomial_errors.hpp"
@@ -59,6 +60,19 @@ namespace math_solver {
 
         void visit(const Variable& node) override {
             result_ = Polynomial(1.0, node.name(), 1);
+        }
+
+        void visit(const UnaryOp& node) override {
+            if (error_)
+                return;
+            node.operand().accept(*this);
+            if (error_)
+                return;
+            switch (node.op()) {
+            case UnaryOpType::Neg:
+                result_ = result_ * Polynomial(-1.0);
+                break;
+            }
         }
 
         void visit(const BinaryOp& node) override {

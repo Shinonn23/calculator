@@ -1,0 +1,7 @@
+  [1] :factor x^2 - 1
+  (x - 1)(x + 1)
+  [2] :factor x^2 - 4*x + 4
+  (x - 2)^2
+  [3] :factor x^3 - x
+  x(x - 1)(x + 1)
+  Loaded 'math_factor.msl' (3 line(s))

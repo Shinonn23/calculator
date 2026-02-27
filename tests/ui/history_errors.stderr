@@ -1,0 +1,18 @@
+  [1] :history search
+  [2] :history save
+  [3] :history search zzzznomatch_unique_pattern
+  No matches found for 'zzzznomatch_unique_pattern'
+error[E0702]: missing argument
+  --> history_errors.msl:1:10
+   |
+ 1 | :history search
+   |          ^^^^^^ argument expected here
+   = help: Usage: `:history search <pattern>`
+error[E0702]: missing argument
+  --> history_errors.msl:2:10
+   |
+ 2 | :history save
+   |          ^^^^ argument expected here
+   = help: Usage: `:history save <file> [selector]`
+  Loaded 'history_errors.msl' (3 line(s), 2 error(s))
+  Rolled back — env and config unchanged

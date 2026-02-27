@@ -1,0 +1,4 @@
+:config set
+:config set output.mode invalid_mode
+:config set unknown_key val
+:config badcmd

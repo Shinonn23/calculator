@@ -1,0 +1,7 @@
+  [1] :expand (x + 1)^2
+  x^2 + 2x + 1
+  [2] :expand (x - 2) * (x + 2)
+  x^2 - 4
+  [3] :expand (x + 1) * (x + 2) * (x + 3)
+  x^3 + 6x^2 + 11x + 6
+  Loaded 'math_expand.msl' (3 line(s))

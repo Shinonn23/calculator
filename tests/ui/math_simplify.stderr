@@ -1,0 +1,8 @@
+  [1] :simplify 2*x + 3 = 7
+  2x = 4
+  [2] :simplify x - x = 0
+  0 = 0
+  => infinite solutions
+  [3] :simplify 2*x + y = 4
+  2x + y = 4
+  Loaded 'math_simplify.msl' (3 line(s))

@@ -1,0 +1,3 @@
+:solve x = x + 1
+:solve x = x
+:solve x + y = 10

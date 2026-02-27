@@ -1,0 +1,4 @@
+:load
+:load --badflg
+:load nonexistent_file.msl
+:load file1.msl file2.msl

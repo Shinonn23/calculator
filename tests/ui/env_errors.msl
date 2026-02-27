@@ -1,0 +1,4 @@
+:env load
+:env load nonexistent_env
+:env new
+:env delete default

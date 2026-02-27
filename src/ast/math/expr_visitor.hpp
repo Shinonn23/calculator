@@ -3,6 +3,7 @@
 namespace math_solver {
     class Number;
     class BinaryOp;
+    class UnaryOp;
     class Variable;
     class Equation;
 
@@ -19,6 +20,7 @@ namespace math_solver {
         virtual ~ExprVisitor()                   = default;
         virtual void visit(const Number& node)   = 0;
         virtual void visit(const BinaryOp& node) = 0;
+        virtual void visit(const UnaryOp& node)  = 0;
         virtual void visit(const Variable& node) = 0;
     };
 } // namespace math_solver

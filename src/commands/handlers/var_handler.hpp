@@ -49,7 +49,6 @@ namespace math_solver {
         inline HistoryStatus handle_set(const VarCommand& cmd, Context& ctx,
                                         Config& config, DiagnosticSink& sink) {
             (void)config;
-            using std::cout;
             const std::string& var  = cmd.var_name();
             const std::string& raw  = cmd.raw_command();
             const std::string& file = cmd.source_file();
@@ -235,13 +234,18 @@ namespace math_solver {
         }
 
         // Removes a variable binding from the context.
-        // - If the variable does not exist, prints an error.
+        // - If the variable does not exist, emits a diagnostic.
         inline HistoryStatus handle_unset(const VarCommand& cmd, Context& ctx,
                                           DiagnosticSink& sink) {
-            const std::string& var = cmd.var_name();
+            const std::string& var  = cmd.var_name();
+            const std::string& raw  = cmd.raw_command();
+            const std::string& file = cmd.source_file();
+            size_t             line = cmd.source_line();
 
             if (var.empty()) {
-                sink.push_output("  Usage: `:unset <var>`\n");
+                sink.push(errors::missing_var_name(raw, ":unset",
+                                                   "`:unset <var>`", file,
+                                                   line));
                 return HistoryStatus::Error;
             }
 
@@ -251,7 +255,7 @@ namespace math_solver {
                 return HistoryStatus::Success;
             }
 
-            sink.push_output("  Error: variable `" + var + "` not found\n");
+            sink.push(errors::var_not_found(raw, var, ctx, file, line));
             return HistoryStatus::Error;
         }
 

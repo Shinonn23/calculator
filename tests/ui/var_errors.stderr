@@ -1,0 +1,36 @@
+  [1] :set
+  [2] :set solve 5
+  [3] :set 1x 5
+  [4] :set x
+  [5] undefined_var
+error[E0425]: cannot find value `undefined_var` in this scope
+  --> <repl>:1:1
+   |
+ 1 | undefined_var
+   | ^^^^^^^^^^^^^ not found in this scope
+error[E0401]: missing variable name
+  --> var_errors.msl:1:1
+   |
+ 1 | :set
+   | ^^^^ variable name expected here
+   = help: Usage: `:set <var> <expr>`
+error[E0402]: `solve` is a reserved keyword
+  --> var_errors.msl:2:6
+   |
+ 2 | :set solve 5
+   |      ^^^^^ reserved word
+   = help: choose a different variable name
+error[E0403]: invalid variable name `1x`
+  --> var_errors.msl:3:6
+   |
+ 3 | :set 1x 5
+   |      ^^ invalid identifier
+   = help: names must start with a letter or `_` and contain only alphanumeric characters
+error[E0404]: missing expression
+  --> var_errors.msl:4:6
+   |
+ 4 | :set x
+   |      ^ expression expected after this
+   = help: Usage: `:set <var> <expr>`
+  Loaded 'var_errors.msl' (5 line(s), 5 error(s))
+  Rolled back — env and config unchanged

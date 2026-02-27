@@ -1,0 +1,29 @@
+  [1] :env load
+  [2] :env load nonexistent_env
+  [3] :env new
+  [4] :env delete default
+error[E0600]: missing name
+  --> env_errors.msl:1:6
+   |
+ 1 | :env load
+   |      ^^^^ name expected here
+   = help: Usage: `env load <name>`
+error[E0601]: environment `nonexistent_env` not found
+  --> env_errors.msl:2:11
+   |
+ 2 | :env load nonexistent_env
+   |           ^^^^^^^^^^^^^^^ unknown environment
+error[E0600]: missing name
+  --> env_errors.msl:3:6
+   |
+ 3 | :env new
+   |      ^^^ name expected here
+   = help: Usage: `env new <name>`
+error[E0602]: cannot delete the active environment
+  --> env_errors.msl:4:13
+   |
+ 4 | :env delete default
+   |             ^^^^^^^ active environment
+   = help: switch first with `:env load <name>`
+  Loaded 'env_errors.msl' (4 line(s), 4 error(s))
+  Rolled back — env and config unchanged

@@ -1,6 +1,7 @@
 #include "evaluator.hpp"
 #include "ast/math/binary_expr.hpp"
 #include "ast/math/number_expr.hpp"
+#include "ast/math/unary_expr.hpp"
 #include "ast/math/variable_expr.hpp"
 #include "diagnostics/kinds/math_errors.hpp"
 #include "diagnostics/kinds/runtime_errors.hpp"
@@ -52,6 +53,15 @@ namespace math_solver {
         const Expr& stored = context_->get_expr(name);
         stored.accept(*this);
         visited_.erase(name);
+    }
+
+    void Evaluator::visit(const UnaryOp& node) {
+        node.operand().accept(*this);
+        switch (node.op()) {
+        case UnaryOpType::Neg:
+            result_ = -result_;
+            break;
+        }
     }
 
     void Evaluator::visit(const BinaryOp& node) {

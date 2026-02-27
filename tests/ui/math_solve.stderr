@@ -1,0 +1,7 @@
+  [1] :solve 2*x + 4 = 10
+  x = 3 (saved)
+  [2] :solve x = 0
+  x = -0 (saved)
+  [3] :solve 3 = x + 1
+  x = 2 (saved)
+  Loaded 'math_solve.msl' (3 line(s))

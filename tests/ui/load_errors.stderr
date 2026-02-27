@@ -1,0 +1,30 @@
+  [1] :load
+  [2] :load --badflg
+  [3] :load nonexistent_file.msl
+  Error: cannot open 'nonexistent_file.msl'
+  [4] :load file1.msl file2.msl
+error[E0001]: missing filepath for ':load' command
+  --> load_errors.msl:1:1
+   |
+ 1 | :load
+   | ^^^^^ unexpected syntax
+   = help: Usage: :load [flags] <filepath>
+error[E0001]: unknown flag '--badflg'
+  --> load_errors.msl:2:7
+   |
+ 2 | :load --badflg
+   |       ^^^^^^^^ unexpected syntax
+   = help: available flags: --dry-run, --silent, --strict, --no-rollback, --env
+error[E0900]: script 'nonexistent_file.msl' failed
+  --> load_errors.msl:3:1
+   |
+ 3 | :load nonexistent_file.msl
+   | ^ nested script error
+error[E0001]: unexpected positional argument 'file2.msl'
+  --> load_errors.msl:4:17
+   |
+ 4 | :load file1.msl file2.msl
+   |                 ^^^^^^^^^ extra argument
+   = help: only one filepath is supported per command.
+  Loaded 'load_errors.msl' (4 line(s), 4 error(s))
+  Rolled back — env and config unchanged

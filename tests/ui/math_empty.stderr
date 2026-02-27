@@ -1,0 +1,10 @@
+  [1] :solve
+  Usage: :solve <lhs> = <rhs>
+  [2] :expand
+  Usage: :expand <expr>
+  [3] :factor
+  Usage: :factor <expr>
+  [4] :simplify
+  Usage: :simplify <lhs> = <rhs> [--vars x y] [--isolated] [--fraction]
+  Loaded 'math_empty.msl' (4 line(s))
+  Rolled back — env and config unchanged

@@ -8,7 +8,6 @@
 #include "diagnostics/sink.hpp"
 #include "ui/color.hpp"
 
-#include <iostream>
 #include <string>
 #include <vector>
 
@@ -54,7 +53,7 @@ namespace math_solver {
                     DispatchFn dispatch_fn, DiagnosticSink& sink) {
             const std::string& raw = cmd.raw_command();
             if (session_history.empty()) {
-                std::cout << "  No history to redo\n";
+                sink.push_output("  No history to redo\n");
                 return HistoryStatus::Info;
             }
 
@@ -84,8 +83,8 @@ namespace math_solver {
             bool all_success = true;
             for (int i : indices) {
                 const std::string& entry = session_history[i].command;
-                std::cout << ansi::dim << "  >> " << entry << ansi::reset
-                          << "\n";
+                sink.push_output(std::string(ansi::dim) + "  >> " + entry +
+                                 ansi::reset + "\n");
                 // No mechanism to detect dispatch_fn failure; assumes success.
                 dispatch_fn(entry);
             }
