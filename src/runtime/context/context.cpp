@@ -1,4 +1,5 @@
 #include "context.hpp"
+#include "ast/math/array_expr.hpp"
 #include "ast/math/expr.hpp"
 #include "ast/math/number_expr.hpp"
 
@@ -38,6 +39,16 @@ namespace math_solver {
     // wrappers.
     void Context::set(const std::string& name, double value) {
         variables_[name] = std::make_unique<Number>(value);
+    }
+
+    // Stores an ordered list of numeric values as an ArrayExpr.
+    // Each double is wrapped in a Number node.
+    void Context::set(const std::string& name, std::vector<double> values) {
+        std::vector<ExprPtr> elements;
+        elements.reserve(values.size());
+        for (double v : values)
+            elements.push_back(std::make_unique<Number>(v));
+        variables_[name] = std::make_unique<ArrayExpr>(std::move(elements));
     }
 
     // Returns a reference to the stored expression for `name`.

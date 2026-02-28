@@ -1,12 +1,15 @@
 #pragma once
 
 #include "algebra/linear/simplify.hpp"
+#include "algebra/matrix/matrix_solver.hpp"
 #include "algebra/polynomial/ast_to_poly.hpp"
 #include "algebra/polynomial/factor.hpp"
+#include "algebra/solver/poly_solver.hpp"
 #include "algebra/solver/solver.hpp"
 #include "ast/command/history_entry.hpp"
 #include "ast/command/math_command.hpp"
 #include "config/config.hpp"
+#include "core/fraction.hpp"
 #include "diagnostics/diagnostic.hpp"
 #include "diagnostics/kinds/command_errors.hpp"
 #include "diagnostics/sink.hpp"
@@ -15,10 +18,355 @@
 #include "runtime/context/context.hpp"
 #include "ui/color.hpp"
 
+#include <algorithm>
+#include <iomanip>
 #include <iostream>
+#include <optional>
+#include <set>
+#include <sstream>
 
 namespace math_solver {
     namespace handlers {
+
+        // ── Helpers ──────────────────────────────────────────────────────────
+
+        // Splits a payload on ';', trims whitespace, and discards empty parts.
+        // Returns a vector of non-empty equation strings.
+        inline std::vector<std::string>
+        split_equations(const std::string& payload) {
+            std::vector<std::string> parts;
+            std::istringstream       ss(payload);
+            std::string              tok;
+            while (std::getline(ss, tok, ';')) {
+                // Trim leading/trailing whitespace.
+                size_t a = tok.find_first_not_of(" \t\r\n");
+                size_t b = tok.find_last_not_of(" \t\r\n");
+                if (a == std::string::npos)
+                    continue; // empty after trim
+                parts.push_back(tok.substr(a, b - a + 1));
+            }
+            return parts;
+        }
+
+        // Format a double for display: strip trailing zeros.
+        inline std::string fmt_double(double v) {
+            std::string s   = std::to_string(v);
+            size_t      dot = s.find('.');
+            if (dot != std::string::npos) {
+                s.erase(s.find_last_not_of('0') + 1);
+                if (s.back() == '.')
+                    s.pop_back();
+            }
+            return s;
+        }
+
+        // Print the augmented matrix [A|b] to sink.
+        inline void print_matrix(const std::vector<LinearForm>&  forms,
+                                 const std::vector<std::string>& var_order,
+                                 DiagnosticSink&                 sink) {
+            const size_t                          n    = var_order.size();
+            // Build string cells for all entries.
+            // Each row: n coefficient cells + 1 RHS cell.
+            const size_t                          cols = n + 1;
+            std::vector<std::vector<std::string>> cells(
+                forms.size(), std::vector<std::string>(cols));
+            for (size_t i = 0; i < forms.size(); ++i) {
+                for (size_t j = 0; j < n; ++j)
+                    cells[i][j] = fmt_double(forms[i].get_coeff(var_order[j]));
+                cells[i][n] = fmt_double(-forms[i].constant);
+            }
+            // Compute column widths.
+            std::vector<size_t> widths(cols, 1);
+            for (size_t j = 0; j < cols; ++j)
+                for (size_t i = 0; i < forms.size(); ++i)
+                    widths[j] = std::max(widths[j], cells[i][j].size());
+
+            std::ostringstream oss;
+            oss << "  [ A | b ] =\n";
+            for (size_t i = 0; i < forms.size(); ++i) {
+                oss << "  [ ";
+                for (size_t j = 0; j < n; ++j) {
+                    oss << std::setw(static_cast<int>(widths[j]))
+                        << cells[i][j];
+                    if (j + 1 < n)
+                        oss << "  ";
+                }
+                oss << "  |  " << std::setw(static_cast<int>(widths[n]))
+                    << cells[i][n] << " ]\n";
+            }
+            sink.push_output(oss.str());
+        }
+
+        // Solve a system of equations given as a ';'-separated payload.
+        // Called from do_solve() when more than one equation is detected.
+        inline HistoryStatus
+        do_solve_system(const std::string&              payload,
+                        const std::vector<std::string>& eq_strs,
+                        const MathCommand& cmd, Context&    ctx,
+                        Config& /*config*/, DiagnosticSink& sink) {
+            // 1. Parse each equation and collect its LinearForm (lhs − rhs).
+            std::vector<LinearForm> forms;
+            std::set<std::string>   all_vars_set;
+
+            for (const auto& eq_str : eq_strs) {
+                Parser parser(eq_str);
+                auto   pr = parser.parse_equation().with_location(
+                    cmd.source_file(), cmd.source_line());
+                if (!pr) {
+                    sink.push(pr.error());
+                    return HistoryStatus::Error;
+                }
+                auto&           eq = *pr;
+
+                LinearCollector lc(nullptr, eq_str, true); // isolated
+                auto            lhs_r = lc.collect(eq->lhs());
+                auto            rhs_r = lc.collect(eq->rhs());
+                if (!lhs_r || !rhs_r) {
+                    // Retry with context.
+                    LinearCollector lc2(&ctx, eq_str, false);
+                    lhs_r = lc2.collect(eq->lhs());
+                    rhs_r = lc2.collect(eq->rhs());
+                    if (!lhs_r || !rhs_r) {
+                        sink.push(!lhs_r ? lhs_r.error() : rhs_r.error());
+                        return HistoryStatus::Error;
+                    }
+                }
+
+                LinearForm form = *lhs_r - *rhs_r;
+                form.simplify();
+                for (const auto& var : form.variables())
+                    all_vars_set.insert(var);
+                forms.push_back(std::move(form));
+            }
+
+            if (forms.empty()) {
+                sink.push_output("  Usage: :solve <eq1>; <eq2>; ...\n");
+                return HistoryStatus::Error;
+            }
+
+            // 2. Determine variable order.
+            std::vector<std::string> var_order;
+            if (!cmd.specific_vars().empty()) {
+                var_order = cmd.specific_vars();
+            } else {
+                var_order.assign(all_vars_set.begin(), all_vars_set.end());
+                std::sort(var_order.begin(), var_order.end());
+            }
+
+            // 3. Optionally print matrix.
+            if (cmd.show_matrix())
+                print_matrix(forms, var_order, sink);
+
+            // 4. Solve.
+            SolveSystemOptions opts;
+            opts.method    = cmd.method();
+            opts.free_vars = cmd.free_vars();
+
+            MatrixSolver ms(payload);
+            auto         result_r = ms.solve(forms, var_order, opts);
+            if (!result_r) {
+                sink.push(result_r.error().with_location(cmd.source_file(),
+                                                         cmd.source_line()));
+                return HistoryStatus::Error;
+            }
+            const SystemSolveResult& result = *result_r;
+
+            // 5. Rank display.
+            if (cmd.show_rank()) {
+                std::ostringstream oss;
+                oss << "  rank(A) = " << result.rank_A
+                    << ", rank([A|b]) = " << result.rank_Ab << "\n";
+                sink.push_output(oss.str());
+            }
+
+            // 6. Singularity warning.
+            if (cmd.detect_singular() && result.smallest_pivot < 1e-6 &&
+                result.smallest_pivot < 1e17) {
+                Diagnostic w = Diagnostic::warning(
+                    "smallest pivot is " + fmt_double(result.smallest_pivot) +
+                    " (system may be near-singular)");
+                sink.push(w);
+            }
+
+            // 7. Output solutions.
+            bool as_frac = cmd.as_fraction(); // --exact or --fraction alias
+            if (result.is_unique) {
+                for (const auto& var : var_order) {
+                    auto it = result.solutions.find(var);
+                    if (it == result.solutions.end())
+                        continue;
+                    double             val = it->second;
+                    std::ostringstream oss;
+                    oss << "  " << var << " = ";
+                    if (as_frac) {
+                        Fraction frac = double_to_fraction(val);
+                        oss << frac.to_string();
+                    } else {
+                        oss << fmt_double(val);
+                    }
+                    if (!cmd.no_save()) {
+                        ctx.set(var, val);
+                        oss << ansi::dim << " (saved)" << ansi::reset;
+                    }
+                    oss << "\n";
+                    sink.push_output(oss.str());
+                }
+            } else {
+                // Parameterised (free-vars) output.
+                std::ostringstream oss;
+                oss << "  Free variables:";
+                for (const auto& fv : result.free_vars)
+                    oss << " " << fv;
+                oss << "\n";
+                for (const auto& var : var_order) {
+                    auto it = result.free_params.find(var);
+                    if (it != result.free_params.end())
+                        oss << "  " << var << " = " << it->second << "\n";
+                }
+                sink.push_output(oss.str());
+            }
+
+            return HistoryStatus::Success;
+        }
+
+        // ── Polynomial dispatch ───────────────────────────────────────────────
+
+        // Format a double for fraction output (reuse fmt_double for now).
+        inline std::string fmt_val(double v, bool as_frac) {
+            if (as_frac) {
+                Fraction frac = double_to_fraction(v);
+                return frac.to_string();
+            }
+            return fmt_double(v);
+        }
+
+        // Try to solve a single equation as a univariate polynomial.
+        // Returns true and fills diagnostics/context on success or definitive
+        // error (no real roots). Returns false if the equation is not a
+        // univariate polynomial (caller should fall through to linear path).
+        //
+        // On success the solved variable is saved to context (unless
+        // cmd.no_save()).
+        // On no-real-solutions an error is pushed and HistoryStatus::Error is
+        // returned wrapped in an optional.
+        // If the equation cannot be handled here, returns std::nullopt so the
+        // caller falls through to the linear path.
+        inline std::optional<HistoryStatus>
+        try_poly_solve(const Equation& eq, const std::string& payload,
+                       const MathCommand& cmd, Context& ctx,
+                       DiagnosticSink& sink) {
+            // Try to convert both sides to polynomials.
+            ASTToPolynomial conv(payload);
+            auto            lhs_r = conv.convert(eq.lhs());
+            if (!lhs_r)
+                return std::nullopt; // non-polynomial LHS — linear fallback
+
+            ASTToPolynomial conv2(payload);
+            auto            rhs_r = conv2.convert(eq.rhs());
+            if (!rhs_r)
+                return std::nullopt; // non-polynomial RHS — linear fallback
+
+            Polynomial combined = *lhs_r - *rhs_r;
+
+            // Only handle univariate polynomial here.
+            if (!combined.is_univariate())
+                return std::nullopt; // multivariate — linear solver may handle
+
+            // Only route to polynomial solver if the degree > 1; for degree <= 1
+            // the linear solver is exact and avoids floating-point rounding.
+            if (combined.degree() <= 1)
+                return std::nullopt;
+
+            std::string var = combined.single_variable();
+
+            PolynomialSolver ps;
+            auto             roots_r = ps.solve(combined, payload);
+
+            if (!roots_r) {
+                sink.push(roots_r.error().with_location(cmd.source_file(),
+                                                        cmd.source_line()));
+                return HistoryStatus::Error;
+            }
+
+            const PolyRoots& roots = *roots_r;
+
+            // Warn about discarded complex roots.
+            if (roots.complex_count > 0) {
+                std::string cnt = std::to_string(roots.complex_count);
+                Diagnostic  w   = Diagnostic::warning(
+                    cnt + " complex root(s) have no real value and were "
+                          "discarded");
+                sink.push(w);
+            }
+
+            bool as_frac = cmd.as_fraction();
+
+            // Build output.
+            std::ostringstream oss;
+
+            if (roots.real_roots.size() == 1) {
+                // Single root (possibly repeated).
+                double val  = roots.real_roots[0];
+                int    mult = roots.multiplicities[0];
+
+                oss << "  " << var << " = " << fmt_val(val, as_frac);
+                if (mult > 1)
+                    oss << " (multiplicity " << mult << ")";
+
+                if (!cmd.no_save()) {
+                    ctx.set(var, val);
+                    oss << ansi::dim << " (saved)" << ansi::reset;
+                }
+                oss << "\n";
+            } else {
+                // Multiple distinct roots — store as array.
+                std::ostringstream arr_oss;
+                arr_oss << "[";
+                for (size_t i = 0; i < roots.real_roots.size(); ++i) {
+                    if (i)
+                        arr_oss << ", ";
+                    arr_oss << fmt_val(roots.real_roots[i], as_frac);
+                }
+                arr_oss << "]";
+
+                oss << "  " << var << " = " << arr_oss.str();
+
+                if (!cmd.no_save()) {
+                    ctx.set(var,
+                            std::vector<double>(roots.real_roots.begin(),
+                                                roots.real_roots.end()));
+                    oss << ansi::dim << " (saved)" << ansi::reset;
+                }
+
+                // Annotate multiplicities > 1.
+                bool any_mult = false;
+                for (int m : roots.multiplicities)
+                    if (m > 1) {
+                        any_mult = true;
+                        break;
+                    }
+                if (any_mult) {
+                    oss << "\n  ";
+                    for (size_t i = 0; i < roots.real_roots.size(); ++i) {
+                        if (roots.multiplicities[i] > 1)
+                            oss << "  " << var << "[" << i << "] multiplicity "
+                                << roots.multiplicities[i];
+                    }
+                }
+
+                oss << "\n";
+            }
+
+            // Note numerical method for degree >= 3.
+            if (combined.degree() >= 3)
+                oss << ansi::dim << "  (solved via Durand-Kerner)"
+                    << ansi::reset << "\n";
+
+            sink.push_output(oss.str());
+            return HistoryStatus::Success;
+        }
+
+        // ── Single-equation solve entry point ─────────────────────────────────
 
         // Entry point for equation solving.
         // - Attempts to infer the set of unknowns by comparing LHS and RHS
@@ -31,13 +379,17 @@ namespace math_solver {
         // - Invariant: result.variable is always set on success.
         inline HistoryStatus do_solve(const std::string& payload,
                                       const MathCommand& cmd, Context& ctx,
-                                      Config& /*config*/,
-                                      DiagnosticSink& sink) {
+                                      Config& config, DiagnosticSink& sink) {
             if (payload.empty()) {
-                (void)ctx;
                 sink.push_output("  Usage: :solve <lhs> = <rhs>\n");
                 return HistoryStatus::Error;
             }
+
+            // Multi-equation dispatch: split on ';' and route to system solver.
+            auto equations = split_equations(payload);
+            if (equations.size() > 1)
+                return do_solve_system(payload, equations, cmd, ctx, config,
+                                       sink);
             try {
                 Parser parser(payload);
                 auto   parse_result = parser.parse_equation().with_location(
@@ -46,7 +398,17 @@ namespace math_solver {
                     sink.push(parse_result.error());
                     return HistoryStatus::Error;
                 }
-                auto                  eq = std::move(*parse_result);
+                auto eq = std::move(*parse_result);
+
+                // ── Polynomial path ────────────────────────────────────────
+                // Try to solve as a univariate polynomial (degree > 1).
+                // Falls through to linear path if not applicable.
+                if (auto poly_status =
+                        try_poly_solve(*eq, payload, cmd, ctx, sink)) {
+                    return *poly_status;
+                }
+                // ──────────────────────────────────────────────────────────
+
                 std::set<std::string> unknowns;
 
                 try {
@@ -125,8 +487,6 @@ namespace math_solver {
                                          const MathCommand& cmd, Context& ctx,
                                          Config& config, DiagnosticSink& sink) {
             if (payload.empty()) {
-                (void)ctx;
-                (void)config;
                 sink.push_output("  Usage: :simplify <lhs> = <rhs> [--vars x "
                                  "y] [--isolated] [--fraction]\n");
                 return HistoryStatus::Error;
@@ -187,8 +547,8 @@ namespace math_solver {
         inline HistoryStatus do_expand(const std::string& payload,
                                        const MathCommand& cmd, Context& ctx,
                                        DiagnosticSink& sink) {
+            (void)ctx;
             if (payload.empty()) {
-                (void)ctx;
                 sink.push_output("  Usage: :expand <expr>\n");
                 return HistoryStatus::Error;
             }
@@ -228,8 +588,8 @@ namespace math_solver {
         inline HistoryStatus do_factor(const std::string& payload,
                                        const MathCommand& cmd, Context& ctx,
                                        DiagnosticSink& sink) {
+            (void)ctx;
             if (payload.empty()) {
-                (void)ctx;
                 sink.push_output("  Usage: :factor <expr>\n");
                 return HistoryStatus::Error;
             }
@@ -297,13 +657,34 @@ namespace math_solver {
                         << (ok ? "(true)" : "(false)") << ansi::reset << "\n";
                     sink.push_output(oss.str());
                 } else {
+                    // Check whether any variable in the expression is
+                    // array-bound; if so, take the broadcast path.
                     Evaluator eval(&ctx, payload, &sink);
                     size_t    err_count = sink.error_count();
-                    double    val       = eval.evaluate(*expr);
+
+                    auto results = eval.evaluate_broadcast(*expr, ctx);
+
                     if (sink.error_count() > err_count)
                         return HistoryStatus::Error;
+
                     std::ostringstream oss;
-                    oss << "  = " << val << "\n";
+                    if (results.size() == 1) {
+                        oss << "  = " << fmt_double(results[0]) << "\n";
+                    } else if (results.size() > 1) {
+                        oss << "  = [";
+                        for (size_t i = 0; i < results.size(); ++i) {
+                            if (i)
+                                oss << ", ";
+                            oss << fmt_double(results[i]);
+                        }
+                        oss << "]\n";
+                    } else {
+                        // No array variables — normal scalar eval.
+                        double val = eval.evaluate(*expr);
+                        if (sink.error_count() > err_count)
+                            return HistoryStatus::Error;
+                        oss << "  = " << fmt_double(val) << "\n";
+                    }
                     sink.push_output(oss.str());
                 }
                 return HistoryStatus::Success;

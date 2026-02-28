@@ -26,20 +26,20 @@ error[E0425]: cannot find value `tan` in this scope
    |
  1 | tan(pi/4)
    | ^^^ not found in this scope
-error[E0308]: non-linear term: variables multiplied together
+error[E0315]: non-linear term: variables multiplied together
   --> trig_symbolic.msl:9:1
    |
  9 | sin(x) = 0
-   | ^^^^^^ non-linear
-error[E0308]: non-linear term: variables multiplied together
+   | ^^^^^^ unsupported
+error[E0315]: non-linear term: variables multiplied together
    --> trig_symbolic.msl:10:1
     |
  10 | cos(x) = 1
-    | ^^^^^^ non-linear
-error[E0308]: non-linear term: variables multiplied together
+    | ^^^^^^ unsupported
+error[E0315]: non-linear term: variables multiplied together
    --> trig_symbolic.msl:11:1
     |
  11 | sin(x) + cos(x) = 1
-    | ^^^^^^ non-linear
+    | ^^^^^^ unsupported
   Loaded 'trig_symbolic.msl' (7 line(s), 7 error(s))
   Rolled back — env and config unchanged

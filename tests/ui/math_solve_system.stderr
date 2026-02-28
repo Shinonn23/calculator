@@ -1,0 +1,27 @@
+  [1] :solve x + y = 4; x - y = 2
+  x = 3 (saved)
+  y = 1 (saved)
+  [2] :solve x + y + z = 6; 2*x - y + z = 3; x + 2*y - z = 2
+  x = 1 (saved)
+  y = 2 (saved)
+  z = 3 (saved)
+  [3] :solve --show-matrix 2*x + y = 5; x - y = 1
+  [ A | b ] =
+  [ 2   1  |  5 ]
+  [ 1  -1  |  1 ]
+  x = 2 (saved)
+  y = 1 (saved)
+  [4] :solve --rank 2*x + y = 5; x - y = 1
+  rank(A) = 2, rank([A|b]) = 2
+  x = 2 (saved)
+  y = 1 (saved)
+  [5] :solve --no-save a + b = 10; a - b = 4
+  a = 7
+  b = 3
+  [6] :solve --method=lu x + y = 4; x - y = 2
+  x = 3 (saved)
+  y = 1 (saved)
+  [7] :solve --exact 2*x + 3*y = 1; x - y = 0
+  x = 1/5 (saved)
+  y = 1/5 (saved)
+  Loaded 'math_solve_system.msl' (7 line(s))

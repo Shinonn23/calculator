@@ -9,6 +9,7 @@
 #include "ast/command/redo_command.hpp"
 #include "ast/command/system_command.hpp"
 #include "ast/command/var_command.hpp"
+#include "ast/math/array_expr.hpp"
 #include "ast/math/binary_expr.hpp"
 #include "ast/math/expr_visitor.hpp"
 #include "ast/math/number_expr.hpp"
@@ -21,13 +22,14 @@ namespace test_helpers {
 using namespace math_solver;
 
 struct MockExprVisitor : ExprVisitor {
-    enum class Visited { None, Number, Variable, BinaryOp, UnaryOp };
+    enum class Visited { None, Number, Variable, BinaryOp, UnaryOp, Array };
     Visited last = Visited::None;
 
     void visit(const Number&) override   { last = Visited::Number; }
     void visit(const BinaryOp&) override { last = Visited::BinaryOp; }
     void visit(const UnaryOp&) override  { last = Visited::UnaryOp; }
     void visit(const Variable&) override { last = Visited::Variable; }
+    void visit(const ArrayExpr&) override { last = Visited::Array; }
 };
 
 struct MockCommandVisitor : CommandVisitor {

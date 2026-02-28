@@ -4,6 +4,7 @@ cmake-build-*/
 *.cmake
 CMakeCache.txt
 CMakeFiles/
+.cache/
 
 # Compiled binaries and libraries
 *.o

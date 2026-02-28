@@ -56,6 +56,7 @@ FetchContent_MakeAvailable(json replxx googletest)
 add_library(math_core
     src/algebra/linear/linear_collector.cpp
     src/algebra/linear/simplify.cpp
+    src/algebra/matrix/matrix_solver.cpp
     src/algebra/polynomial/ast_to_poly.cpp
     src/algebra/polynomial/factor.cpp
     src/algebra/solver/solver.cpp

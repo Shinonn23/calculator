@@ -1,0 +1,19 @@
+  [1] :solve x^2 = 4
+  x = [-2, 2] (saved)
+  [2] :solve x^2 + 2*x + 1 = 0
+  x = -1 (multiplicity 2) (saved)
+  [3] :solve x^3 - 6*x^2 + 11*x - 6 = 0
+  x = [1, 2, 3] (saved)
+  (solved via Durand-Kerner)
+  [4] x^2
+  = [1, 4, 9]
+  [5] :solve x^2 + 1 = 0
+  [6] :solve 2*x = 6
+  x = 3 (saved)
+error[E0301]: no real solutions (discriminant < 0)
+  --> math_solve_nonlinear.msl:5:1
+   |
+ 5 | x^2 + 1 = 0
+   | ^ no solution
+  Loaded 'math_solve_nonlinear.msl' (6 line(s), 1 error(s))
+  Rolled back — env and config unchanged

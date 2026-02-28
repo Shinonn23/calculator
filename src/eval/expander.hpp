@@ -1,5 +1,6 @@
 #pragma once
 
+#include "ast/math/array_expr.hpp"
 #include "ast/math/binary_expr.hpp"
 #include "ast/math/equation_expr.hpp"
 #include "ast/math/expr.hpp"
@@ -63,6 +64,10 @@ namespace math_solver {
         }
 
         void visit(const Number& node) override { result_ = node.clone(); }
+
+        // ArrayExpr is preserved as-is during expansion; the broadcast
+        // evaluation path handles element-wise expansion separately.
+        void visit(const ArrayExpr& node) override { result_ = node.clone(); }
 
         void visit(const Variable& node) override {
             const std::string& name = node.name();

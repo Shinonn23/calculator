@@ -9,6 +9,7 @@
 #include <string>
 #include <vector>
 
+#include "algebra/matrix/solve_method.hpp"
 #include "command.hpp"
 #include "command_visitor.hpp"
 
@@ -42,8 +43,16 @@ namespace math_solver {
         // set. Invariant: specific_vars_ is empty unless the command type
         // supports variable lists.
         std::vector<std::string> specific_vars_;
-        bool                     isolated_    = false;
-        bool                     as_fraction_ = false;
+        bool                     isolated_        = false;
+        bool                     as_fraction_     = false;
+
+        // System-solve flags (multi-equation path only).
+        SolveMethod              method_          = SolveMethod::Gauss;
+        bool                     show_matrix_     = false;
+        bool                     no_save_         = false;
+        bool                     show_rank_       = false;
+        bool                     detect_singular_ = false;
+        bool                     free_vars_       = false;
 
         public:
         /// Construct a `MathCommand` with a given operation type and payload.
@@ -74,6 +83,20 @@ namespace math_solver {
             specific_vars_ = vars;
         }
 
+        /// Set flags specific to the multi-equation system solver.
+        ///
+        /// Call after `set_flags()`; the two setters are orthogonal.
+        void set_system_flags(SolveMethod method, bool show_matrix,
+                              bool no_save, bool show_rank,
+                              bool detect_singular, bool free_vars) {
+            method_          = method;
+            show_matrix_     = show_matrix;
+            no_save_         = no_save;
+            show_rank_       = show_rank;
+            detect_singular_ = detect_singular;
+            free_vars_       = free_vars;
+        }
+
         /// Return the operation type.
         Type               type() const { return type_; }
 
@@ -86,14 +109,36 @@ namespace math_solver {
         /// Return true if the as-fraction flag is set.
         bool               as_fraction() const { return as_fraction_; }
 
-        /// Return the list of targeted variable names, or an empty vector if none.
+        /// Return the list of targeted variable names, or an empty vector if
+        /// none.
         const std::vector<std::string>& specific_vars() const {
             return specific_vars_;
         }
 
-        /// Dispatch to `CommandVisitor::visit(const MathCommand&, DiagnosticSink&)`.
-        void accept(CommandVisitor& visitor,
-                    DiagnosticSink& sink) const override {
+        /// Return the selected system-solve method.
+        SolveMethod method() const { return method_; }
+
+        /// Return true if the augmented matrix should be printed before
+        /// solving.
+        bool        show_matrix() const { return show_matrix_; }
+
+        /// Return true if results should not be saved to the context.
+        bool        no_save() const { return no_save_; }
+
+        /// Return true if rank information should be printed after solving.
+        bool        show_rank() const { return show_rank_; }
+
+        /// Return true if a warning should be emitted when the smallest pivot
+        /// is small.
+        bool        detect_singular() const { return detect_singular_; }
+
+        /// Return true if infinite-solution systems should be parameterised.
+        bool        free_vars() const { return free_vars_; }
+
+        /// Dispatch to `CommandVisitor::visit(const MathCommand&,
+        /// DiagnosticSink&)`.
+        void        accept(CommandVisitor& visitor,
+                           DiagnosticSink& sink) const override {
             visitor.visit(*this, sink);
         }
     };

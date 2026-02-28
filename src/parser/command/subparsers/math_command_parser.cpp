@@ -30,7 +30,14 @@ namespace math_solver {
         // expression.
         MathCommand::Type type = resolve_type(stream.peek().value);
         stream.advance();
-        bool                     isolated = false, fraction = false;
+        bool                     isolated        = false;
+        bool                     fraction        = false;
+        bool                     show_matrix     = false;
+        bool                     no_save         = false;
+        bool                     show_rank       = false;
+        bool                     detect_singular = false;
+        bool                     free_vars_flag  = false;
+        SolveMethod              method          = SolveMethod::Gauss;
         std::vector<std::string> vars;
         while (stream.peek_is(CommandTokenType::Flag)) {
             std::string flag = stream.advance().value;
@@ -38,6 +45,24 @@ namespace math_solver {
                 isolated = true;
             else if (flag == "-fraction" || flag == "--fraction")
                 fraction = true;
+            else if (flag == "-exact" || flag == "--exact")
+                fraction = true; // alias for --fraction
+            else if (flag.rfind("--method=", 0) == 0 ||
+                     flag.rfind("-method=", 0) == 0) {
+                std::string val = flag.substr(flag.find('=') + 1);
+                if (val == "lu")
+                    method = SolveMethod::LU;
+                // else default Gauss
+            } else if (flag == "-show-matrix" || flag == "--show-matrix")
+                show_matrix = true;
+            else if (flag == "-no-save" || flag == "--no-save")
+                no_save = true;
+            else if (flag == "-rank" || flag == "--rank")
+                show_rank = true;
+            else if (flag == "-detect-singular" || flag == "--detect-singular")
+                detect_singular = true;
+            else if (flag == "-free-vars" || flag == "--free-vars")
+                free_vars_flag = true;
             else if (flag == "-vars" || flag == "--vars") {
                 // Greedily consume all variable names after -vars/--vars.
                 // Invariant: no other flags or arguments should appear between
@@ -55,6 +80,8 @@ namespace math_solver {
         auto cmd = std::make_unique<MathCommand>(
             type, stream.consume_remaining(), stream.raw_input());
         cmd->set_flags(isolated, fraction, vars);
+        cmd->set_system_flags(method, show_matrix, no_save, show_rank,
+                              detect_singular, free_vars_flag);
         return Result<CommandPtr>::ok(std::move(cmd));
     }
 

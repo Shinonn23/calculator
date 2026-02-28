@@ -5,6 +5,7 @@
 #include <set>
 #include <string>
 
+#include "ast/math/array_expr.hpp"
 #include "ast/math/binary_expr.hpp"
 #include "ast/math/expr.hpp"
 #include "ast/math/expr_visitor.hpp"
@@ -170,6 +171,12 @@ namespace math_solver {
             return shadowed_vars_;
         }
 
+        void visit(const ArrayExpr& node) override {
+            error_ = errors::invalid_equation(
+                "array value cannot appear in a linear equation",
+                node.span(), input_);
+        }
+
         void visit(const Number& node) override {
             result_ = LinearForm(node.value());
         }
@@ -239,7 +246,7 @@ namespace math_solver {
                 } else if (right.is_constant()) {
                     result_ = left * right.constant;
                 } else {
-                    error_ = errors::non_linear(
+                    error_ = errors::unsupported_equation(
                         "non-linear term: variables multiplied together",
                         node.span(), input_);
                     return;
@@ -250,7 +257,7 @@ namespace math_solver {
                 // Division is only linear if the divisor is constant and
                 // nonzero.
                 if (!right.is_constant()) {
-                    error_ = errors::non_linear(
+                    error_ = errors::unsupported_equation(
                         "non-linear term: division by variable", node.span(),
                         input_);
                     return;
@@ -268,7 +275,7 @@ namespace math_solver {
                 // equals 1.
                 if (!right.is_constant()) {
                     error_ =
-                        errors::non_linear("non-linear term: variable exponent",
+                        errors::unsupported_equation("non-linear term: variable exponent",
                                            node.right().span(), input_);
                     return;
                 }
@@ -289,7 +296,7 @@ namespace math_solver {
 
                 // For all other exponents, only allow if base is constant.
                 if (!left.is_constant()) {
-                    error_ = errors::non_linear(
+                    error_ = errors::unsupported_equation(
                         "non-linear term: variable raised to power " +
                             std::to_string(static_cast<int>(exp)),
                         node.span(), input_);

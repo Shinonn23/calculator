@@ -4,6 +4,7 @@
 #include <string>
 #include <unordered_map>
 #include <vector>
+#include <memory>
 
 namespace math_solver {
 
@@ -41,6 +42,9 @@ namespace math_solver {
         void                     set(const std::string& name, const Expr& expr);
         void                     set(const std::string& name, ExprPtr expr);
         void                     set(const std::string& name, double value);
+        // Stores a list of numeric values as an ArrayExpr.
+        void                     set(const std::string& name,
+                                     std::vector<double> values);
 
         // Returns a reference to the expression bound to `name`.
         // UB if `name` is not present; caller must check with has().

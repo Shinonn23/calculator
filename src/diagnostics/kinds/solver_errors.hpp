@@ -9,11 +9,11 @@ namespace math_solver {
 
     namespace errors {
 
-        inline Diagnostic non_linear(const std::string& message,
-                                     const Span&        span  = Span(),
-                                     const std::string& input = "") {
-            return Diagnostic::make(message, "E0308", span, input,
-                                    "non-linear");
+        inline Diagnostic unsupported_equation(const std::string& message,
+                                              const Span&        span  = Span(),
+                                              const std::string& input = "") {
+            return Diagnostic::make(message, "E0315", span, input,
+                                    "unsupported");
         }
 
         inline Diagnostic no_solution(const std::string& message,
@@ -53,6 +53,23 @@ namespace math_solver {
             auto d = Diagnostic::make(msg, "E0304", span, input,
                                       "multiple unknowns");
             d.help = "provide values for other variables using :set";
+            return d;
+        }
+
+        inline Diagnostic system_no_solution(const std::string& message,
+                                             const Span&        span  = Span(),
+                                             const std::string& input = "") {
+            return Diagnostic::make(message, "E0310", span, input,
+                                    "no solution");
+        }
+
+        inline Diagnostic
+        system_infinite_solutions(const std::string& message,
+                                  const Span&        span  = Span(),
+                                  const std::string& input = "") {
+            auto d = Diagnostic::make(message, "E0311", span, input,
+                                      "infinite solutions");
+            d.help = "use --free-vars to see parameterised form";
             return d;
         }
 

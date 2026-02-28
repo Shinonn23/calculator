@@ -45,7 +45,7 @@ python3 tests/run_ui_tests.py --binary ./build/bin/math-solver --tests-dir tests
 Every code change must be accompanied by documentation updates in the same response:
 - **`README.md`**: Update if commands or architecture changes
 - **`INSTALL.md`**: Update if dependencies or build steps change
-- **`docs/<feature>.md`**: Create or update with the Detailed Walkthrough template (Overview → Step-by-step → Checklist)
+- **`docs/**/<feature>.md`**: Create or update with the Detailed Walkthrough template (Overview → Step-by-step → Checklist)
 
 ## Architecture
 
