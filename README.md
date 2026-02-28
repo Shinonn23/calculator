@@ -3,7 +3,7 @@
 
 A command-line calculator written in C++ that goes beyond basic arithmetic. You can evaluate expressions, store variables, solve equations, and work with polynomials — all inside an interactive terminal session.
 
-**Version**: 1.1.5
+**Version**: 1.1.6
 
 ---
 
@@ -12,7 +12,9 @@ A command-line calculator written in C++ that goes beyond basic arithmetic. You 
 Most calculators just crunch numbers. Math Solver lets you:
 
 - **Store variables and reuse them** — set `x = 5`, then type `x * 3 + 1` and get `16`
-- **Solve equations** — type `solve 2*x + 4 = 10` and it tells you `x = 3`
+- **Solve equations** — type `:solve 2*x + 4 = 10` and it tells you `x = 3`
+- **Solve polynomial equations** — `:solve x^2 = 4` → `x = [-2, 2]`; cubics and higher via Durand–Kerner
+- **Broadcast evaluation** — solve `x^3 - 6x^2 + 11x - 6 = 0` → `x = [1, 2, 3]`, then `x^2` → `= [1, 4, 9]`
 - **Work symbolically** — set `a = x + 2` and later set `x = 5`; asking for `a` gives `7` automatically
 - **Factor and expand polynomials** — `factor x^2 - 5*x + 6` → `(x - 2)(x - 3)`
 - **Save your work** — named environments let you save and reload sets of variables across sessions
@@ -74,11 +76,8 @@ x = 5
 > x * 3 + 1
 = 16
 
-> solve 2*x + 4 = 10
-x = 3
-
-> :set y solve 2*y + 4 = 10
-y = 3
+> :solve 2*x + 4 = 10
+x = 3 (saved)
 
 > factor x^2 - 5*x + 6
 = (x - 2)(x - 3)
@@ -90,19 +89,42 @@ y = 3
 = 5*x = 10
 ```
 
+### Polynomial solving and broadcast evaluation
+
+```
+> :solve x^2 = 4
+x = [-2, 2] (saved)
+
+> :solve x^2 + 2*x + 1 = 0
+x = -1 (multiplicity 2) (saved)
+
+> :solve x^3 - 6*x^2 + 11*x - 6 = 0
+x = [1, 2, 3] (saved)
+(solved via Durand-Kerner)
+
+> x^2
+= [1, 4, 9]
+
+> :solve x^2 + 1 = 0
+error[E0301]: no real solutions (discriminant < 0)
+```
+
+When a `:solve` produces multiple roots, the variable is stored as an array. Any subsequent expression using that variable is evaluated for each element — this is called *broadcast evaluation*.
+
 ---
 
 ## Commands Reference
 
 ### Math operations
 
-| Input                 | What it does                            |
-| --------------------- | --------------------------------------- |
-| `<expression>`        | Evaluate (e.g. `2 + 3 * x`)             |
-| `solve <lhs> = <rhs>` | Solve a linear equation for the unknown |
-| `simplify <equation>` | Collect like terms, canonical form      |
-| `expand <expression>` | Expand to polynomial form               |
-| `factor <polynomial>` | Factor a polynomial                     |
+| Input                      | What it does                                            |
+| -------------------------- | ------------------------------------------------------- |
+| `<expression>`             | Evaluate (e.g. `2 + 3 * x`)                             |
+| `:solve <lhs> = <rhs>`     | Solve an equation (linear, quadratic, or higher-degree) |
+| `:solve <eq1>; <eq2>; ...` | Solve a system of linear equations                      |
+| `simplify <equation>`      | Collect like terms, canonical form                      |
+| `expand <expression>`      | Expand to polynomial form                               |
+| `factor <polynomial>`      | Factor a polynomial                                     |
 
 ### Variables
 
@@ -135,44 +157,44 @@ y = 3
 
 ### History
 
-| Command | What it does |
-| --- | --- |
-| `:history` | Show last 20 commands |
-| `:history all` | Show all commands |
-| `:history <n>` | Show last `n` commands |
-| `:history <a> <b>` | Show commands from index `a` to `b` |
-| `:history <a>-<b>` | Show commands in range `a–b` (dash syntax) |
-| `:history search <pattern>` | Search history by substring |
-| `:history save <file> [selector]` | Save history (or a range) to a plain-text file |
-| `:history clear` | Clear all history (session + disk) |
-| `:history --errors` | Filter any of the above to error entries only |
-| `:history --success` | Filter to successful entries only |
-| `:history --warning` | Filter to warning entries only |
-| `:history --info` | Filter to info entries only |
-| `:redo` | Re-run the most recent command |
-| `:redo <n>` | Re-run history entry `n` |
-| `:redo <a>,<b>` | Re-run entries `a` and `b` |
-| `:redo <a>-<b>` | Re-run entries `a` through `b` (inclusive) |
-| `:redo <a>,<b>-<c>` | Re-run entries using mixed list + range selector |
+| Command                           | What it does                                     |
+| --------------------------------- | ------------------------------------------------ |
+| `:history`                        | Show last 20 commands                            |
+| `:history all`                    | Show all commands                                |
+| `:history <n>`                    | Show last `n` commands                           |
+| `:history <a> <b>`                | Show commands from index `a` to `b`              |
+| `:history <a>-<b>`                | Show commands in range `a–b` (dash syntax)       |
+| `:history search <pattern>`       | Search history by substring                      |
+| `:history save <file> [selector]` | Save history (or a range) to a plain-text file   |
+| `:history clear`                  | Clear all history (session + disk)               |
+| `:history --errors`               | Filter any of the above to error entries only    |
+| `:history --success`              | Filter to successful entries only                |
+| `:history --warning`              | Filter to warning entries only                   |
+| `:history --info`                 | Filter to info entries only                      |
+| `:redo`                           | Re-run the most recent command                   |
+| `:redo <n>`                       | Re-run history entry `n`                         |
+| `:redo <a>,<b>`                   | Re-run entries `a` and `b`                       |
+| `:redo <a>-<b>`                   | Re-run entries `a` through `b` (inclusive)       |
+| `:redo <a>,<b>-<c>`               | Re-run entries using mixed list + range selector |
 
 ### Scripts
 
-| Command | What it does |
-| --- | --- |
-| `:load <file>` | Execute a `.msl` script file in the current session |
-| `:load --dry-run <file>` | Parse and echo lines without executing them |
-| `:load --silent <file>` | Execute without echoing lines or printing a summary |
-| `:load --strict <file>` | Stop on the first error |
-| `:load --no-rollback <file>` | Keep state changes even if errors occur |
-| `:load --env <name> <file>` | Execute the script inside a specific environment |
+| Command                      | What it does                                        |
+| ---------------------------- | --------------------------------------------------- |
+| `:load <file>`               | Execute a `.msl` script file in the current session |
+| `:load --dry-run <file>`     | Parse and echo lines without executing them         |
+| `:load --silent <file>`      | Execute without echoing lines or printing a summary |
+| `:load --strict <file>`      | Stop on the first error                             |
+| `:load --no-rollback <file>` | Keep state changes even if errors occur             |
+| `:load --env <name> <file>`  | Execute the script inside a specific environment    |
 
 ### Other
 
-| Command                   | What it does               |
-| ------------------------- | -------------------------- |
-| `:help` / `:h`            | Show help menu             |
-| `:clear` / `:cls`         | Clear the terminal screen  |
-| `:exit` / `:quit` / `:q`  | Quit                       |
+| Command                  | What it does              |
+| ------------------------ | ------------------------- |
+| `:help` / `:h`           | Show help menu            |
+| `:clear` / `:cls`        | Clear the terminal screen |
+| `:exit` / `:quit` / `:q` | Quit                      |
 
 ---
 
@@ -204,13 +226,15 @@ Fetched automatically by CMake — no manual installation needed.
 
 Detailed walkthroughs for each feature are in [`docs/`](docs/):
 
-| Feature       | Doc                                                                      |
-| ------------- | ------------------------------------------------------------------------ |
-| math (all)    | [`docs/commands/math_commands.md`](docs/commands/math_commands.md)       |
-| :set / :unset | [`docs/commands/var_command.md`](docs/commands/var_command.md)           |
-| :config       | [`docs/commands/config_command.md`](docs/commands/config_command.md)     |
-| :env          | [`docs/commands/env_command.md`](docs/commands/env_command.md)           |
-| :history      | [`docs/commands/history_command.md`](docs/commands/history_command.md)   |
-| :redo         | [`docs/commands/redo_command.md`](docs/commands/redo_command.md)         |
-| :load         | [`docs/commands/load_command.md`](docs/commands/load_command.md)         |
-| Architecture  | [`docs/dispatch_overview.md`](docs/dispatch_overview.md)                 |
+| Feature            | Doc                                                                    |
+| ------------------ | ---------------------------------------------------------------------- |
+| math (all)         | [`docs/commands/math_commands.md`](docs/commands/math_commands.md)     |
+| polynomial solving | [`docs/solve-polynomial.md`](docs/solve-polynomial.md)                 |
+| system solving     | [`docs/solve-system.md`](docs/solve-system.md)                         |
+| :set / :unset      | [`docs/commands/var_command.md`](docs/commands/var_command.md)         |
+| :config            | [`docs/commands/config_command.md`](docs/commands/config_command.md)   |
+| :env               | [`docs/commands/env_command.md`](docs/commands/env_command.md)         |
+| :history           | [`docs/commands/history_command.md`](docs/commands/history_command.md) |
+| :redo              | [`docs/commands/redo_command.md`](docs/commands/redo_command.md)       |
+| :load              | [`docs/commands/load_command.md`](docs/commands/load_command.md)       |
+| Architecture       | [`docs/dispatch_overview.md`](docs/dispatch_overview.md)               |
