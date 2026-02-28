@@ -1,16 +1,29 @@
 #pragma once
 
+//! # Module — `src/ast/math/binary_expr.hpp`
+//!
+//! Defines `BinaryOpType` and `BinaryOp`, the interior AST node for binary
+//! arithmetic operations. Part of the math AST layer; produced by the
+//! recursive-descent math parser and consumed by the evaluator, algebra, and
+//! polynomial passes.
+
 #include "ast/math/expr.hpp"
 #include <memory>
 #include <string>
 
 namespace math_solver {
 
-    // Represents the set of supported binary operations.
-    // The order is relied upon by parser and codegen; do not reorder without
-    // auditing all uses.
+    /// Enumeration of all supported binary operators.
+    ///
+    /// The ordering is relied upon by parser and code-generation logic; do not
+    /// reorder variants without auditing all downstream uses.
     enum class BinaryOpType { Add, Sub, Mul, Div, Pow };
 
+    /// Interior AST node representing a binary arithmetic operation.
+    ///
+    /// Owns its left and right child subtrees via `ExprPtr`. The source span
+    /// is computed as the merged span of both children unless explicitly
+    /// supplied via the span-explicit constructor.
     class BinaryOp : public Expr {
         private:
         ExprPtr      left_;
@@ -18,10 +31,16 @@ namespace math_solver {
         BinaryOpType op_;
 
         public:
-        // Constructs a BinaryOp node, inferring the span from its children.
-        // Assumes both left_ and right_ are non-null and their spans are valid.
-        // If either child is null, span_ remains default-initialized;
-        // downstream code must handle this.
+        /// Construct a `BinaryOp`, inferring the span from the child nodes.
+        ///
+        /// The span is set to `left->span().merge(right->span())` when both
+        /// children are non-null; otherwise it is default-initialized.
+        ///
+        /// # Arguments
+        ///
+        /// * `left`  — Left-hand child subtree; must be non-null for a valid span.
+        /// * `right` — Right-hand child subtree; must be non-null for a valid span.
+        /// * `op`    — The binary operator applied to both operands.
         BinaryOp(ExprPtr left, ExprPtr right, BinaryOpType op)
             : Expr(),
               left_(std::move(left)),
@@ -34,27 +53,47 @@ namespace math_solver {
             }
         }
 
-        // Constructs a BinaryOp node with an explicit span.
-        // Used by deserialization and certain lowering passes where span is
-        // precomputed.
+        /// Construct a `BinaryOp` with an explicit source span.
+        ///
+        /// Used by deserialization and lowering passes where the span is
+        /// precomputed rather than derived from the children.
+        ///
+        /// # Arguments
+        ///
+        /// * `left`  — Left-hand child subtree.
+        /// * `right` — Right-hand child subtree.
+        /// * `op`    — The binary operator.
+        /// * `span`  — Explicit source region covering this node.
         BinaryOp(ExprPtr left, ExprPtr right, BinaryOpType op, const Span& span)
             : Expr(span),
               left_(std::move(left)),
               right_(std::move(right)),
               op_(op) {}
 
+        /// Return the left-hand child expression.
         const Expr&  left() const { return *left_; }
+
+        /// Return the right-hand child expression.
         const Expr&  right() const { return *right_; }
+
+        /// Return the binary operator kind.
         BinaryOpType op() const { return op_; }
 
-        // Accepts a visitor; part of the classic visitor pattern for AST
-        // traversal. Visitor is expected to handle all BinaryOpType variants.
+        /// Dispatch to `ExprVisitor::visit(const BinaryOp&)`.
         void         accept(ExprVisitor& visitor) const override {
             visitor.visit(*this);
         }
 
-        // Returns a string representation of the binary operation.
-        // Used for debugging and pretty-printing; not guaranteed to round-trip.
+        /// Return a parenthesised infix string representation.
+        ///
+        /// Used for diagnostics and pretty-printing; not guaranteed to
+        /// round-trip through the math parser.
+        ///
+        /// # Examples
+        ///
+        /// ```cpp
+        /// // A BinaryOp for 2 + 3 renders as "(2 + 3)".
+        /// ```
         std::string to_string() const override {
             const char* op_str = "?";
             switch (op_) {
@@ -78,9 +117,14 @@ namespace math_solver {
                    right_->to_string() + ")";
         }
 
-        // Deep clone of the subtree rooted at this node.
-        // Span is explicitly set to preserve source mapping; this is relied
-        // upon by later passes.
+        /// Produce a deep copy of the subtree rooted at this node.
+        ///
+        /// The span is explicitly set on the clone to preserve source mapping
+        /// for downstream diagnostic passes.
+        ///
+        /// # Returns
+        ///
+        /// A new `BinaryOp` with independent copies of both child subtrees.
         std::unique_ptr<Expr> clone() const override {
             auto cloned = std::make_unique<BinaryOp>(
                 left_->clone(), right_->clone(), op_);

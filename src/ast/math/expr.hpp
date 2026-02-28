@@ -1,5 +1,12 @@
 #pragma once
 
+//! # Module — `src/ast/math/expr.hpp`
+//!
+//! Defines the `Expr` abstract base class and the `ExprPtr` ownership alias.
+//! All math expression AST nodes inherit from `Expr`. Semantic passes access
+//! the tree exclusively through the `ExprVisitor` double-dispatch interface
+//! rather than through virtual methods on `Expr` itself.
+
 #include "ast/math/expr_visitor.hpp"
 #include "core/span.hpp"
 #include <memory>
@@ -7,18 +14,17 @@
 
 namespace math_solver {
 
-    // Base class for all expression nodes in the AST.
-    //
-    // - Each Expr carries a Span for error reporting and diagnostics.
-    // - Subclasses must implement accept(), to_string(), and clone().
-    // - Exprs are always heap-allocated and owned via unique_ptr to avoid
-    //   accidental aliasing and to simplify lifetime management.
-    // - The interface is intentionally minimal; all semantic logic is
-    //   delegated to visitors or external passes.
-    //
-    // Invariant: span_ must always be valid and correspond to the source
-    // region for this node. Mutations to span_ are only allowed during
-    // construction or AST rewriting passes.
+    /// Abstract base class for all math expression AST nodes.
+    ///
+    /// Every node carries a `Span` recording its source location for
+    /// diagnostics. All semantic logic is delegated to `ExprVisitor`
+    /// implementations; `Expr` itself is intentionally minimal. Nodes are
+    /// always heap-allocated and owned through `ExprPtr` to prevent aliasing
+    /// and simplify lifetime management.
+    ///
+    /// Invariant: `span_` must be valid and correspond to the source region of
+    /// this node. It may only be mutated during construction or an AST
+    /// rewriting pass via `set_span`.
     class Expr {
         protected:
         Span span_;
@@ -28,24 +34,48 @@ namespace math_solver {
         explicit Expr(const Span& span) : span_(span) {}
         virtual ~Expr() = default;
 
+        /// Return the source span associated with this node.
         const Span&         span() const { return span_; }
+
+        /// Overwrite the source span.
+        ///
+        /// Only valid during construction or an AST rewriting pass.
+        ///
+        /// # Arguments
+        ///
+        /// * `span` — The new source region for this node.
         void                set_span(const Span& span) { span_ = span; }
 
-        // Accepts a visitor for double-dispatch. All semantic passes
-        // (type checking, evaluation, etc.) should use this entry point.
+        /// Accept a visitor for double-dispatch traversal.
+        ///
+        /// All semantic passes (evaluation, algebra, diagnostics) must enter
+        /// the AST through this method.
+        ///
+        /// # Arguments
+        ///
+        /// * `visitor` — The visiting pass; must implement `ExprVisitor`.
         virtual void        accept(ExprVisitor& visitor) const = 0;
 
-        // Returns a stable, lossless string representation of the expression.
-        // Used for diagnostics and debugging; not guaranteed to be parseable.
+        /// Return a stable, lossless string representation for diagnostics.
+        ///
+        /// The output is not guaranteed to be re-parseable by the math lexer.
         virtual std::string to_string() const                  = 0;
 
-        // Produces a deep copy of the expression subtree.
-        // Required for AST rewriting and speculative transformations.
+        /// Produce a deep copy of the expression subtree.
+        ///
+        /// Required by AST rewriting passes and any transformation that must
+        /// duplicate a subtree while preserving source mapping.
+        ///
+        /// # Returns
+        ///
+        /// A freshly allocated `ExprPtr` owning an independent copy of this
+        /// node and all its descendants.
         virtual std::unique_ptr<Expr> clone() const            = 0;
     };
 
-    // Alias for heap-allocated expressions. All AST ownership flows through
-    // this.
+    /// Ownership alias for heap-allocated `Expr` nodes.
+    ///
+    /// All AST ownership and transfer flows through this alias.
     using ExprPtr = std::unique_ptr<Expr>;
 
 } // namespace math_solver
