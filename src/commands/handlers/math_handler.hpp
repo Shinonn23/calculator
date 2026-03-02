@@ -622,13 +622,14 @@ namespace math_solver {
         }
 
         // Evaluates an expression or equation.
-        // - For equations, checks for approximate equality (tolerance 1e-12).
+        // - For equations, checks for approximate equality using
+        //   config.settings().solver_tolerance.
         // - For expressions, prints the evaluated result.
         // - No context mutation.
         // - Handles runtime exceptions explicitly to avoid silent failures.
         inline HistoryStatus do_evaluate(const std::string& payload,
                                          const MathCommand& cmd, Context& ctx,
-                                         Config& /*config*/,
+                                         Config& config,
                                          DiagnosticSink& sink) {
             if (payload.empty())
                 return HistoryStatus::Error;
@@ -650,7 +651,8 @@ namespace math_solver {
                     double    rhs       = eval.evaluate(eq->rhs());
                     if (sink.error_count() > err_count)
                         return HistoryStatus::Error;
-                    bool               ok = std::abs(lhs - rhs) < 1e-12;
+                    bool               ok = std::abs(lhs - rhs) <
+                                           config.settings().solver_tolerance;
                     std::ostringstream oss;
                     oss << "  " << lhs << " = " << rhs << "  "
                         << (ok ? ansi::green : ansi::red)

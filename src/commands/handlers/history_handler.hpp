@@ -11,7 +11,6 @@
 #include "diagnostics/sink.hpp"
 #include <fstream>
 #include <iostream>
-#include <nlohmann/json.hpp>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -26,13 +25,9 @@ namespace math_solver {
         inline void append_history_file(const HistoryEntry& entry) {
             std::ofstream file(get_history_file_path(),
                                std::ios::app | std::ios::out);
-            if (file.is_open()) {
-                nlohmann::json j;
-                j["timestamp"] = entry.timestamp;
-                j["status"]    = to_string(entry.status);
-                j["command"]   = entry.command;
-                file << j.dump() << "\n";
-            }
+            if (file.is_open())
+                file << entry.timestamp << " [" << to_string(entry.status)
+                     << "]\n" << entry.command << "\n";
         }
 
         inline std::vector<HistoryEntry> load_history_file() {
@@ -47,26 +42,6 @@ namespace math_solver {
                 if (trimmed.empty())
                     continue;
 
-                // Try JSON Lines format first for robust parsing
-                if (!trimmed.empty() && trimmed.front() == '{' &&
-                    trimmed.back() == '}') {
-                    try {
-                        auto j = nlohmann::json::parse(trimmed);
-                        if (j.contains("timestamp") && j.contains("command")) {
-                            HistoryEntry entry;
-                            entry.timestamp = j["timestamp"].get<std::string>();
-                            entry.status    = parse_history_status(
-                                j.value("status", "Unknown"));
-                            entry.command = j["command"].get<std::string>();
-                            history.push_back(entry);
-                            continue;
-                        }
-                    } catch (...) {
-                        // Fallback to legacy parsing if JSON parse fails
-                    }
-                }
-
-                // Legacy parsing
                 size_t bs = trimmed.find('[');
                 size_t be = trimmed.rfind(']');
                 if (bs == std::string::npos || be == std::string::npos ||

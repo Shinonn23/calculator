@@ -1,5 +1,6 @@
 #pragma once
 
+#include "core/tolerance.hpp"
 #include "polynomial.hpp"
 #include <algorithm>
 #include <cmath>
@@ -18,7 +19,7 @@ namespace math_solver {
         // occurred). Used to avoid unnecessary wrapping in output and to
         // preserve canonical forms.
         bool                                    is_trivial() const {
-            return std::abs(numeric_factor - 1.0) < 1e-9 &&
+            return std::abs(numeric_factor - 1.0) < kCoeffTol &&
                    common_monomial.is_constant() && factors.size() == 1 &&
                    factors[0].second == 1;
         }
@@ -34,13 +35,13 @@ namespace math_solver {
 
             std::string result;
 
-            bool        has_numeric = std::abs(numeric_factor - 1.0) > 1e-9 &&
-                               std::abs(numeric_factor + 1.0) > 1e-9;
+            bool        has_numeric = std::abs(numeric_factor - 1.0) > kCoeffTol &&
+                               std::abs(numeric_factor + 1.0) > kCoeffTol;
             bool is_negative = numeric_factor < 0;
 
             // Special-case: output "-1" for negative unit with no other
             // factors.
-            if (std::abs(numeric_factor + 1.0) < 1e-9 &&
+            if (std::abs(numeric_factor + 1.0) < kCoeffTol &&
                 common_monomial.is_constant() && factors.empty()) {
                 return "-1";
             }
@@ -49,7 +50,7 @@ namespace math_solver {
                 double abs_val = std::abs(numeric_factor);
                 if (is_negative)
                     result += "-";
-                if (std::abs(abs_val - std::round(abs_val)) < 1e-9) {
+                if (std::abs(abs_val - std::round(abs_val)) < kCoeffTol) {
                     result += std::to_string(
                         static_cast<int64_t>(std::round(abs_val)));
                 } else {
@@ -99,9 +100,9 @@ namespace math_solver {
         double b = poly.coeff_of_degree(1);
         double c = poly.coeff_of_degree(0);
 
-        if (std::abs(a - std::round(a)) > 1e-9 ||
-            std::abs(b - std::round(b)) > 1e-9 ||
-            std::abs(c - std::round(c)) > 1e-9) {
+        if (std::abs(a - std::round(a)) > kCoeffTol ||
+            std::abs(b - std::round(b)) > kCoeffTol ||
+            std::abs(c - std::round(c)) > kCoeffTol) {
             return false;
         }
 
@@ -258,7 +259,7 @@ namespace math_solver {
         // Extract GCD of all coefficients. This is necessary to ensure
         // subsequent factoring operates on primitive polynomials.
         double coeff_gcd = working.coefficient_gcd();
-        if (coeff_gcd > 1.0 + 1e-9) {
+        if (coeff_gcd > 1.0 + kCoeffTol) {
             working               = working / coeff_gcd;
             result.numeric_factor = coeff_gcd;
         }
@@ -266,7 +267,7 @@ namespace math_solver {
         // Ensure leading coefficient is non-negative for canonicalization.
         if (!working.terms().empty()) {
             auto first_coeff = working.terms().begin()->second;
-            if (first_coeff < -1e-9) {
+            if (first_coeff < -kCoeffTol) {
                 working = -working;
                 result.numeric_factor *= -1;
             }

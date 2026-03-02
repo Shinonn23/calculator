@@ -1,5 +1,6 @@
 #pragma once
 
+#include "core/tolerance.hpp"
 #include <nlohmann/json.hpp>
 #include <string>
 #include <vector>
@@ -18,10 +19,15 @@ namespace math_solver {
         bool                            output_trailing_zeros = false;
         bool                            output_thousands_sep  = false;
 
-        // Solver parameters. These values are assumed to be respected by all
-        // solver routines. solver_tolerance must be positive and sufficiently
-        // small for numerical stability.
-        double                          solver_tolerance      = 1e-12;
+        // Solver parameters. All three tolerance fields must be positive and
+        // sufficiently small for numerical stability. Their defaults match the
+        // compile-time constants in core/tolerance.hpp:
+        //   solver_tolerance  ↔ kEpsilon   — near-zero / algebraic precision
+        //   solver_coeff_tol  ↔ kCoeffTol  — coefficient ≈ ±1 / near-integer
+        //   solver_pivot_tol  ↔ kPivotTol  — matrix pivot selection
+        double                          solver_tolerance      = kEpsilon;
+        double                          solver_coeff_tol      = kCoeffTol;
+        double                          solver_pivot_tol      = kPivotTol;
         int                             solver_max_iter       = 1000;
 
         // History management. history_size is a hard cap; exceeding this
@@ -49,6 +55,7 @@ namespace math_solver {
                 "output.mode",          "output.decimals",
                 "output.fraction",      "output.trailing_zeros",
                 "output.thousands_sep", "solver.tolerance",
+                "solver.coeff_tol",     "solver.pivot_tol",
                 "solver.max_iter",      "history.size",
                 "history.dedup",        "history.ignore",
                 "repl.prompt",          "repl.show_timing",
@@ -84,6 +91,16 @@ namespace math_solver {
                     static_cast<int>(std::round(-std::log10(solver_tolerance)));
                 return "1e-" + std::to_string(exponent);
             }
+            if (key == "solver.coeff_tol") {
+                int exponent =
+                    static_cast<int>(std::round(-std::log10(solver_coeff_tol)));
+                return "1e-" + std::to_string(exponent);
+            }
+            if (key == "solver.pivot_tol") {
+                int exponent =
+                    static_cast<int>(std::round(-std::log10(solver_pivot_tol)));
+                return "1e-" + std::to_string(exponent);
+            }
             if (key == "solver.max_iter")
                 return std::to_string(solver_max_iter);
             if (key == "history.size")
@@ -103,6 +120,17 @@ namespace math_solver {
             if (key == "auto_load_env")
                 return auto_load_env;
             return "";
+        }
+
+        // Propagates the three tolerance fields to the global variables in
+        // core/tolerance.hpp so that all code using kEpsilon / kCoeffTol /
+        // kPivotTol picks up the configured values at runtime.
+        // Must be called after any load, set, or reset that touches a tolerance
+        // field.
+        void apply_to_globals() const {
+            kEpsilon  = solver_tolerance;
+            kCoeffTol = solver_coeff_tol;
+            kPivotTol = solver_pivot_tol;
         }
 
         // Attempts to set the value for the given key.

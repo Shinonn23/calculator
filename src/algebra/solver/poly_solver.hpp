@@ -58,7 +58,7 @@ namespace math_solver {
         /// @param tol    Tolerance for Im-part filtering and root-merging.
         Result<PolyRoots> solve(const Polynomial& poly,
                                 const std::string& input = "",
-                                double             tol   = 1e-9) const {
+                                double             tol   = kCoeffTol) const {
             if (!poly.is_univariate()) {
                 return Result<PolyRoots>::err(errors::invalid_equation(
                     "polynomial solver requires a univariate polynomial",

@@ -32,12 +32,12 @@ namespace math_solver {
 
         // Returns true if the equation is unsatisfiable (0 = c, c != 0).
         bool                     is_no_solution() const {
-            return form.is_constant() && std::abs(form.constant) > 1e-12;
+            return form.is_constant() && std::abs(form.constant) > kEpsilon;
         }
 
         // Returns true if the equation is tautological (0 = 0).
         bool is_infinite_solutions() const {
-            return form.is_constant() && std::abs(form.constant) < 1e-12;
+            return form.is_constant() && std::abs(form.constant) < kEpsilon;
         }
     };
 
@@ -198,7 +198,7 @@ namespace math_solver {
             for (const auto& var : var_order) {
                 double coeff = form.get_coeff(var);
 
-                if (std::abs(coeff) < 1e-12 && !opts.show_zero_coeffs) {
+                if (std::abs(coeff) < kEpsilon && !opts.show_zero_coeffs) {
                     continue;
                 }
 
@@ -223,7 +223,7 @@ namespace math_solver {
                     coeff_str = format_coefficient(coeff, false, false);
                 }
 
-                if (std::abs(form.get_coeff(var)) < 1e-12) {
+                if (std::abs(form.get_coeff(var)) < kEpsilon) {
                     oss << "0" << var;
                 } else if (coeff_str.empty()) {
                     oss << var;
@@ -241,7 +241,7 @@ namespace math_solver {
             double rhs = -form.constant;
 
             // Avoid negative zero in output.
-            if (std::abs(rhs) < 1e-12) {
+            if (std::abs(rhs) < kEpsilon) {
                 rhs = 0.0;
             }
 
@@ -280,7 +280,7 @@ namespace math_solver {
             for (const auto& var : var_order) {
                 double coeff = form.get_coeff(var);
 
-                if (std::abs(coeff) < 1e-12) {
+                if (std::abs(coeff) < kEpsilon) {
                     continue;
                 }
 
@@ -316,7 +316,7 @@ namespace math_solver {
 
             // Constant term: always included if nonzero or if there are no
             // variable terms.
-            if (std::abs(form.constant) > 1e-12 || first) {
+            if (std::abs(form.constant) > kEpsilon || first) {
                 double c = form.constant;
                 if (!first) {
                     if (c >= 0) {

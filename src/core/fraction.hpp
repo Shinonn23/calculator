@@ -1,5 +1,6 @@
 #pragma once
 
+#include "core/tolerance.hpp"
 #include <cmath>
 #include <cstdint>
 #include <string>
@@ -73,7 +74,7 @@ namespace math_solver {
     // - Algorithm terminates early for values close to integers or if
     // denominator bound is hit.
     inline Fraction double_to_fraction(double  value,
-                                       double  tolerance       = 1e-9,
+                                       double  tolerance       = kCoeffTol,
                                        int64_t max_denominator = 10000) {
         if (std::isnan(value) || std::isinf(value)) {
             return Fraction(0, 1);
@@ -139,10 +140,10 @@ namespace math_solver {
                                           bool   show_one    = false,
                                           bool   as_fraction = false) {
         if (!as_fraction) {
-            if (!show_one && std::abs(coeff - 1.0) < 1e-9) {
+            if (!show_one && std::abs(coeff - 1.0) < kCoeffTol) {
                 return "";
             }
-            if (!show_one && std::abs(coeff + 1.0) < 1e-9) {
+            if (!show_one && std::abs(coeff + 1.0) < kCoeffTol) {
                 return "-";
             }
 

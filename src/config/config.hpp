@@ -57,7 +57,10 @@ namespace math_solver {
 
         // Resets all settings to their default values.
         // Does not affect environments.
-        void         reset_settings() { settings_ = Settings{}; }
+        void         reset_settings() {
+            settings_ = Settings{};
+            settings_.apply_to_globals();
+        }
 
         // Resolves the canonical config file path for this process.
         // May consult environment variables or platform-specific conventions.

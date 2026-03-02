@@ -1,4 +1,5 @@
 #include "algebra/matrix/matrix_solver.hpp"
+#include "core/tolerance.hpp"
 #include "diagnostics/kinds/solver_errors.hpp"
 
 #include <algorithm>
@@ -39,7 +40,7 @@ namespace math_solver {
             for (const auto& row : mat) {
                 bool nonzero = false;
                 for (size_t j = 0; j < col_limit && j < row.size(); ++j) {
-                    if (std::abs(row[j]) > 1e-10) {
+                    if (std::abs(row[j]) > kPivotTol) {
                         nonzero = true;
                         break;
                     }
@@ -70,7 +71,7 @@ namespace math_solver {
                     }
                 }
 
-                if (max_val < 1e-12)
+                if (max_val < kEpsilon)
                     continue; // effectively zero column; skip
 
                 if (max_row != pivot_row)
@@ -82,7 +83,7 @@ namespace math_solver {
 
                 // Eliminate entries below the pivot.
                 for (size_t r = pivot_row + 1; r < m; ++r) {
-                    if (std::abs(mat[r][col]) < 1e-12)
+                    if (std::abs(mat[r][col]) < kEpsilon)
                         continue;
                     double factor = mat[r][col] / pivot;
                     for (size_t c = col; c <= n; ++c)
@@ -108,7 +109,7 @@ namespace math_solver {
             std::vector<int> pivot_col(m, -1);
             for (size_t r = 0; r < m; ++r) {
                 for (size_t c = 0; c < n; ++c) {
-                    if (std::abs(mat[r][c]) > 1e-10) {
+                    if (std::abs(mat[r][c]) > kPivotTol) {
                         pivot_col[r] = static_cast<int>(c);
                         break;
                     }
@@ -140,7 +141,7 @@ namespace math_solver {
             std::vector<int> pivot_col(m, -1);
             for (size_t r = 0; r < m; ++r) {
                 for (size_t c = 0; c < n; ++c) {
-                    if (std::abs(mat[r][c]) > 1e-10) {
+                    if (std::abs(mat[r][c]) > kPivotTol) {
                         pivot_col[r] = static_cast<int>(c);
                         break;
                     }
@@ -179,13 +180,13 @@ namespace math_solver {
                 std::vector<std::string> terms;
                 for (size_t k = c + 1; k < n; ++k) {
                     double coeff = mat[r][k];
-                    if (std::abs(coeff) < 1e-12)
+                    if (std::abs(coeff) < kEpsilon)
                         continue;
                     std::ostringstream oss;
                     // Format coefficient·variable term.
-                    if (std::abs(coeff + 1.0) < 1e-9)
+                    if (std::abs(coeff + 1.0) < kCoeffTol)
                         oss << "-" << var_order[k];
-                    else if (std::abs(coeff - 1.0) < 1e-9)
+                    else if (std::abs(coeff - 1.0) < kCoeffTol)
                         oss << var_order[k];
                     else {
                         std::string cs = std::to_string(-coeff);
@@ -213,7 +214,7 @@ namespace math_solver {
                     }
                     expr << vs;
                 } else {
-                    if (std::abs(val) > 1e-12) {
+                    if (std::abs(val) > kEpsilon) {
                         std::string vs = std::to_string(val);
                         size_t      dp = vs.find('.');
                         if (dp != std::string::npos) {
@@ -281,7 +282,7 @@ namespace math_solver {
                     std::swap(perm[k], perm[max_row]);
                 }
 
-                if (std::abs(lu[k][k]) < 1e-12)
+                if (std::abs(lu[k][k]) < kEpsilon)
                     continue; // singular column
 
                 if (std::abs(lu[k][k]) < min_diag)
@@ -371,7 +372,7 @@ namespace math_solver {
             // Check rank by counting non-zero diagonal entries.
             int rank                    = 0;
             for (size_t i = 0; i < n; ++i)
-                if (std::abs(lu[i][i]) > 1e-10)
+                if (std::abs(lu[i][i]) > kPivotTol)
                     ++rank;
 
             res.rank_A = rank;

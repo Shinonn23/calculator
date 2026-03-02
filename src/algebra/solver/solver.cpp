@@ -1,6 +1,7 @@
 #include "solver.hpp"
 #include "algebra/linear/linear_collector.hpp"
 #include "ast/math/equation_expr.hpp"
+#include "core/tolerance.hpp"
 #include <cmath>
 #include <string>
 #include <vector>
@@ -35,7 +36,7 @@ namespace math_solver {
         //   - constant == 0: tautology, infinite solutions.
         //   - constant != 0: contradiction, no solution.
         if (unknowns.empty()) {
-            if (std::abs(normalized.constant) < 1e-12) {
+            if (std::abs(normalized.constant) < kEpsilon) {
                 return Result<SolveResult>::err(errors::infinite_solutions(
                     "equation is always true (0 = 0)", eq.span(), input_));
             } else {
@@ -62,8 +63,8 @@ namespace math_solver {
 
         // Degenerate: variable eliminated by algebraic manipulation.
         // If a == 0, check for tautology or contradiction.
-        if (std::abs(a) < 1e-12) {
-            if (std::abs(b) < 1e-12) {
+        if (std::abs(a) < kEpsilon) {
+            if (std::abs(b) < kEpsilon) {
                 return Result<SolveResult>::err(errors::infinite_solutions(
                     "equation has infinite solutions (0*" + var + " = 0)",
                     eq.span(), input_));

@@ -1,6 +1,7 @@
 #include "config/config.hpp"
 #include "config/environment.hpp"
 #include "config/settings.hpp"
+#include "core/tolerance.hpp"
 #include "diagnostics/kinds/env_errors.hpp"
 
 #include <algorithm>
@@ -67,6 +68,27 @@ namespace math_solver {
             } catch (...) {
                 return "must be a positive number";
             }
+            apply_to_globals();
+        } else if (key == "solver.coeff_tol") {
+            try {
+                double v = std::stod(val);
+                if (v <= 0)
+                    return "must be > 0";
+                solver_coeff_tol = v;
+            } catch (...) {
+                return "must be a positive number";
+            }
+            apply_to_globals();
+        } else if (key == "solver.pivot_tol") {
+            try {
+                double v = std::stod(val);
+                if (v <= 0)
+                    return "must be > 0";
+                solver_pivot_tol = v;
+            } catch (...) {
+                return "must be a positive number";
+            }
+            apply_to_globals();
         } else if (key == "solver.max_iter") {
             return parse_int(val, solver_max_iter, 1, 1000000);
         } else if (key == "history.size") {
@@ -114,6 +136,8 @@ namespace math_solver {
             {"solver",
              {
                  {"tolerance", solver_tolerance},
+                 {"coeff_tol", solver_coeff_tol},
+                 {"pivot_tol", solver_pivot_tol},
                  {"max_iter", solver_max_iter},
              }                             },
             {"history",
@@ -163,7 +187,9 @@ namespace math_solver {
 
         if (j.contains("solver") && j["solver"].is_object()) {
             const auto& sv     = j["solver"];
-            s.solver_tolerance = get_dbl(sv, "tolerance", 1e-12);
+            s.solver_tolerance = get_dbl(sv, "tolerance", kEpsilon);
+            s.solver_coeff_tol = get_dbl(sv, "coeff_tol", kCoeffTol);
+            s.solver_pivot_tol = get_dbl(sv, "pivot_tol", kPivotTol);
             s.solver_max_iter  = get_int(sv, "max_iter", 1000);
         }
 
@@ -393,6 +419,10 @@ namespace math_solver {
 
                 settings_ = is_legacy ? Settings::migrate_legacy(s)
                                       : Settings::from_json(s);
+                // Propagate loaded tolerance values to the global constants in
+                // core/tolerance.hpp so all code using kEpsilon etc. reflects
+                // the configured values immediately.
+                settings_.apply_to_globals();
             }
 
             if (j.contains("environments")) {

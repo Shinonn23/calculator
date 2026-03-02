@@ -1,5 +1,6 @@
 #pragma once
 
+#include "core/tolerance.hpp"
 #include <cmath>
 #include <map>
 #include <set>
@@ -49,7 +50,7 @@ namespace math_solver {
         std::set<std::string> variables() const {
             std::set<std::string> vars;
             for (const auto& pair : coeffs) {
-                if (std::abs(pair.second) > 1e-12) {
+                if (std::abs(pair.second) > kEpsilon) {
                     vars.insert(pair.first);
                 }
             }
@@ -95,7 +96,7 @@ namespace math_solver {
         // Prunes coefficients and constant that are numerically insignificant.
         // This is necessary to avoid spurious variables due to floating-point
         // error.
-        void       simplify(double epsilon = 1e-12) {
+        void       simplify(double epsilon = kEpsilon) {
             for (auto it = coeffs.begin(); it != coeffs.end();) {
                 if (std::abs(it->second) < epsilon) {
                     it = coeffs.erase(it);
@@ -262,7 +263,7 @@ namespace math_solver {
                         input_);
                     return;
                 }
-                if (std::abs(right.constant) < 1e-12) {
+                if (std::abs(right.constant) < kEpsilon) {
                     error_ = errors::math("division by zero",
                                           node.right().span(), input_);
                     return;
@@ -283,13 +284,13 @@ namespace math_solver {
                 double exp = right.constant;
 
                 // x^0 is always 1, regardless of x.
-                if (std::abs(exp) < 1e-12) {
+                if (std::abs(exp) < kEpsilon) {
                     result_ = LinearForm(1.0);
                     break;
                 }
 
                 // x^1 is linear in x.
-                if (std::abs(exp - 1.0) < 1e-12) {
+                if (std::abs(exp - 1.0) < kEpsilon) {
                     result_ = left;
                     break;
                 }

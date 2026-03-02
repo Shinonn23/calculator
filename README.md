@@ -3,7 +3,7 @@
 
 A command-line calculator written in C++ that goes beyond basic arithmetic. You can evaluate expressions, store variables, solve equations, and work with polynomials — all inside an interactive terminal session.
 
-**Version**: 1.1.6
+**Version**: 1.1.7 (2024-06-15)
 
 ---
 

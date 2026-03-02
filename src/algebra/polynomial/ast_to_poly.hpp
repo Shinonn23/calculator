@@ -8,14 +8,13 @@
 #include "ast/math/variable_expr.hpp"
 #include "diagnostics/diagnostic.hpp"
 #include "diagnostics/kinds/polynomial_errors.hpp"
+#include "core/tolerance.hpp"
 #include "diagnostics/result.hpp"
 #include "polynomial.hpp"
 #include <cmath>
 #include <optional>
 
 namespace math_solver {
-
-    constexpr double kEpsilon = 1e-12;
 
     // Converts an Expr AST to a Polynomial, rejecting non-polynomial
     // constructs.

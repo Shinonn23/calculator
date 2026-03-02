@@ -1,5 +1,6 @@
 #pragma once
 
+#include "core/tolerance.hpp"
 #include <algorithm>
 #include <cmath>
 #include <map>
@@ -186,7 +187,7 @@ namespace math_solver {
         // Removes zero-coefficient terms. Called after all mutating operations.
         void                       cleanup() {
             for (auto it = terms_.begin(); it != terms_.end();) {
-                if (std::abs(it->second) < 1e-12)
+                if (std::abs(it->second) < kEpsilon)
                     it = terms_.erase(it);
                 else
                     ++it;
@@ -197,17 +198,17 @@ namespace math_solver {
         Polynomial() = default;
 
         explicit Polynomial(double constant) {
-            if (std::abs(constant) >= 1e-12)
+            if (std::abs(constant) >= kEpsilon)
                 terms_[Monomial()] = constant;
         }
 
         Polynomial(double coeff, const std::string& var, int exp = 1) {
-            if (std::abs(coeff) >= 1e-12)
+            if (std::abs(coeff) >= kEpsilon)
                 terms_[Monomial(var, exp)] = coeff;
         }
 
         Polynomial(double coeff, const Monomial& mono) {
-            if (std::abs(coeff) >= 1e-12)
+            if (std::abs(coeff) >= kEpsilon)
                 terms_[mono] = coeff;
         }
 
@@ -318,7 +319,7 @@ namespace math_solver {
 
         // Scalar multiplication.
         Polynomial operator*(double scalar) const {
-            if (std::abs(scalar) < 1e-12)
+            if (std::abs(scalar) < kEpsilon)
                 return Polynomial();
             Polynomial result;
             for (const auto& [m, c] : terms_)
@@ -358,7 +359,7 @@ namespace math_solver {
 
             bool all_integer = true;
             for (const auto& [_, c] : terms_) {
-                if (std::abs(c - std::round(c)) > 1e-9) {
+                if (std::abs(c - std::round(c)) > kCoeffTol) {
                     all_integer = false;
                     break;
                 }
@@ -422,7 +423,7 @@ namespace math_solver {
             bool        first = true;
 
             for (const auto& [m, c] : terms_) {
-                if (std::abs(c) < 1e-12)
+                if (std::abs(c) < kEpsilon)
                     continue;
 
                 std::string mono_str = m.to_string();
@@ -430,9 +431,9 @@ namespace math_solver {
 
                 if (first) {
                     if (has_vars) {
-                        if (std::abs(c - 1.0) < 1e-9) {
+                        if (std::abs(c - 1.0) < kCoeffTol) {
                             result += mono_str;
-                        } else if (std::abs(c + 1.0) < 1e-9) {
+                        } else if (std::abs(c + 1.0) < kCoeffTol) {
                             result += "-" + mono_str;
                         } else {
                             result += format_number(c) + mono_str;
@@ -445,7 +446,7 @@ namespace math_solver {
                     if (c > 0) {
                         result += " + ";
                         if (has_vars) {
-                            if (std::abs(c - 1.0) < 1e-9) {
+                            if (std::abs(c - 1.0) < kCoeffTol) {
                                 result += mono_str;
                             } else {
                                 result += format_number(c) + mono_str;
@@ -457,7 +458,7 @@ namespace math_solver {
                         result += " - ";
                         double abs_c = std::abs(c);
                         if (has_vars) {
-                            if (std::abs(abs_c - 1.0) < 1e-9) {
+                            if (std::abs(abs_c - 1.0) < kCoeffTol) {
                                 result += mono_str;
                             } else {
                                 result += format_number(abs_c) + mono_str;
@@ -475,7 +476,7 @@ namespace math_solver {
         private:
         // Formats a double as a string, trimming trailing zeros.
         static std::string format_number(double val) {
-            if (std::abs(val - std::round(val)) < 1e-9) {
+            if (std::abs(val - std::round(val)) < kCoeffTol) {
                 return std::to_string(static_cast<int64_t>(std::round(val)));
             }
             std::string str = std::to_string(val);
