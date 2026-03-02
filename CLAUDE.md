@@ -12,13 +12,13 @@ cmake -S . -B build -G Ninja -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
 ninja -C build
 
 # Run REPL
-./build/bin/math-solver
+./build/bin/cmath-solver
 
 # Evaluate single expression
-./build/bin/math-solver "2 + 3 * 4"
+./build/bin/cmath-solver "2 + 3 * 4"
 
 # Run script file
-./build/bin/math-solver --script tests/ui/math_solve.msl
+./build/bin/cmath-solver --script tests/ui/math_solve.msl
 ```
 
 ## Tests
@@ -34,10 +34,10 @@ cd build && ctest
 ./build/bin/ast_tests --gtest_filter="*BinaryExpr*"
 
 # Run only UI tests
-python3 tests/run_ui_tests.py --binary ./build/bin/math-solver --tests-dir tests/ui
+python3 tests/run_ui_tests.py --binary ./build/bin/cmath-solver --tests-dir tests/ui
 
 # Bless (regenerate) expected UI test output after intentional changes
-python3 tests/run_ui_tests.py --binary ./build/bin/math-solver --tests-dir tests/ui --bless
+python3 tests/run_ui_tests.py --binary ./build/bin/cmath-solver --tests-dir tests/ui --bless
 ```
 
 ## Documentation Rule (from `.agent/rules/implements.md`)
@@ -74,14 +74,14 @@ The pipeline is: `Input → InputRouter → Lexer → Parser → AST → Command
 
 **Error handling** (`src/diagnostics/`): No exceptions for user errors. All fallible functions return `Result<T>` (a `std::variant<T, Diagnostic>`). `Diagnostic` carries message, error code, source `Span`, inline label, help text, and `SourceLocation`. Error kinds are defined per-subsystem in `src/diagnostics/kinds/`.
 
-**Config & persistence** (`src/config/`): JSON-backed settings and named environments (variable sets). Config stored at `~/.config/math-solver/` on Linux, `%APPDATA%\math-solver\` on Windows. Uses `nlohmann/json` via CMake `FetchContent`.
+**Config & persistence** (`src/config/`): JSON-backed settings and named environments (variable sets). Config stored at `~/.config/cmath-solver/` on Linux, `%APPDATA%\cmath-solver\` on Windows. Uses `nlohmann/json` via CMake `FetchContent`.
 
 **REPL** (`src/ui/repl/`): Built on `replxx` (fetched automatically). Provides history, tab-completion, syntax highlighting, and hints.
 
 ### Build Architecture
 
-`math_core` static library contains everything except `src/main.cpp`. The `math-solver` executable links `math_core` + `replxx`. The `ast_tests` executable links `GTest::gtest_main` + `nlohmann_json` + `replxx` (does **not** link `math_core` — it compiles `src/diagnostics/diagnostic.cpp` directly).
+`math_core` static library contains everything except `src/main.cpp`. The `cmath-solver` executable links `math_core` + `replxx`. The `ast_tests` executable links `GTest::gtest_main` + `nlohmann_json` + `replxx` (does **not** link `math_core` — it compiles `src/diagnostics/diagnostic.cpp` directly).
 
 ### UI Test Format
 
-Tests in `tests/ui/` are `.msl` script files (math-solver script language) fed to `--script`. Expected combined stdout+stderr (ANSI-stripped, paths normalized) is stored in the paired `.stderr` file. Run with `--bless` to regenerate expected output after intentional changes.
+Tests in `tests/ui/` are `.msl` script files (cmath-solver script language) fed to `--script`. Expected combined stdout+stderr (ANSI-stripped, paths normalized) is stored in the paired `.stderr` file. Run with `--bless` to regenerate expected output after intentional changes.

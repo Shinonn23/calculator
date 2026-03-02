@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.10)
 
-project(math-solver
+project(cmath-solver
     VERSION 1.0.0
     LANGUAGES CXX
 )
@@ -106,24 +106,24 @@ if(MSVC)
 endif()
 
 # ===== Executable =====
-add_executable(math-solver
+add_executable(cmath-solver
     src/main.cpp
 )
 
-target_compile_features(math-solver PRIVATE cxx_std_17)
+target_compile_features(cmath-solver PRIVATE cxx_std_17)
 
-target_link_libraries(math-solver
+target_link_libraries(cmath-solver
     PRIVATE math_core
     PRIVATE replxx::replxx
 )
 
-target_compile_options(math-solver PRIVATE
+target_compile_options(cmath-solver PRIVATE
     $<$<CXX_COMPILER_ID:MSVC>:/W4>
     $<$<NOT:$<CXX_COMPILER_ID:MSVC>>:-Wall -Wextra>
 )
 
 if(MSVC)
-    target_compile_definitions(math-solver PRIVATE _CRT_SECURE_NO_WARNINGS)
+    target_compile_definitions(cmath-solver PRIVATE _CRT_SECURE_NO_WARNINGS)
 endif()
 
 # ===== AST Unit Tests =====
@@ -177,10 +177,10 @@ add_test(
     NAME ui_tests
     COMMAND ${Python3_EXECUTABLE}
         ${CMAKE_CURRENT_SOURCE_DIR}/tests/run_ui_tests.py
-        --binary $<TARGET_FILE:math-solver>
+        --binary $<TARGET_FILE:cmath-solver>
         --tests-dir ${CMAKE_CURRENT_SOURCE_DIR}/tests/ui
     WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
 )
 set_tests_properties(ui_tests PROPERTIES
-    DEPENDS math-solver
+    DEPENDS cmath-solver
 )

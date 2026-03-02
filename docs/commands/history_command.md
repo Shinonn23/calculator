@@ -494,8 +494,8 @@ Unknown status strings are silently parsed as `HistoryStatus::Unknown`.
 
 | Platform                      | Path                                       |
 | ----------------------------- | ------------------------------------------ |
-| Linux / macOS                 | `$HOME/.config/math-solver/history.txt`    |
-| Windows                       | `%APPDATA%\math-solver\history.txt`        |
+| Linux / macOS                 | `$HOME/.config/cmath-solver/history.txt`    |
+| Windows                       | `%APPDATA%\cmath-solver\history.txt`        |
 | Fallback (HOME/APPDATA unset) | `.math_solver_history` (current directory) |
 
 Parent directories are created on first use by `get_history_file_path()` in

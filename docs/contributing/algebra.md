@@ -293,7 +293,7 @@ Trigger: A new user-facing command requires a new algebra operation wired end-
 5. **Add the `case`** in `handle_math()` to dispatch to the new handler.
 
 6. **Add a UI test** in `tests/ui/` as a `.msl` script, run
-   `python3 tests/run_ui_tests.py --binary ./build/bin/math-solver --tests-dir tests/ui --bless`
+   `python3 tests/run_ui_tests.py --binary ./build/bin/cmath-solver --tests-dir tests/ui --bless`
    to generate the expected output file, then commit both.
 
 7. **Build check** — `ninja -C build` and `cd build && ctest`.

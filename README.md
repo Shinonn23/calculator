@@ -37,10 +37,10 @@ cmake -S . -B build -G Ninja -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
 ninja -C build
 
 # Launch the interactive REPL
-./build/bin/math-solver
+./build/bin/cmath-solver
 
 # Evaluate a single expression and exit
-./build/bin/math-solver "2 + 3 * 4"
+./build/bin/cmath-solver "2 + 3 * 4"
 ```
 
 ---
@@ -207,7 +207,7 @@ When a `:solve` produces multiple roots, the variable is stored as an array. Any
 | `history_size`  | `1000`      | Max number of history entries           |
 | `auto_load_env` | `"default"` | Environment loaded automatically        |
 
-Config is saved to `~/.config/math-solver/` on Linux or `%APPDATA%\math-solver\` on Windows.
+Config is saved to `~/.config/cmath-solver/` on Linux or `%APPDATA%\cmath-solver\` on Windows.
 
 ---
 

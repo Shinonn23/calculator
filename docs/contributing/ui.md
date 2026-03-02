@@ -137,7 +137,7 @@ Trigger: A new `:command` is added to the parser and command registry.
 
 4. **Register in the parser** — add the command to `src/parser/command/command_parser_registry.cpp` `build_registry()`. This step belongs to the `commands` module but is listed here because both registrations must happen together.
 
-5. **Build and verify** — `ninja -C build`, then run `./build/bin/math-solver` and type `:your_new_command` to confirm green highlighting, correct Tab completion, and the hint text.
+5. **Build and verify** — `ninja -C build`, then run `./build/bin/cmath-solver` and type `:your_new_command` to confirm green highlighting, correct Tab completion, and the hint text.
 
 ---
 

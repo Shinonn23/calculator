@@ -8,9 +8,9 @@ namespace math_solver {
     // Returns the canonical path to the user's history file, creating parent
     // directories if necessary.
     //
-    // - On Windows, prefers %APPDATA%\math-solver\history.txt. This avoids
+    // - On Windows, prefers %APPDATA%\cmath-solver\history.txt. This avoids
     //   polluting user home directories and aligns with platform conventions.
-    // - On Unix-like systems, uses $HOME/.config/math-solver/history.txt to
+    // - On Unix-like systems, uses $HOME/.config/cmath-solver/history.txt to
     //   respect XDG base directory spec. Falls back to a local file if $HOME
     //   is unset (rare, but possible in restricted environments).
     //
@@ -30,14 +30,14 @@ namespace math_solver {
         char*  appdata = nullptr;
         size_t len     = 0;
         if (_dupenv_s(&appdata, &len, "APPDATA") == 0 && appdata) {
-            fs::path dir = fs::path(appdata) / "math-solver";
+            fs::path dir = fs::path(appdata) / "cmath-solver";
             free(appdata);
             fs::create_directories(dir);
             return (dir / "history.txt").string();
         }
 #else
         if (const char* home = std::getenv("HOME")) {
-            fs::path dir = fs::path(home) / ".config" / "math-solver";
+            fs::path dir = fs::path(home) / ".config" / "cmath-solver";
             fs::create_directories(dir);
             return (dir / "history.txt").string();
         }
@@ -45,7 +45,7 @@ namespace math_solver {
         // Fallback: HOME/APPDATA not set. Use a local file to avoid
         // hard failure. This is consistent with rustc's fallback
         // strategies for user state.
-        return ".math_solver_history";
+        return ".cmath_solver_history";
     }
 
 } // namespace math_solver

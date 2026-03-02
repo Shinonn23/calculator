@@ -13,7 +13,7 @@
 
 ## 1. What it is
 
-**Math Solver** (`math-solver`) is an interactive REPL and CLI tool that parses, evaluates, and symbolically manipulates mathematical expressions. The user can enter arithmetic, assign named variables, solve linear equations, factor or expand polynomials, and manage named variable environments — all from a single prompt backed by persistent JSON configuration.
+**Math Solver** (`cmath-solver`) is an interactive REPL and CLI tool that parses, evaluates, and symbolically manipulates mathematical expressions. The user can enter arithmetic, assign named variables, solve linear equations, factor or expand polynomials, and manage named variable environments — all from a single prompt backed by persistent JSON configuration.
 
 ```text
 CMath Solver v1.1.5  [default]
@@ -59,13 +59,13 @@ ninja -C build
 ### Run
 ```bash
 # Interactive REPL
-./build/bin/math-solver
+./build/bin/cmath-solver
 
 # Evaluate a single expression and exit
-./build/bin/math-solver "2 + 3 * 4"
+./build/bin/cmath-solver "2 + 3 * 4"
 
 # Run a script file
-./build/bin/math-solver --script tests/ui/math_solve.msl
+./build/bin/cmath-solver --script tests/ui/math_solve.msl
 ```
 
 ### Tests
@@ -73,7 +73,7 @@ ninja -C build
 cd build && ctest                        # all tests
 ./build/bin/ast_tests                   # unit tests only
 python3 tests/run_ui_tests.py \
-  --binary ./build/bin/math-solver \
+  --binary ./build/bin/cmath-solver \
   --tests-dir tests/ui                  # UI tests only
 ```
 
@@ -177,11 +177,11 @@ Two independent Visitor hierarchies exist. `ExprVisitor` (`src/ast/math/expr_vis
 
 ### `math_core` static library
 
-The `math_core` static library (`CMakeLists.txt`) contains every `.cpp` file except `src/main.cpp`. The `math-solver` executable links `math_core` plus `replxx`. The `ast_tests` executable bypasses `math_core` entirely — it compiles only the specific `.cpp` files it needs (currently `src/diagnostics/diagnostic.cpp`) alongside the test sources, keeping the unit test build fast and narrowly scoped.
+The `math_core` static library (`CMakeLists.txt`) contains every `.cpp` file except `src/main.cpp`. The `cmath-solver` executable links `math_core` plus `replxx`. The `ast_tests` executable bypasses `math_core` entirely — it compiles only the specific `.cpp` files it needs (currently `src/diagnostics/diagnostic.cpp`) alongside the test sources, keeping the unit test build fast and narrowly scoped.
 
 ### JSON config with FetchContent dependencies
 
-Three external dependencies are fetched at configure time via CMake `FetchContent`: `nlohmann/json v3.11.3` (config serialisation), `replxx release-0.0.4` (readline-like REPL input with history and completions), and `googletest v1.17.0` (unit tests). All three are declared in `CMakeLists.txt` with `GIT_SHALLOW TRUE` and `FETCHCONTENT_UPDATES_DISCONNECTED ON` for offline builds. Config is persisted as JSON at `~/.config/math-solver/config.json` (Linux) or `%APPDATA%\math-solver\config.json` (Windows), as resolved by `Config::resolve_config_path()`.
+Three external dependencies are fetched at configure time via CMake `FetchContent`: `nlohmann/json v3.11.3` (config serialisation), `replxx release-0.0.4` (readline-like REPL input with history and completions), and `googletest v1.17.0` (unit tests). All three are declared in `CMakeLists.txt` with `GIT_SHALLOW TRUE` and `FETCHCONTENT_UPDATES_DISCONNECTED ON` for offline builds. Config is persisted as JSON at `~/.config/cmath-solver/config.json` (Linux) or `%APPDATA%\cmath-solver\config.json` (Windows), as resolved by `Config::resolve_config_path()`.
 
 ---
 

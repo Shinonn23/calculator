@@ -319,7 +319,7 @@ The table below lists files that **must be updated together** when making the na
 
 ### UI tests
 - [ ] A new `.msl` script in `tests/ui/` exercises the new command and its error paths.
-- [ ] Expected output is generated with `python3 tests/run_ui_tests.py --binary ./build/bin/math-solver --tests-dir tests/ui --bless` and reviewed before committing.
+- [ ] Expected output is generated with `python3 tests/run_ui_tests.py --binary ./build/bin/cmath-solver --tests-dir tests/ui --bless` and reviewed before committing.
 
 ### Documentation
 - [ ] `README.md` command table updated if user-facing syntax changed.

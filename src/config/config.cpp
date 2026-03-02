@@ -367,21 +367,21 @@ namespace math_solver {
         // - Otherwise, uses platform-specific config directory.
         // - Ensures parent directories exist before returning.
         namespace fs   = std::filesystem;
-        fs::path local = fs::current_path() / "math_solver.json";
+        fs::path local = fs::current_path() / "cmath_solver.json";
         if (fs::exists(local))
             return local.string();
 
         fs::path dir;
 #ifdef _WIN32
         if (const char* p = std::getenv("APPDATA"))
-            dir = fs::path(p) / "math-solver";
+            dir = fs::path(p) / "cmath-solver";
 #else
         if (const char* p = std::getenv("HOME"))
-            dir = fs::path(p) / ".config" / "math-solver";
+            dir = fs::path(p) / ".config" / "cmath-solver";
 #endif
         if (!dir.empty()) {
             std::filesystem::create_directories(dir);
-            return (dir / "math_solver.json").string();
+            return (dir / "cmath_solver.json").string();
         }
 
         return local.string();

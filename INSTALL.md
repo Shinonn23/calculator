@@ -123,7 +123,7 @@ Use any terminal.
 
 ```bash
 git clone <repository-url>
-cd math-solver
+cd cmath-solver
 ```
 
 ## Step 3 — Configure
@@ -149,13 +149,13 @@ ninja -C build
 ### Windows
 
 ```powershell
-.\build\bin\math-solver.exe
+.\build\bin\cmath-solver.exe
 ```
 
 ### Linux
 
 ```bash
-./build/bin/math-solver
+./build/bin/cmath-solver
 ```
 
 ---

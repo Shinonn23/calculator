@@ -33,7 +33,7 @@ Key design points:
 - **No exceptions for user errors.** All fallible functions return `Result<T>` (`diagnostics/result.hpp`), a `std::variant<T, Diagnostic>`.
 - **Visitor pattern** for AST dispatch — `CommandVisitor` in `ast/command/command_visitor.hpp`.
 - **Lazy evaluation** — variables store `ExprPtr`, resolved at evaluation time by `runtime/context/resolver.cpp`.
-- **JSON-backed config** — settings and environments serialised to `~/.config/math-solver/` (Linux) or `%APPDATA%\math-solver\` (Windows).
+- **JSON-backed config** — settings and environments serialised to `~/.config/cmath-solver/` (Linux) or `%APPDATA%\cmath-solver\` (Windows).
 
 ---
 
@@ -56,7 +56,7 @@ Before writing, read these files to ground every claim in actual source:
 - `src/config/config.hpp` and `src/config/settings.hpp` — config and environments
 - `src/diagnostics/result.hpp` and `src/diagnostics/diagnostic.hpp` — error system
 - `src/ui/repl/repl.hpp` — REPL loop entry point
-- `CMakeLists.txt` — build targets (`math_core`, `math-solver`, `ast_tests`)
+- `CMakeLists.txt` — build targets (`math_core`, `cmath-solver`, `ast_tests`)
 
 If `$ARGUMENTS` names a specific subsystem (e.g. `algebra`, `runtime`, `ui`), focus the deep-read on that subsystem's directory and summarise the rest at a higher level.
 
@@ -112,13 +112,13 @@ ninja -C build
 ### Run
 \`\`\`bash
 # Interactive REPL
-./build/bin/math-solver
+./build/bin/cmath-solver
 
 # Evaluate a single expression and exit
-./build/bin/math-solver "2 + 3 * 4"
+./build/bin/cmath-solver "2 + 3 * 4"
 
 # Run a script file
-./build/bin/math-solver --script tests/ui/math_solve.msl
+./build/bin/cmath-solver --script tests/ui/math_solve.msl
 \`\`\`
 
 ### Tests
@@ -126,7 +126,7 @@ ninja -C build
 cd build && ctest                        # all tests
 ./build/bin/ast_tests                   # unit tests only
 python3 tests/run_ui_tests.py \
-  --binary ./build/bin/math-solver \
+  --binary ./build/bin/cmath-solver \
   --tests-dir tests/ui                  # UI tests only
 \`\`\`
 

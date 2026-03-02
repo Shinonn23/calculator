@@ -656,4 +656,4 @@ Emits `E0002` (`unknown_env_subcommand`) with a fuzzy suggestion (`suggest()` fr
 | Move (`--vars` mode) | Writes subset to dest env + saves current env                       | Selected variables removed from `ctx` via `ctx.unset()`                |
 | Copy                 | Duplicates env (`config.copy_env`)                                  | None                                                                   |
 
-All data is stored in the JSON config file at `~/.config/math-solver/` on Linux or `%APPDATA%\math-solver\` on Windows. The REPL prompt reflects `current_env` in real time via `build_prompt(current_env)` in `src/ui/repl/runner.cpp`, so a successful `Load` immediately updates the visible prompt without requiring a restart.
+All data is stored in the JSON config file at `~/.config/cmath-solver/` on Linux or `%APPDATA%\cmath-solver\` on Windows. The REPL prompt reflects `current_env` in real time via `build_prompt(current_env)` in `src/ui/repl/runner.cpp`, so a successful `Load` immediately updates the visible prompt without requiring a restart.

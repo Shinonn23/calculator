@@ -397,7 +397,7 @@ the env switch-back and summary output.
 - `registry_.config()` is overwritten with the snapshot copy of `Config`.
 - `registry_.current_env_mut()` is reset to the snapshot's environment name.
 - `registry_.config().save()` writes the restored config to disk
-  (`~/.config/math-solver/` on Linux, `%APPDATA%\math-solver\` on Windows).
+  (`~/.config/cmath-solver/` on Linux, `%APPDATA%\cmath-solver\` on Windows).
 
 **Success path**
 

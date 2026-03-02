@@ -266,11 +266,11 @@ case ConfigCommand::Action::Path:
 ```
 
 Path resolution order (in `Config::resolve_config_path()`):
-1. `./math_solver.json` in current working directory (if the file already exists)
+1. `./cmath_solver.json` in current working directory (if the file already exists)
 2. Platform config directory:
-   - **Windows**: `%APPDATA%\math-solver\math_solver.json`
-   - **Linux / other**: `$HOME/.config/math-solver/math_solver.json`
-3. Fallback to `./math_solver.json` if no platform variable is set
+   - **Windows**: `%APPDATA%\cmath-solver\cmath_solver.json`
+   - **Linux / other**: `$HOME/.config/cmath-solver/cmath_solver.json`
+3. Fallback to `./cmath_solver.json` if no platform variable is set
 
 ### Reset
 

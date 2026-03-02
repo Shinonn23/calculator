@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""UI test runner for math-solver .msl scripts.
+"""UI test runner for cmath-solver .msl scripts.
 
 Each test is a .msl file paired with a .stderr file containing expected output.
 Run with --bless to regenerate expected files when output changes intentionally.
@@ -73,12 +73,12 @@ def run_test(binary: Path, msl_file: Path, bless: bool) -> bool:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description='Run math-solver UI tests')
+    parser = argparse.ArgumentParser(description='Run cmath-solver UI tests')
     parser.add_argument(
         '--binary',
         type=Path,
-        default=Path('./build/bin/math-solver'),
-        help='Path to math-solver binary',
+        default=Path('./build/bin/cmath-solver'),
+        help='Path to cmath-solver binary',
     )
     parser.add_argument(
         '--tests-dir',
