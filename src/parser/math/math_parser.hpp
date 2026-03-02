@@ -48,6 +48,7 @@ namespace math_solver {
         // Each function is responsible for a specific precedence level.
         // Assumes input is well-formed up to the current token.
         Result<ExprPtr> parse_primary();
+        Result<ExprPtr> parse_array_literal();
         Result<ExprPtr> parse_unary();
         Result<ExprPtr> parse_power();
         Result<ExprPtr> parse_multiplicative();

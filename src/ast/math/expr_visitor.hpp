@@ -12,6 +12,7 @@ namespace math_solver {
     class Variable;
     class Equation;
     class ArrayExpr;
+    class FunctionCall;
 
     /// Pure abstract visitor for the math expression AST.
     ///
@@ -22,21 +23,24 @@ namespace math_solver {
     /// `visit` overload must be added here in lockstep.
     class ExprVisitor {
         public:
-        virtual ~ExprVisitor()                      = default;
+        virtual ~ExprVisitor()                          = default;
 
         /// Dispatch to the visitor implementation for a `Number` leaf node.
-        virtual void visit(const Number& node)      = 0;
+        virtual void visit(const Number& node)          = 0;
 
         /// Dispatch to the visitor implementation for a `BinaryOp` interior node.
-        virtual void visit(const BinaryOp& node)    = 0;
+        virtual void visit(const BinaryOp& node)        = 0;
 
         /// Dispatch to the visitor implementation for a `UnaryOp` interior node.
-        virtual void visit(const UnaryOp& node)     = 0;
+        virtual void visit(const UnaryOp& node)         = 0;
 
         /// Dispatch to the visitor implementation for a `Variable` leaf node.
-        virtual void visit(const Variable& node)    = 0;
+        virtual void visit(const Variable& node)        = 0;
 
         /// Dispatch to the visitor implementation for an `ArrayExpr` node.
-        virtual void visit(const ArrayExpr& node)   = 0;
+        virtual void visit(const ArrayExpr& node)       = 0;
+
+        /// Dispatch to the visitor implementation for a `FunctionCall` node.
+        virtual void visit(const FunctionCall& node)    = 0;
     };
 } // namespace math_solver

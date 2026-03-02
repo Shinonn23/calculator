@@ -20,6 +20,9 @@ namespace math_solver {
         Pow,
         LParen,
         RParen,
+        LBracket,
+        RBracket,
+        Comma,
         Equals,
         Bang
     };
@@ -67,6 +70,12 @@ namespace math_solver {
             return "(";
         case TokenType::RParen:
             return ")";
+        case TokenType::LBracket:
+            return "[";
+        case TokenType::RBracket:
+            return "]";
+        case TokenType::Comma:
+            return ",";
         case TokenType::Equals:
             return "=";
         case TokenType::Bang:

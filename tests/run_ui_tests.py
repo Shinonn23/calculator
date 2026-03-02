@@ -40,6 +40,7 @@ def run_test(binary: Path, msl_file: Path, bless: bool) -> bool:
         [str(binary), '--script', str(msl_file)],
         capture_output=True,
         text=True,
+        encoding='utf-8',
     )
 
     # Combine stdout and stderr; the binary writes results to stdout and

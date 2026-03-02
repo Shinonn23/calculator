@@ -6,6 +6,7 @@
 #include "diagnostics/kinds/config_errors.hpp"
 #include "diagnostics/sink.hpp"
 #include "ui/color.hpp"
+#include <sstream>
 
 namespace math_solver {
     namespace handlers {

@@ -1,5 +1,7 @@
 #include "math_parser.hpp"
+#include "ast/math/array_expr.hpp"
 #include "ast/math/binary_expr.hpp"
+#include "ast/math/call_expr.hpp"
 #include "ast/math/expr.hpp"
 #include "ast/math/number_expr.hpp"
 #include "ast/math/unary_expr.hpp"
@@ -9,12 +11,57 @@
 
 namespace math_solver {
 
+    // Parses an array literal of the form '[' expr (',' expr)* ']'.
+    // - Supports empty arrays `[]`.
+    // - Each element is a full expression (any precedence).
+    // - Span covers from '[' to ']' inclusive.
+    Result<ExprPtr> Parser::parse_array_literal() {
+        Span start_span = current_.span;
+        (void)advance(); // consume '['
+
+        std::vector<ExprPtr> elements;
+
+        if (current_.type == TokenType::RBracket) {
+            Span end_span = current_.span;
+            (void)advance(); // consume ']'
+            return Result<ExprPtr>::ok(std::make_unique<ArrayExpr>(
+                std::move(elements), start_span.merge(end_span)));
+        }
+
+        auto first = parse_expression();
+        if (!first)
+            return Result<ExprPtr>::err(first.error());
+        elements.push_back(std::move(*first));
+
+        while (current_.type == TokenType::Comma) {
+            (void)advance(); // consume ','
+            auto elem = parse_expression();
+            if (!elem)
+                return Result<ExprPtr>::err(elem.error());
+            elements.push_back(std::move(*elem));
+        }
+
+        if (current_.type != TokenType::RBracket) {
+            return Result<ExprPtr>::err(
+                errors::parse("expected ']'", current_.span, input_));
+        }
+        Span end_span = current_.span;
+        (void)advance(); // consume ']'
+
+        return Result<ExprPtr>::ok(std::make_unique<ArrayExpr>(
+            std::move(elements), start_span.merge(end_span)));
+    }
+
     // Parses a primary expression.
     // - Handles grouping via parentheses, numbers, and identifiers.
     // - Parentheses must be balanced; span is extended to include them.
     // - Throws on unexpected tokens; assumes caller has advanced to a valid
     // start.
     Result<ExprPtr> Parser::parse_primary() {
+        if (current_.type == TokenType::LBracket) {
+            return parse_array_literal();
+        }
+
         if (current_.type == TokenType::LParen) {
             Span start_span = current_.span;
             (void)advance();
@@ -38,10 +85,34 @@ namespace math_solver {
         }
 
         if (current_.type == TokenType::Identifier) {
-            std::string name = current_.name;
-            Span        span = current_.span;
+            std::string name      = current_.name;
+            Span        name_span = current_.span;
             (void)advance();
-            return Result<ExprPtr>::ok(std::make_unique<Variable>(name, span));
+
+            // Check for function call: identifier immediately followed by '('.
+            if (current_.type == TokenType::LParen) {
+                auto kind_opt = func_kind_from_name(name);
+                if (!kind_opt) {
+                    return Result<ExprPtr>::err(errors::parse(
+                        "unknown function '" + name + "'",
+                        name_span, input_));
+                }
+                (void)advance(); // consume '('
+                auto arg = parse_expression();
+                if (!arg)
+                    return Result<ExprPtr>::err(arg.error());
+                if (current_.type != TokenType::RParen)
+                    return Result<ExprPtr>::err(
+                        errors::parse("expected ')' after function argument",
+                                      current_.span, input_));
+                Span rparen_span = current_.span;
+                (void)advance(); // consume ')'
+                Span call_span = name_span.merge(rparen_span);
+                return Result<ExprPtr>::ok(std::make_unique<FunctionCall>(
+                    name, *kind_opt, std::move(*arg), call_span));
+            }
+
+            return Result<ExprPtr>::ok(std::make_unique<Variable>(name, name_span));
         }
 
         return Result<ExprPtr>::err(

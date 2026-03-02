@@ -1,5 +1,6 @@
 #include "resolver.hpp"
 #include "ast/math/binary_expr.hpp"
+#include "ast/math/call_expr.hpp"
 #include "ast/math/number_expr.hpp"
 #include "ast/math/variable_expr.hpp"
 #include "diagnostics/kinds/math_errors.hpp"
@@ -103,6 +104,56 @@ namespace math_solver {
                 return Result<double>::ok(std::pow(left_val, right_val));
             }
         }
+        if (auto* call = dynamic_cast<const FunctionCall*>(&expr)) {
+            auto arg_r = resolve_recursive(call->arg(), ctx, visited);
+            if (!arg_r.ok()) return arg_r;
+            double x = *arg_r;
+            switch (call->kind()) {
+            case FuncKind::Sin:   return Result<double>::ok(std::sin(x));
+            case FuncKind::Cos:   return Result<double>::ok(std::cos(x));
+            case FuncKind::Tan:   return Result<double>::ok(std::tan(x));
+            case FuncKind::Asin:
+                if (x < -1.0 || x > 1.0)
+                    return Result<double>::err(errors::func_domain(
+                        "domain error: asin argument must be in [-1, 1]",
+                        call->span()));
+                return Result<double>::ok(std::asin(x));
+            case FuncKind::Acos:
+                if (x < -1.0 || x > 1.0)
+                    return Result<double>::err(errors::func_domain(
+                        "domain error: acos argument must be in [-1, 1]",
+                        call->span()));
+                return Result<double>::ok(std::acos(x));
+            case FuncKind::Atan:  return Result<double>::ok(std::atan(x));
+            case FuncKind::Sinh:  return Result<double>::ok(std::sinh(x));
+            case FuncKind::Cosh:  return Result<double>::ok(std::cosh(x));
+            case FuncKind::Tanh:  return Result<double>::ok(std::tanh(x));
+            case FuncKind::Exp:   return Result<double>::ok(std::exp(x));
+            case FuncKind::Sqrt:
+                if (x < 0.0)
+                    return Result<double>::err(errors::func_domain(
+                        "domain error: sqrt of negative number",
+                        call->span()));
+                return Result<double>::ok(std::sqrt(x));
+            case FuncKind::Ln:
+                if (x <= 0.0)
+                    return Result<double>::err(errors::func_domain(
+                        "domain error: ln argument must be positive",
+                        call->span()));
+                return Result<double>::ok(std::log(x));
+            case FuncKind::Log:
+                if (x <= 0.0)
+                    return Result<double>::err(errors::func_domain(
+                        "domain error: log argument must be positive",
+                        call->span()));
+                return Result<double>::ok(std::log10(x));
+            case FuncKind::Abs:   return Result<double>::ok(std::abs(x));
+            case FuncKind::Floor: return Result<double>::ok(std::floor(x));
+            case FuncKind::Ceil:  return Result<double>::ok(std::ceil(x));
+            case FuncKind::Round: return Result<double>::ok(std::round(x));
+            }
+        }
+
         // Defensive: all expression types must be handled above.
         return Result<double>::err(Diagnostic::make(
             "unknown expression type in resolver", "E0000", expr.span()));

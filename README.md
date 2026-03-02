@@ -3,7 +3,7 @@
 
 A command-line calculator written in C++ that goes beyond basic arithmetic. You can evaluate expressions, store variables, solve equations, and work with polynomials — all inside an interactive terminal session.
 
-**Version**: 1.1.7 (2024-06-15)
+**Version**: 1.1.7.1 (2024-06-15)
 
 ---
 
@@ -110,6 +110,41 @@ error[E0301]: no real solutions (discriminant < 0)
 ```
 
 When a `:solve` produces multiple roots, the variable is stored as an array. Any subsequent expression using that variable is evaluated for each element — this is called *broadcast evaluation*.
+
+---
+
+## Built-in Functions
+
+Math Solver supports 17 built-in functions that can be used in any expression or equation.
+
+```
+> :set pi 3.14159265358979
+> sin(pi/2)
+= 1
+
+> sqrt(4)
+= 2
+
+> :set e 2.71828182845905
+> ln(e)
+= 1
+
+> :solve sin(pi/6) + x = 1
+x = 0.5 (saved)
+```
+
+| Category     | Functions                              | Notes                              |
+| ------------ | -------------------------------------- | ---------------------------------- |
+| Trigonometry | `sin(x)`, `cos(x)`, `tan(x)`          | Argument in radians                |
+| Inverse trig | `asin(x)`, `acos(x)`, `atan(x)`       | `asin`/`acos` require `x ∈ [-1,1]` |
+| Hyperbolic   | `sinh(x)`, `cosh(x)`, `tanh(x)`       |                                    |
+| Exponential  | `exp(x)`, `ln(x)`, `log(x)`, `sqrt(x)`| `ln`/`log` require `x > 0`; `sqrt` requires `x ≥ 0` |
+| Rounding     | `floor(x)`, `ceil(x)`, `round(x)`     |                                    |
+| Other        | `abs(x)`                               |                                    |
+
+**Solver behaviour**: functions with constant arguments (e.g. `sin(pi/6)`) are numerically collapsed during equation solving. Functions applied to an unknown variable (e.g. `sin(x)`) are rejected as non-linear with a clear error.
+
+Domain violations (e.g. `sqrt(-1)`, `ln(0)`, `asin(2)`) produce error `E0002`.
 
 ---
 
@@ -226,15 +261,16 @@ Fetched automatically by CMake — no manual installation needed.
 
 Detailed walkthroughs for each feature are in [`docs/`](docs/):
 
-| Feature            | Doc                                                                    |
-| ------------------ | ---------------------------------------------------------------------- |
-| math (all)         | [`docs/commands/math_commands.md`](docs/commands/math_commands.md)     |
-| polynomial solving | [`docs/solve-polynomial.md`](docs/solve-polynomial.md)                 |
-| system solving     | [`docs/solve-system.md`](docs/solve-system.md)                         |
-| :set / :unset      | [`docs/commands/var_command.md`](docs/commands/var_command.md)         |
-| :config            | [`docs/commands/config_command.md`](docs/commands/config_command.md)   |
-| :env               | [`docs/commands/env_command.md`](docs/commands/env_command.md)         |
-| :history           | [`docs/commands/history_command.md`](docs/commands/history_command.md) |
-| :redo              | [`docs/commands/redo_command.md`](docs/commands/redo_command.md)       |
-| :load              | [`docs/commands/load_command.md`](docs/commands/load_command.md)       |
-| Architecture       | [`docs/dispatch_overview.md`](docs/dispatch_overview.md)               |
+| Feature            | Doc                                                                          |
+| ------------------ | ---------------------------------------------------------------------------- |
+| built-in functions | [`docs/contributing/functions.md`](docs/contributing/functions.md)           |
+| math (all)         | [`docs/commands/math_commands.md`](docs/commands/math_commands.md)           |
+| polynomial solving | [`docs/solve-polynomial.md`](docs/solve-polynomial.md)                       |
+| system solving     | [`docs/solve-system.md`](docs/solve-system.md)                               |
+| :set / :unset      | [`docs/commands/var_command.md`](docs/commands/var_command.md)               |
+| :config            | [`docs/commands/config_command.md`](docs/commands/config_command.md)         |
+| :env               | [`docs/commands/env_command.md`](docs/commands/env_command.md)               |
+| :history           | [`docs/commands/history_command.md`](docs/commands/history_command.md)       |
+| :redo              | [`docs/commands/redo_command.md`](docs/commands/redo_command.md)             |
+| :load              | [`docs/commands/load_command.md`](docs/commands/load_command.md)             |
+| Architecture       | [`docs/dispatch_overview.md`](docs/dispatch_overview.md)                     |

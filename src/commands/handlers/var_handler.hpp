@@ -5,6 +5,7 @@
 #include "algebra/solver/solver.hpp"
 #include "ast/command/history_entry.hpp"
 #include "ast/command/var_command.hpp"
+#include "ast/math/array_expr.hpp"
 #include "config/config.hpp"
 #include "diagnostics/diagnostic.hpp"
 #include "diagnostics/kinds/command_errors.hpp"
@@ -212,6 +213,15 @@ namespace math_solver {
                     return HistoryStatus::Error;
                 }
                 ctx.set(var, std::move(*parse_result));
+
+                // Array literals are stored directly; skip scalar evaluation.
+                if (dynamic_cast<const ArrayExpr*>(&ctx.get_expr(var))) {
+                    std::ostringstream oss;
+                    oss << "  " << var << " = "
+                        << ctx.get_expr(var).to_string() << "\n";
+                    sink.push_output(oss.str());
+                    return HistoryStatus::Success;
+                }
 
                 try {
                     Evaluator          eval(&ctx, payload);

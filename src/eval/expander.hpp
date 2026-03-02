@@ -2,6 +2,7 @@
 
 #include "ast/math/array_expr.hpp"
 #include "ast/math/binary_expr.hpp"
+#include "ast/math/call_expr.hpp"
 #include "ast/math/equation_expr.hpp"
 #include "ast/math/expr.hpp"
 #include "ast/math/expr_visitor.hpp"
@@ -104,6 +105,13 @@ namespace math_solver {
             ExprPtr right = std::move(result_);
             result_       = std::make_unique<BinaryOp>(std::move(left),
                                                        std::move(right), node.op());
+        }
+
+        void visit(const FunctionCall& node) override {
+            node.arg().accept(*this);
+            result_ = std::make_unique<FunctionCall>(node.name(), node.kind(),
+                                                     std::move(result_),
+                                                     node.span());
         }
 
         // Equation nodes are not expanded here; expansion is deferred to later

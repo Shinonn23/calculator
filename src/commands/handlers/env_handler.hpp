@@ -10,6 +10,7 @@
 
 #include "diagnostics/sink.hpp"
 #include <iostream>
+#include <sstream>
 #include <unordered_map>
 
 namespace math_solver {

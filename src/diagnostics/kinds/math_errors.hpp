@@ -19,6 +19,13 @@ namespace math_solver {
                                     "unexpected syntax");
         }
 
+        inline Diagnostic func_domain(const std::string& message,
+                                      const Span&        span  = Span(),
+                                      const std::string& input = "") {
+            return Diagnostic::make(message, "E0002", span, input,
+                                    "domain error");
+        }
+
     } // namespace errors
 
 } // namespace math_solver

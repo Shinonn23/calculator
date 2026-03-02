@@ -1,0 +1,53 @@
+# Built-in math function tests
+
+# Basic trig (with pi defined)
+:set pi 3.14159265358979323846
+sin(pi/2)
+cos(0)
+tan(pi/4)
+
+# Inverse trig
+asin(1)
+acos(1)
+atan(1)
+
+# Hyperbolic
+sinh(0)
+cosh(0)
+tanh(0)
+
+# Exponential and logarithm
+:set e 2.71828182845904523536
+exp(0)
+exp(1)
+ln(e)
+log(100)
+
+# Roots and absolute value
+sqrt(4)
+sqrt(9)
+abs(-5)
+abs(3)
+
+# Rounding
+floor(3.7)
+ceil(3.2)
+round(3.5)
+round(3.4)
+
+# Solver: constant-arg function (sin(pi/6) + x = 1 => x = 0.5)
+:set pi 3.14159265358979323846
+:solve sin(pi/6) + x = 1
+
+# Solver: variable-arg function (non-linear rejection)
+:solve sin(x) = 0
+
+# Domain errors
+sqrt(-1)
+ln(-1)
+log(0)
+asin(2)
+acos(-2)
+
+# Unknown function
+badname(42)

@@ -144,6 +144,12 @@ namespace math_solver {
                 return Result<Token>::ok(Token(TokenType::LParen, 0, span));
             case ')':
                 return Result<Token>::ok(Token(TokenType::RParen, 0, span));
+            case '[':
+                return Result<Token>::ok(Token(TokenType::LBracket, 0, span));
+            case ']':
+                return Result<Token>::ok(Token(TokenType::RBracket, 0, span));
+            case ',':
+                return Result<Token>::ok(Token(TokenType::Comma, 0, span));
             case '=':
                 return Result<Token>::ok(Token(TokenType::Equals, 0, span));
             case '!':

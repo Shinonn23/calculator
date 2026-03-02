@@ -2,6 +2,7 @@
 
 #include "ast/math/array_expr.hpp"
 #include "ast/math/binary_expr.hpp"
+#include "ast/math/call_expr.hpp"
 #include "ast/math/expr_visitor.hpp"
 #include "ast/math/number_expr.hpp"
 #include "ast/math/unary_expr.hpp"
@@ -71,6 +72,7 @@ namespace math_solver {
         void visit(const Variable& node) override;
         // ArrayExpr in scalar context emits an error via sink.
         void visit(const ArrayExpr& node) override;
+        void visit(const FunctionCall& node) override;
 
         // Broadcast evaluation: resolves array-bound variables in expr and
         // evaluates the expression for each element, returning the vector of

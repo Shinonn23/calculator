@@ -1,6 +1,7 @@
 #include "evaluator.hpp"
 #include "ast/math/array_expr.hpp"
 #include "ast/math/binary_expr.hpp"
+#include "ast/math/call_expr.hpp"
 #include "ast/math/number_expr.hpp"
 #include "ast/math/unary_expr.hpp"
 #include "ast/math/variable_expr.hpp"
@@ -118,6 +119,70 @@ namespace math_solver {
         result_ = 0.0;
     }
 
+    void Evaluator::visit(const FunctionCall& node) {
+        node.arg().accept(*this);
+        double x = result_;
+        switch (node.kind()) {
+        case FuncKind::Sin:   result_ = std::sin(x);   break;
+        case FuncKind::Cos:   result_ = std::cos(x);   break;
+        case FuncKind::Tan:   result_ = std::tan(x);   break;
+        case FuncKind::Asin:
+            if (x < -1.0 || x > 1.0) {
+                auto d = errors::func_domain(
+                    "domain error: asin argument must be in [-1, 1]",
+                    node.span(), input_);
+                if (sink_) sink_->push(d);
+                result_ = 0.0; return;
+            }
+            result_ = std::asin(x); break;
+        case FuncKind::Acos:
+            if (x < -1.0 || x > 1.0) {
+                auto d = errors::func_domain(
+                    "domain error: acos argument must be in [-1, 1]",
+                    node.span(), input_);
+                if (sink_) sink_->push(d);
+                result_ = 0.0; return;
+            }
+            result_ = std::acos(x); break;
+        case FuncKind::Atan:  result_ = std::atan(x);  break;
+        case FuncKind::Sinh:  result_ = std::sinh(x);  break;
+        case FuncKind::Cosh:  result_ = std::cosh(x);  break;
+        case FuncKind::Tanh:  result_ = std::tanh(x);  break;
+        case FuncKind::Exp:   result_ = std::exp(x);   break;
+        case FuncKind::Sqrt:
+            if (x < 0.0) {
+                auto d = errors::func_domain(
+                    "domain error: sqrt of negative number",
+                    node.span(), input_);
+                if (sink_) sink_->push(d);
+                result_ = 0.0; return;
+            }
+            result_ = std::sqrt(x); break;
+        case FuncKind::Ln:
+            if (x <= 0.0) {
+                auto d = errors::func_domain(
+                    "domain error: ln argument must be positive",
+                    node.span(), input_);
+                if (sink_) sink_->push(d);
+                result_ = 0.0; return;
+            }
+            result_ = std::log(x); break;
+        case FuncKind::Log:
+            if (x <= 0.0) {
+                auto d = errors::func_domain(
+                    "domain error: log argument must be positive",
+                    node.span(), input_);
+                if (sink_) sink_->push(d);
+                result_ = 0.0; return;
+            }
+            result_ = std::log10(x); break;
+        case FuncKind::Abs:   result_ = std::abs(x);   break;
+        case FuncKind::Floor: result_ = std::floor(x); break;
+        case FuncKind::Ceil:  result_ = std::ceil(x);  break;
+        case FuncKind::Round: result_ = std::round(x); break;
+        }
+    }
+
     // Broadcast evaluation: evaluates `expr` for each element of any
     // array-bound variable found in the expression. All array variables must
     // have the same length; otherwise an error is pushed to sink.
@@ -146,6 +211,7 @@ namespace math_solver {
                 for (const auto& e : n.elements())
                     e->accept(*this);
             }
+            void visit(const FunctionCall& n) override { n.arg().accept(*this); }
         };
 
         VarNameCollector col;

@@ -2,6 +2,7 @@
 
 #include "ast/math/array_expr.hpp"
 #include "ast/math/binary_expr.hpp"
+#include "ast/math/call_expr.hpp"
 #include "ast/math/expr_visitor.hpp"
 #include "ast/math/number_expr.hpp"
 #include "ast/math/unary_expr.hpp"
@@ -57,6 +58,13 @@ namespace math_solver {
         void visit(const ArrayExpr& node) override {
             error_ = errors::polynomial(
                 "array value cannot appear in a polynomial expression",
+                node.span(), input_);
+        }
+
+        void visit(const FunctionCall& node) override {
+            error_ = errors::polynomial(
+                "function call '" + node.name() +
+                    "' cannot appear in polynomial expression",
                 node.span(), input_);
         }
 

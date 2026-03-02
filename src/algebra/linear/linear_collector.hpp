@@ -8,6 +8,7 @@
 
 #include "ast/math/array_expr.hpp"
 #include "ast/math/binary_expr.hpp"
+#include "ast/math/call_expr.hpp"
 #include "ast/math/expr.hpp"
 #include "ast/math/expr_visitor.hpp"
 #include "ast/math/number_expr.hpp"
@@ -307,6 +308,49 @@ namespace math_solver {
                 result_ = LinearForm(std::pow(left.constant, exp));
                 break;
             }
+        }
+
+        void visit(const FunctionCall& node) override {
+            if (error_)
+                return;
+            // Recurse into the argument to determine if it is constant.
+            node.arg().accept(*this);
+            if (error_)
+                return;
+            LinearForm arg_form = result_;
+
+            if (!arg_form.is_constant()) {
+                // Function applied to a variable expression — non-linear.
+                error_ = errors::unsupported_equation(
+                    "non-linear term: function '" + node.name() +
+                        "' applied to variable expression",
+                    node.span(), input_);
+                return;
+            }
+
+            // Constant argument — evaluate numerically.
+            double x = arg_form.constant;
+            double val = 0.0;
+            switch (node.kind()) {
+            case FuncKind::Sin:   val = std::sin(x);   break;
+            case FuncKind::Cos:   val = std::cos(x);   break;
+            case FuncKind::Tan:   val = std::tan(x);   break;
+            case FuncKind::Asin:  val = std::asin(x);  break;
+            case FuncKind::Acos:  val = std::acos(x);  break;
+            case FuncKind::Atan:  val = std::atan(x);  break;
+            case FuncKind::Sinh:  val = std::sinh(x);  break;
+            case FuncKind::Cosh:  val = std::cosh(x);  break;
+            case FuncKind::Tanh:  val = std::tanh(x);  break;
+            case FuncKind::Exp:   val = std::exp(x);   break;
+            case FuncKind::Sqrt:  val = std::sqrt(x);  break;
+            case FuncKind::Ln:    val = std::log(x);   break;
+            case FuncKind::Log:   val = std::log10(x); break;
+            case FuncKind::Abs:   val = std::abs(x);   break;
+            case FuncKind::Floor: val = std::floor(x); break;
+            case FuncKind::Ceil:  val = std::ceil(x);  break;
+            case FuncKind::Round: val = std::round(x); break;
+            }
+            result_ = LinearForm(val);
         }
     };
 

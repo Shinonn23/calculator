@@ -11,7 +11,7 @@
   [6] :config get auto_load_env
   auto_load_env = 
   [7] :config path
-  ~/.config/cmath-solver/cmath_solver.json
+  ~\AppData\Roaming\cmath-solver\cmath_solver.json
   [8] :config get
 error[E0502]: missing setting key
   --> config_read.msl:8:9
