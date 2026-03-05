@@ -7,7 +7,7 @@
   [4] :solve "2*x + 4 = 10"
   x = 3 (saved)
   [5] :solve "x - 7 = 0" --no-save
-  x = 7 (saved)
+  x = 7 (not saved)
   [6] :solve --no-save "3 = x + 1"
-  x = 2 (saved)
+  x = 2 (not saved)
   Loaded 'math_solve.msl' (6 line(s))

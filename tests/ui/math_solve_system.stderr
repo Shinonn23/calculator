@@ -16,8 +16,8 @@
   x = 2 (saved)
   y = 1 (saved)
   [5] :solve --no-save a + b = 10; a - b = 4
-  a = 7
-  b = 3
+  a = 7 (not saved)
+  b = 3 (not saved)
   [6] :solve --method=lu x + y = 4; x - y = 2
   x = 3 (saved)
   y = 1 (saved)
