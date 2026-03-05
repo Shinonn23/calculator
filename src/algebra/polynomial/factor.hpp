@@ -1,5 +1,18 @@
 #pragma once
 
+//! # Module — `src/algebra/polynomial/factor.hpp`
+//!
+//! Polynomial factorization for the algebra layer. Provides `FactoredForm` —
+//! the result type — and two entry points: `try_factor_quadratic` for integer
+//! quadratics and `factor_polynomial` for the general case.
+//!
+//! Current coverage:
+//! - Monomial GCD extraction (all degrees, all variable counts).
+//! - Coefficient GCD extraction (primitive polynomials only).
+//! - Full factorization of univariate degree-2 polynomials with integer
+//!   coefficients into linear factors.
+//! - Higher-degree and multivariate polynomials are returned unfactored.
+
 #include "core/tolerance.hpp"
 #include "polynomial.hpp"
 #include <algorithm>
@@ -9,25 +22,42 @@
 
 namespace math_solver {
 
+    /// The result of factoring a polynomial.
+    ///
+    /// The factored form is:
+    /// ```
+    ///   numeric_factor * common_monomial * product_i( factors[i].first ^
+    ///   factors[i].second )
+    /// ```
+    ///
+    /// Invariant: `is_trivial()` is true iff no factorization was found — the
+    /// single entry in `factors` is the original polynomial.
     struct FactoredForm {
+        /// Scalar coefficient extracted from the polynomial (includes sign).
         double                                  numeric_factor = 1.0;
+
+        /// Monomial GCD extracted from every term (e.g. `x` from `x² + x`).
         Monomial                                common_monomial;
+
+        /// List of irreducible polynomial factors paired with their exponent.
         std::vector<std::pair<Polynomial, int>> factors;
 
-        // Invariant: is_trivial() iff the factored form is a degenerate
-        // representation of the original polynomial (i.e., no actual factoring
-        // occurred). Used to avoid unnecessary wrapping in output and to
-        // preserve canonical forms.
+        /// Returns `true` if no actual factorization occurred.
+        ///
+        /// Specifically, returns `true` when `numeric_factor == 1`,
+        /// `common_monomial` is the constant 1, and there is exactly one
+        /// factor with exponent 1.
         bool                                    is_trivial() const {
             return std::abs(numeric_factor - 1.0) < kCoeffTol &&
                    common_monomial.is_constant() && factors.size() == 1 &&
                    factors[0].second == 1;
         }
 
-        // to_string() must preserve sign and structure for round-tripping
-        // through parsing and printing. Handles edge cases such as -1 and
-        // ensures minimal parentheses for readability. Assumes factors are
-        // already normalized.
+        /// Renders the factored form as a human-readable string.
+        ///
+        /// When `is_trivial()` is true, returns the single factor's string.
+        /// Otherwise assembles `±N * mono * (f1)^e1 * (f2)^e2 …`, suppressing
+        /// a leading `1` numeric factor and omitting exponents equal to 1.
         std::string to_string() const {
             if (is_trivial()) {
                 return factors[0].first.to_string();
@@ -81,16 +111,24 @@ namespace math_solver {
         }
     };
 
-    // Attempts to factor a quadratic polynomial with integer coefficients.
-    // Returns true and populates `factors` if successful.
-    //
-    // Correctness relies on:
-    // - All coefficients being integral (checked explicitly).
-    // - Discriminant being a perfect square (ensures rational roots).
-    // - Only produces integer-coefficient linear factors.
-    //
-    // Performance: O(sqrt(|a|) * sqrt(|c|)), dominated by divisor enumeration.
-    // Early exit on first valid factorization.
+    /// Attempts to factor a degree-2 univariate polynomial with integer
+    /// coefficients into two linear factors over the integers.
+    ///
+    /// Uses exhaustive divisor enumeration over divisors of the leading
+    /// coefficient `a` and constant term `c`. The search is O(√|a| · √|c|).
+    ///
+    /// # Arguments
+    ///
+    /// * `poly`    — Univariate polynomial; must be exactly degree 2.
+    /// * `var`     — The name of the single variable.
+    /// * `factors` — Output parameter; receives the two linear factors (or one
+    ///               squared factor) if factorization succeeds.
+    ///
+    /// # Returns
+    ///
+    /// `true` if integer linear factors were found and appended to `factors`;
+    /// `false` if any coefficient is non-integer, the discriminant is negative,
+    /// or the discriminant is not a perfect square.
     inline bool
     try_factor_quadratic(const Polynomial&                        poly,
                          const std::string&                       var,
@@ -220,19 +258,40 @@ namespace math_solver {
         return true;
     }
 
-    // Entry point for polynomial factorization.
-    //
-    // Invariants:
-    // - Resulting FactoredForm is normalized: numeric_factor absorbs all
-    //   constant scaling, common_monomial absorbs all monomial GCDs, and
-    //   factors are irreducible under implemented heuristics.
-    // - For zero or constant input, factors is empty.
-    //
-    // Subtlety: The factoring logic is intentionally conservative; only
-    // quadratic univariate polynomials are fully factored. Multivariate and
-    // higher-degree cases are left as-is for now.
-    //
-    // Performance: Dominated by monomial GCD and quadratic factoring.
+    /// Factors a polynomial and returns its `FactoredForm`.
+    ///
+    /// The algorithm proceeds in order:
+    /// 1. Extract the maximal common monomial GCD.
+    /// 2. Extract the GCD of all integer-valued coefficients.
+    /// 3. Normalize the leading coefficient to be positive.
+    /// 4. For univariate degree-2 polynomials, attempt integer factorization
+    ///    via `try_factor_quadratic`.
+    /// 5. Otherwise return the remaining polynomial as a single irreducible
+    ///    factor.
+    ///
+    /// The resulting `FactoredForm` satisfies:
+    ///   `poly ≡ result.numeric_factor * result.common_monomial * ∏ factors`.
+    ///
+    /// # Arguments
+    ///
+    /// * `poly` — The polynomial to factor. Must not be modified by the caller
+    ///   during the call.
+    ///
+    /// # Returns
+    ///
+    /// A `FactoredForm` whose `is_trivial()` is `true` when no factorization
+    /// beyond GCD extraction was possible. For the zero polynomial,
+    /// `numeric_factor` is 0 and `factors` is empty.
+    ///
+    /// # Examples
+    ///
+    /// ```cpp
+    /// Polynomial p(1.0, "x", 2);               // x^2
+    /// p = p + Polynomial(-1.0, "x", 1);        // x^2 - x
+    /// FactoredForm ff = factor_polynomial(p);  // x(x - 1)
+    /// // ff.common_monomial == Monomial("x")
+    /// // ff.factors == [(x - 1, 1)]
+    /// ```
     inline FactoredForm factor_polynomial(const Polynomial& poly) {
         FactoredForm result;
 

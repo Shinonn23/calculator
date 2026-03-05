@@ -36,15 +36,28 @@ namespace math_solver {
             // Only attach a math action payload if the next token is a
             // recognized action. This avoids misinterpreting arbitrary input as
             // a math action.
+            //
+            // In both branches a quoted-string token is accepted as the
+            // expression payload (quotes already stripped by the lexer).
+            // This allows:  :set x "expr with spaces"
+            //               :set y solve "x^2 - 4 = 0"
             if (stream.peek_is(CommandTokenType::Word) &&
                 (stream.peek().value == "solve" ||
                  stream.peek().value == "expand" ||
                  stream.peek().value == "factor")) {
                 std::string math_action = stream.peek().value;
                 stream.advance();
-                var_cmd->set_payload(math_action, stream.consume_remaining());
+                std::string payload =
+                    stream.peek_is(CommandTokenType::QuotedString)
+                        ? stream.advance().value
+                        : stream.consume_remaining();
+                var_cmd->set_payload(math_action, payload);
             } else {
-                var_cmd->set_payload("", stream.consume_remaining());
+                std::string payload =
+                    stream.peek_is(CommandTokenType::QuotedString)
+                        ? stream.advance().value
+                        : stream.consume_remaining();
+                var_cmd->set_payload("", payload);
             }
         }
         return Result<CommandPtr>::ok(std::move(var_cmd));

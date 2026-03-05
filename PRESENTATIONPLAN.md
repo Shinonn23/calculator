@@ -44,6 +44,13 @@ y
 > แต่ที่พิเศษกว่านั้น ตัวแปรใน cmath-solver เป็น lazy evaluation
 > ถ้าเปลี่ยน x ทีหลัง y จะอัปเดตตามอัตโนมัติ"
 
+> "ใส่ expression ใน quote ได้ด้วย — มีประโยชน์เมื่อ expression ซับซ้อน"
+
+```
+:set f "x^2 + 3*x - 4"
+f
+```
+
 ```
 :set x 10
 y
@@ -70,12 +77,19 @@ y
 ```
 > "สมการเชิงเส้น — ได้ x = 3 และบันทึกลง context อัตโนมัติ"
 
-**Quadratic:**
+**Quoted expression + post-expression flag (ใหม่):**
+```
+:solve "x^2 - 5*x + 6 = 0" --fraction
+```
+> "คำสั่ง solve รองรับ quoted expression ด้วย — ใส่ flag ไว้หลังสมการได้เลย
+> ตัวเลขออกมาเป็น fraction แบบ exact"
+
+**Quadratic (unquoted):**
 ```
 :solve x^2 - 5*x + 6 = 0
 ```
-> "สมการกำลังสอง — ได้ x = [2, 3] ทั้งสองคำตอบ
-> ที่เจ๋งคือถ้า x มีหลายค่า เราสามารถใช้ x ในสูตรต่อได้เลย"
+> "แบบ unquoted ก็ยังใช้ได้เหมือนเดิม — ได้ x = [2, 3] ทั้งสองคำตอบ
+> ถ้า x มีหลายค่า เราสามารถใช้ x ในสูตรต่อได้เลย"
 
 ```
 x^2 + 1
@@ -186,6 +200,7 @@ x^2 + 1
 > "cmath-solver รองรับทั้ง expression evaluation, variable management แบบ lazy,
 > การแก้สมการตั้งแต่ linear ถึง polynomial, ระบบสมการ NxN,
 > polynomial expand/factor, scripting และ environment management
+> command grammar รองรับทั้ง unquoted และ quoted expression — วาง flag ก่อนหรือหลัง expression ก็ได้
 > ทั้งหมดนี้อยู่ใน CLI เดียว พร้อม error message ที่อ่านเข้าใจง่าย"
 
 ---
@@ -196,3 +211,4 @@ x^2 + 1
 - รัน `./build/bin/cmath-solver` เพื่อเข้า REPL
 - ลำดับคำสั่งตาม script ด้านบน
 - เน้น feature ที่น่าสนใจ: lazy eval, broadcast, error handling
+- Grammar ใหม่: `:solve "expr" [flags]` และ `:set x "expr"` — flags วางหลัง quoted expression ได้

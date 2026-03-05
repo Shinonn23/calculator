@@ -1,3 +1,6 @@
 :solve 2*x + 4 = 10
 :solve x = 0
 :solve 3 = x + 1
+:solve "2*x + 4 = 10"
+:solve "x - 7 = 0" --no-save
+:solve --no-save "3 = x + 1"

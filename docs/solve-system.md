@@ -93,8 +93,8 @@ Solve without touching the context:
 
 Output:
 ```
-  a = 7
-  b = 3
+  a = 7 (not saved)
+  b = 3 (not saved)
 ```
 
 #### `--exact`

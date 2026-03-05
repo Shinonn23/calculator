@@ -19,10 +19,13 @@ namespace math_solver {
 
     Result<CommandPtr> MathCommandParser::parse(ITokenStream& stream) {
         // Entry point for parsing math commands.
+        // Grammar:
+        //   :cmd [flags] <expr>            -- flags must come before unquoted expr
+        //   :cmd [flags] "<expr>" [flags]  -- quoted expr; flags allowed either side
+        //
         // - Expects the stream to be positioned at the command token (e.g.,
         // ":solve").
         // - Advances past the command token before processing flags.
-        // - Flags are parsed in a single pass; order is not significant.
         // - The "-vars"/"--vars" flag consumes all subsequent Word/QuotedString
         // tokens as variable names.
         //   This is greedy and assumes no ambiguity with other flags.
@@ -39,8 +42,9 @@ namespace math_solver {
         bool                     free_vars_flag  = false;
         SolveMethod              method          = SolveMethod::Gauss;
         std::vector<std::string> vars;
-        while (stream.peek_is(CommandTokenType::Flag)) {
-            std::string flag = stream.advance().value;
+
+        // Shared flag handler — called in both phase 1 and phase 3.
+        auto handle_flag = [&](const std::string& flag) {
             if (flag == "-isolated" || flag == "--isolated")
                 isolated = true;
             else if (flag == "-fraction" || flag == "--fraction")
@@ -72,13 +76,34 @@ namespace math_solver {
                     vars.push_back(stream.advance().value);
                 }
             }
+        };
+
+        // Phase 1: flags before expression.
+        while (stream.peek_is(CommandTokenType::Flag)) {
+            handle_flag(stream.advance().value);
         }
+
+        // Phase 2: expression — quoted or unquoted.
+        // - Quoted: lexer already strips the surrounding quotes from the value.
+        //   After consuming the quoted string, a phase-3 flag pass follows.
+        // - Unquoted: consume the raw remainder as-is (existing behaviour).
+        std::string payload;
+        if (stream.peek_is(CommandTokenType::QuotedString)) {
+            payload = stream.advance().value;
+            // Phase 3: flags that appear after a quoted expression.
+            while (stream.peek_is(CommandTokenType::Flag)) {
+                handle_flag(stream.advance().value);
+            }
+        } else {
+            payload = stream.consume_remaining();
+        }
+
         // Construct MathCommand with parsed type and arguments.
         // - set_flags encodes all flag state; no further mutation after
         // construction.
         // - raw_input is preserved for error reporting or diagnostics.
-        auto cmd = std::make_unique<MathCommand>(
-            type, stream.consume_remaining(), stream.raw_input());
+        auto cmd =
+            std::make_unique<MathCommand>(type, payload, stream.raw_input());
         cmd->set_flags(isolated, fraction, vars);
         cmd->set_system_flags(method, show_matrix, no_save, show_rank,
                               detect_singular, free_vars_flag);

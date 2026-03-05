@@ -11,9 +11,9 @@
 #include "diagnostics/kinds/command_errors.hpp"
 #include "diagnostics/kinds/var_errors.hpp"
 #include "diagnostics/sink.hpp"
-#include "eval/evaluator.hpp"
 #include "parser/math/math_parser.hpp"
 #include "runtime/context/context.hpp"
+#include "runtime/context/resolver.hpp"
 
 #include <iostream>
 
@@ -217,24 +217,24 @@ namespace math_solver {
                 // Array literals are stored directly; skip scalar evaluation.
                 if (dynamic_cast<const ArrayExpr*>(&ctx.get_expr(var))) {
                     std::ostringstream oss;
-                    oss << "  " << var << " = "
-                        << ctx.get_expr(var).to_string() << "\n";
+                    oss << "  " << var << " = " << ctx.get_expr(var).to_string()
+                        << "\n";
                     sink.push_output(oss.str());
                     return HistoryStatus::Success;
                 }
 
-                try {
-                    Evaluator          eval(&ctx, payload);
-                    double             val = eval.evaluate(ctx.get_expr(var));
-                    std::ostringstream oss;
-                    oss << "  " << var << " = " << val << "\n";
-                    sink.push_output(oss.str());
-                    return HistoryStatus::Success;
-                } catch (const std::exception& e) {
-                    // TODO: convert evaluator to Result-based flow.
-                    (void)e;
-                    return HistoryStatus::Error;
+                auto res = Resolver::evaluate(ctx.get_expr(var), ctx);
+                std::ostringstream oss;
+                if (res) {
+                    oss << "  " << var << " = " << *res << "\n";
+                } else {
+                    // Fall back to symbolic display when variables are
+                    // undefined.
+                    oss << "  " << var << " = " << ctx.get_expr(var).to_string()
+                        << "\n";
                 }
+                sink.push_output(oss.str());
+                return HistoryStatus::Success;
             } catch (const std::exception& e) {
                 // TODO: convert parser to Result-based flow.
                 (void)e;
@@ -253,9 +253,8 @@ namespace math_solver {
             size_t             line = cmd.source_line();
 
             if (var.empty()) {
-                sink.push(errors::missing_var_name(raw, ":unset",
-                                                   "`:unset <var>`", file,
-                                                   line));
+                sink.push(errors::missing_var_name(
+                    raw, ":unset", "`:unset <var>`", file, line));
                 return HistoryStatus::Error;
             }
 

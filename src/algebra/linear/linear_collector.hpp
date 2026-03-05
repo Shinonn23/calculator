@@ -1,5 +1,16 @@
 #pragma once
 
+//! # Module — `src/algebra/linear/linear_collector.hpp`
+//!
+//! Defines `LinearForm` — an affine intermediate representation — and
+//! `LinearCollector` — an AST visitor that extracts a `LinearForm` from a
+//! math expression tree, rejecting any non-linear construct with a diagnostic.
+//!
+//! Part of the algebra layer; sits between the math parser and the linear
+//! equation solver. The collector is context-aware: it substitutes variables
+//! from a `Context` by default, and can optionally operate in isolated mode
+//! (treating context-shadowed names as free variables).
+
 #include "core/tolerance.hpp"
 #include <cmath>
 #include <map>
@@ -21,33 +32,41 @@
 
 namespace math_solver {
 
-    // LinearForm represents affine expressions of the form:
-    //   sum_i (coeffs[var_i] * var_i) + constant
-    //
-    // Invariants:
-    // - coeffs only contains variables with non-negligible coefficients (see
-    // simplify()).
-    // - constant is always zeroed if sufficiently close to zero.
-    //
-    // Used as an intermediate representation for extracting linear structure
-    // from ASTs.
+    /// Affine expression of the form `∑ᵢ coeffs[xᵢ]·xᵢ + constant`.
+    ///
+    /// Used as an intermediate representation when collecting linear structure
+    /// from an AST. Coefficients with absolute value below `kEpsilon` are
+    /// considered zero and are pruned by `simplify()`.
     struct LinearForm {
+        /// Map of variable name to its linear coefficient.
         std::map<std::string, double> coeffs;
+
+        /// The constant (bias) term.
         double                        constant = 0.0;
 
+        /// Constructs the zero linear form.
         LinearForm()                           = default;
 
+        /// Constructs the constant linear form `c`.
         LinearForm(double c) : constant(c) {}
 
+        /// Constructs the linear form `coeff * var`.
+        ///
+        /// # Arguments
+        ///
+        /// * `var`   — Variable name.
+        /// * `coeff` — Coefficient of the variable (default 1.0).
         LinearForm(const std::string& var, double coeff = 1.0) {
             coeffs[var] = coeff;
         }
 
+        /// Returns the coefficient of `var`, or `0.0` if not present.
         double get_coeff(const std::string& var) const {
             auto it = coeffs.find(var);
             return it != coeffs.end() ? it->second : 0.0;
         }
 
+        /// Returns the set of variable names with non-negligible coefficients.
         std::set<std::string> variables() const {
             std::set<std::string> vars;
             for (const auto& pair : coeffs) {
@@ -58,12 +77,10 @@ namespace math_solver {
             return vars;
         }
 
-        // Returns true if the form is a constant (no variables with significant
-        // coefficients).
+        /// Returns `true` if no variable has a coefficient above `kEpsilon`.
         bool       is_constant() const { return variables().empty(); }
 
-        // Addition and subtraction are defined pointwise on coefficients and
-        // constants.
+        /// Returns the pointwise sum of two linear forms.
         LinearForm operator+(const LinearForm& other) const {
             LinearForm result = *this;
             result.constant += other.constant;
@@ -73,6 +90,7 @@ namespace math_solver {
             return result;
         }
 
+        /// Returns the pointwise difference of two linear forms.
         LinearForm operator-(const LinearForm& other) const {
             LinearForm result = *this;
             result.constant -= other.constant;
@@ -82,7 +100,7 @@ namespace math_solver {
             return result;
         }
 
-        // Scalar multiplication is only valid for real scalars.
+        /// Returns this linear form scaled by `scalar`.
         LinearForm operator*(double scalar) const {
             LinearForm result;
             result.constant = constant * scalar;
@@ -92,11 +110,19 @@ namespace math_solver {
             return result;
         }
 
+        /// Returns the negation of this linear form.
         LinearForm operator-() const { return (*this) * (-1.0); }
 
-        // Prunes coefficients and constant that are numerically insignificant.
-        // This is necessary to avoid spurious variables due to floating-point
-        // error.
+        /// Prunes numerically insignificant coefficients and the constant term.
+        ///
+        /// Entries whose absolute value is below `epsilon` are removed. This
+        /// prevents spurious variable entries caused by floating-point
+        /// cancellation.
+        ///
+        /// # Arguments
+        ///
+        /// * `epsilon` — Threshold below which a value is considered zero
+        ///   (defaults to `kEpsilon`).
         void       simplify(double epsilon = kEpsilon) {
             for (auto it = coeffs.begin(); it != coeffs.end();) {
                 if (std::abs(it->second) < epsilon) {
@@ -111,26 +137,18 @@ namespace math_solver {
         }
     };
 
-    // LinearCollector traverses an Expr AST and attempts to extract a
-    // LinearForm.
-    //
-    // Correctness:
-    // - Throws NonLinearError if a non-linear term is encountered (e.g., var *
-    // var, var^n for n != 1).
-    // - Substitutes variables from context unless isolated_ is set.
-    // - Tracks variables that shadow context bindings when isolated_ is true.
-    //
-    // Performance:
-    // - Recursively traverses the AST; substitution from context may cause deep
-    // recursion.
-    // - No memoization of context lookups; repeated variables may be
-    // recomputed.
-    //
-    // Subtlety:
-    // - Division and exponentiation are only allowed if the divisor/exponent is
-    // constant.
-    // - Floating-point comparisons use epsilon to avoid false negatives due to
-    // rounding.
+    /// AST visitor that extracts a `LinearForm` from a math expression.
+    ///
+    /// Traverses the expression tree and accumulates a `LinearForm`.
+    /// Non-linear constructs (variable × variable, variable ^ n for n ≠ 1,
+    /// division by a variable, function applied to a variable) are rejected
+    /// with a `Diagnostic`.
+    ///
+    /// When a `Context` is supplied and `isolated` is `false` (the default),
+    /// variables that are bound in the context are substituted recursively.
+    /// In isolated mode the context is ignored for collection, and any
+    /// variable that shadows a context binding is recorded in
+    /// `shadowed_variables()` for diagnostic purposes.
     class LinearCollector : public ExprVisitor {
         private:
         LinearForm                result_;
@@ -142,20 +160,59 @@ namespace math_solver {
         std::set<std::string>     shadowed_vars_;
 
         public:
+        /// Constructs a collector with no context and no source string.
         LinearCollector() : context_(nullptr), input_(), isolated_(false) {}
 
+        /// Constructs a collector with a context and optional isolation flag.
+        ///
+        /// # Arguments
+        ///
+        /// * `ctx`      — Context used for variable substitution; may be null.
+        /// * `isolated` — If `true`, context bindings are not substituted.
         explicit LinearCollector(const Context* ctx, bool isolated = false)
             : context_(ctx), input_(), isolated_(isolated) {}
 
+        /// Constructs a collector with a context, source string, and isolation
+        /// flag.
+        ///
+        /// # Arguments
+        ///
+        /// * `ctx`      — Context used for variable substitution; may be null.
+        /// * `input`    — Raw source text used for diagnostic span labelling.
+        /// * `isolated` — If `true`, context bindings are not substituted.
         LinearCollector(const Context* ctx, const std::string& input,
                         bool isolated = false)
             : context_(ctx), input_(input), isolated_(isolated) {}
 
+        /// Sets the raw source string used in diagnostic messages.
         void set_input(const std::string& input) { input_ = input; }
+
+        /// Enables or disables isolated mode (no context substitution).
         void set_isolated(bool isolated) { isolated_ = isolated; }
 
-        // Entry point: collects a LinearForm from the given expression.
-        // Resets internal state for each call.
+        /// Collects a `LinearForm` from `expr`.
+        ///
+        /// Resets internal state (result, error, shadowed variables) before
+        /// traversal, so this method may be called multiple times on the same
+        /// collector instance.
+        ///
+        /// # Arguments
+        ///
+        /// * `expr` — Root of the math expression AST to collect from.
+        ///
+        /// # Returns
+        ///
+        /// The collected `LinearForm` (with `simplify()` applied) on success.
+        ///
+        /// # Errors
+        ///
+        /// Returns a `Diagnostic` when the expression contains any of:
+        /// - An `ArrayExpr` node (invalid equation, no error code exposed here).
+        /// - A non-linear multiplication (`var * var`).
+        /// - A non-linear division (divisor contains a variable).
+        /// - A non-linear exponent (variable base raised to power ≠ 1).
+        /// - A function applied to a variable expression.
+        /// - Division by zero.
         Result<LinearForm> collect(const Expr& expr) {
             result_ = LinearForm();
             error_.reset();
@@ -167,8 +224,10 @@ namespace math_solver {
             return Result<LinearForm>::ok(result_);
         }
 
-        // Returns variables that were present in the context but not
-        // substituted due to isolation.
+        /// Returns the set of variable names that shadow a context binding
+        /// when running in isolated mode.
+        ///
+        /// Only populated after a call to `collect` with `isolated_ == true`.
         const std::set<std::string>& shadowed_variables() const {
             return shadowed_vars_;
         }

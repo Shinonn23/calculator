@@ -1,5 +1,6 @@
 #include "env_command_parser.hpp"
 #include "ast/command/env_command.hpp"
+#include "diagnostics/kinds/env_errors.hpp"
 
 namespace math_solver {
 
@@ -21,6 +22,7 @@ namespace math_solver {
         // Note: aliases (e.g., "ls" for "list") are handled here for CLI
         // ergonomics.
         EnvCommand::Action action = EnvCommand::Action::Show;
+        
         if (action_str == "list" || action_str == "ls")
             action = EnvCommand::Action::List;
         else if (action_str == "load")
@@ -35,6 +37,12 @@ namespace math_solver {
             action = EnvCommand::Action::Move;
         else if (action_str == "copy" || action_str == "cp")
             action = EnvCommand::Action::Copy;
+        else {
+            return Result<CommandPtr>::err(errors::unknown_env_subcommand(
+                stream.raw_input(), action_str,
+                {"list", "load", "save", "new", "delete", "move", "copy"},
+                __FILE__, __LINE__));
+        }
 
         // Move/Copy require special handling due to dual modes (vars/env).
         if (action == EnvCommand::Action::Move ||

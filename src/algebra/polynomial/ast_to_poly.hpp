@@ -1,5 +1,19 @@
 #pragma once
 
+//! # Module — `src/algebra/polynomial/ast_to_poly.hpp`
+//!
+//! Provides `ASTToPolynomial` — a strict AST-to-`Polynomial` lowering pass
+//! that walks a math expression tree and rejects any construct that cannot be
+//! exactly represented as a multivariate polynomial.
+//!
+//! Accepted operations: addition, subtraction, multiplication, division by a
+//! non-zero constant, exponentiation by a non-negative integer constant, and
+//! unary negation. Function calls, array values, variable denominators, and
+//! fractional or negative exponents are all rejected with a `Diagnostic`.
+//!
+//! Used by the `:solve` handler to convert the LHS and RHS of an equation
+//! before dispatching to `PolynomialSolver`.
+
 #include "ast/math/array_expr.hpp"
 #include "ast/math/binary_expr.hpp"
 #include "ast/math/call_expr.hpp"
@@ -17,26 +31,13 @@
 
 namespace math_solver {
 
-    // Converts an Expr AST to a Polynomial, rejecting non-polynomial
-    // constructs.
-    //
-    // This is a strict lowering pass: only ASTs that can be exactly represented
-    // as a univariate or multivariate polynomial are accepted. Any operation
-    // that would introduce non-polynomial structure (e.g., variable division,
-    // negative or fractional exponents) is rejected with a precise error.
-    //
-    // Correctness notes:
-    //   - The visitor is stateless except for `result_`, which is overwritten
-    //     on each visit. Recursive calls instantiate new visitors to avoid
-    //     accidental state leakage.
-    //   - All error cases are checked before constructing the resulting
-    //   Polynomial.
-    //   - Exponentiation is only allowed for non-negative integer constants.
-    //   - Division is only allowed by nonzero constants.
-    //
-    // Performance: This is not optimized for speed; it is intended for
-    // correctness and clear error reporting. If used in hot paths, consider
-    // memoization or iterative traversal.
+    /// Converts a math expression AST to a `Polynomial`, rejecting
+    /// non-polynomial constructs with precise diagnostics.
+    ///
+    /// The visitor is stateless except for `result_` and `error_`, which are
+    /// reset on each call to `convert`. Recursive sub-expressions each
+    /// instantiate fresh visitor state via `accept`, so there is no accidental
+    /// state leakage across sub-trees.
     class ASTToPolynomial : public ExprVisitor {
         private:
         Polynomial                result_;
@@ -44,9 +45,37 @@ namespace math_solver {
         std::optional<Diagnostic> error_;
 
         public:
+        /// Constructs the converter, optionally with the raw source string for
+        /// diagnostic span labelling.
+        ///
+        /// # Arguments
+        ///
+        /// * `input` — Original source text; forwarded to error constructors.
         explicit ASTToPolynomial(const std::string& input = "")
             : input_(input) {}
 
+        /// Converts `expr` to a `Polynomial`.
+        ///
+        /// Resets internal state before each call, so `convert` may be called
+        /// multiple times on the same converter instance.
+        ///
+        /// # Arguments
+        ///
+        /// * `expr` — Root of the math expression AST to lower.
+        ///
+        /// # Returns
+        ///
+        /// The resulting `Polynomial` on success.
+        ///
+        /// # Errors
+        ///
+        /// Returns a `Diagnostic` (polynomial error) when the expression
+        /// contains any of:
+        /// - An `ArrayExpr` node.
+        /// - A function call (`FunctionCall` node).
+        /// - Division by a variable expression.
+        /// - Division by zero.
+        /// - An exponent that is not a non-negative integer constant.
         Result<Polynomial> convert(const Expr& expr) {
             error_.reset();
             expr.accept(*this);

@@ -1,5 +1,15 @@
 #pragma once
 
+//! # Module — `src/algebra/linear/simplify.hpp`
+//!
+//! Provides `Simplifier` — the entry point for canonicalizing linear equations
+//! and expressions. Given an `Equation` or `Expr`, it uses `LinearCollector`
+//! to extract a `LinearForm`, then formats the result in the canonical form
+//! `Ax + By + … = C`.
+//!
+//! Also emits best-effort warnings when a variable in the expression shadows a
+//! name already bound in the `Context`.
+
 #include "algebra/linear/linear_collector.hpp"
 #include "ast/math/equation_expr.hpp"
 #include "ast/math/expr.hpp"
@@ -14,63 +24,93 @@
 
 namespace math_solver {
 
+    /// Options controlling how `Simplifier` canonicalizes expressions.
     struct SimplifyOptions {
+        /// Explicit variable ordering for the output; empty means
+        /// lexicographic.
         std::vector<std::string> var_order;
+
+        /// If `true`, context variables are not substituted (isolated mode).
         bool                     isolated;
+
+        /// If `true`, coefficients are formatted as exact fractions.
         bool                     as_fraction;
+
+        /// If `true`, variables with a zero coefficient are still emitted.
         bool                     show_zero_coeffs;
 
         SimplifyOptions()
             : isolated(false), as_fraction(false), show_zero_coeffs(false) {}
     };
 
+    /// The result of canonicalizing a linear equation or expression.
     struct SimplifyResult {
+        /// The collected and simplified linear form (LHS − RHS for equations).
         LinearForm               form;
+
+        /// Variable names in the order they appear in `canonical`.
         std::vector<std::string> var_order;
+
+        /// The canonical string representation (e.g. `"2x + y = 3"`).
         std::string              canonical;
+
+        /// Non-fatal warnings collected during simplification (e.g. shadowing).
         std::set<std::string>    warnings;
 
-        // Returns true if the equation is unsatisfiable (0 = c, c != 0).
+        /// Returns `true` if the equation is unsatisfiable (`0 = c`, `c ≠ 0`).
         bool                     is_no_solution() const {
             return form.is_constant() && std::abs(form.constant) > kEpsilon;
         }
 
-        // Returns true if the equation is tautological (0 = 0).
+        /// Returns `true` if the equation is a tautology (`0 = 0`).
         bool is_infinite_solutions() const {
             return form.is_constant() && std::abs(form.constant) < kEpsilon;
         }
     };
 
-    // Entry point for canonicalization and normalization of linear equations
-    // and expressions.
-    // - Handles context-aware variable resolution and shadowing detection.
-    // - Maintains variable ordering for deterministic output.
-    // - Responsible for formatting output in canonical form.
+    /// Canonicalizes linear equations and expressions to `Ax + By + … = C`
+    /// form.
+    ///
+    /// Uses `LinearCollector` internally. Context-aware: performs variable
+    /// substitution unless `SimplifyOptions::isolated` is set. Variable
+    /// ordering is either user-specified or derived lexicographically for
+    /// determinism.
     class Simplifier {
         private:
         const Context* context_;
         std::string    input_;
 
         public:
+        /// Constructs a simplifier with no context.
         Simplifier() : context_(nullptr) {}
 
+        /// Constructs a simplifier backed by `ctx` for variable substitution.
         explicit Simplifier(const Context* ctx) : context_(ctx) {}
 
+        /// Constructs a simplifier backed by `ctx` with raw source for
+        /// diagnostics.
         Simplifier(const Context* ctx, const std::string& input)
             : context_(ctx), input_(input) {}
 
+        /// Sets the raw source string used in diagnostic messages.
         void set_input(const std::string& input) { input_ = input; }
 
-        // Canonicalizes a linear equation to the form Ax + By + Cz = D.
-        // - If context is provided and not isolated, performs a shadowing check
-        // to warn
-        //   about variable name collisions with context bindings. This is
-        //   best-effort and may fail for non-linear expressions involving
-        //   context variables.
-        // - Variable ordering is either user-specified or lexicographically
-        // sorted for determinism.
-        // - The result is normalized such that all variable terms are on the
-        // left and the constant on the right.
+        /// Canonicalizes a linear equation to `Ax + By + … = D` form.
+        ///
+        /// Moves all variable terms to the left and the constant to the right.
+        /// Emits a shadowing warning for each variable that collides with a
+        /// context binding (best-effort; may miss non-linear collisions).
+        ///
+        /// # Arguments
+        ///
+        /// * `eq`   — The equation to simplify (LHS = RHS).
+        /// * `opts` — Formatting and collection options.
+        ///
+        /// # Returns
+        ///
+        /// A `SimplifyResult` whose `canonical` field is the formatted string.
+        /// If collection fails (non-linear expression), `canonical` is empty
+        /// and a warning is added to `result.warnings`.
         SimplifyResult
         simplify(const Equation&        eq,
                  const SimplifyOptions& opts = SimplifyOptions()) {
@@ -142,9 +182,20 @@ namespace math_solver {
             return result;
         }
 
-        // Canonicalizes a single linear expression (not an equation).
-        // - Variable ordering and formatting logic mirrors that of equations.
-        // - Constant terms are preserved in the output.
+        /// Canonicalizes a single linear expression (not an equation).
+        ///
+        /// Produces the format `Ax + By + … + C`. Variable ordering and
+        /// coefficient formatting mirror `simplify`.
+        ///
+        /// # Arguments
+        ///
+        /// * `expr` — The expression to simplify.
+        /// * `opts` — Formatting and collection options.
+        ///
+        /// # Returns
+        ///
+        /// A `SimplifyResult` whose `canonical` field is the formatted string.
+        /// If collection fails, `canonical` is empty and a warning is added.
         SimplifyResult
         simplify_expr(const Expr&            expr,
                       const SimplifyOptions& opts = SimplifyOptions()) {
@@ -181,13 +232,12 @@ namespace math_solver {
         }
 
         private:
-        // Formats a normalized linear form as "Ax + By + Cz = D".
-        // - Variable terms are ordered as specified.
-        // - Zero coefficients are omitted unless explicitly requested.
-        // - Coefficient formatting (fractional/decimal) is controlled by
-        // options.
-        // - The right-hand side constant is always negated to match the
-        // canonical form.
+        /// Formats a normalized linear form as `"Ax + By + … = D"`.
+        ///
+        /// Variable terms are ordered as specified by `var_order`. Zero
+        /// coefficients are omitted unless `opts.show_zero_coeffs` is set.
+        /// The RHS constant is the negated `form.constant`. Uses fractional
+        /// formatting when `opts.as_fraction` is set.
         std::string format_canonical(const LinearForm&               form,
                                      const std::vector<std::string>& var_order,
                                      const SimplifyOptions&          opts) {
@@ -265,11 +315,11 @@ namespace math_solver {
             return oss.str();
         }
 
-        // Formats a linear expression as "Ax + By + C".
-        // - Variable ordering and coefficient formatting mirror
-        // format_canonical.
-        // - Constant term is always included if nonzero or if there are no
-        // variable terms.
+        /// Formats a linear expression as `"Ax + By + … + C"`.
+        ///
+        /// Variable ordering and coefficient formatting mirror
+        /// `format_canonical`. The constant term is always included when
+        /// non-zero or when there are no variable terms.
         std::string format_expression(const LinearForm&               form,
                                       const std::vector<std::string>& var_order,
                                       const SimplifyOptions&          opts) {

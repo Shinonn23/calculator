@@ -76,7 +76,7 @@ error[E0315]: non-linear term ...
 
 ## Error codes
 
-| Code | Meaning |
-|------|---------|
-| `E0301` | No real solutions |
+| Code    | Meaning                                 |
+| ------- | --------------------------------------- |
+| `E0301` | No real solutions                       |
 | `E0315` | Unsupported (non-polynomial) expression |

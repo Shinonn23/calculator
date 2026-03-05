@@ -55,19 +55,35 @@ namespace math_solver {
         public:
         explicit MatrixSolver(const std::string& input = "");
 
-        /// Solve the system represented by `forms` for the variables in
-        /// `var_order`.
+        /// Solves the linear system represented by `forms` for the variables
+        /// listed in `var_order`.
         ///
-        /// Each `LinearForm` encodes the equation
-        ///   `sum_j(form.get_coeff(var_order[j]) * var_order[j]) +
-        ///   form.constant = 0`
-        /// which corresponds to the matrix row `A[i][j] =
-        /// form.get_coeff(var_order[j])` and RHS entry `b[i] = -form.constant`.
+        /// Builds the augmented matrix `[A|b]` where row `i` corresponds to
+        /// `forms[i]`: `A[i][j] = forms[i].get_coeff(var_order[j])` and
+        /// `b[i] = -forms[i].constant`. Then applies Gaussian elimination or
+        /// LU decomposition according to `opts.method`.
         ///
-        /// Returns an error `Diagnostic` when:
-        /// - `rank([A|b]) > rank(A)` — no solution (E0310)
-        /// - `rank(A) < n` and `opts.free_vars == false` — infinite solutions
-        /// (E0311)
+        /// # Arguments
+        ///
+        /// * `forms`     — One `LinearForm` per equation in the system.
+        /// * `var_order` — Ordered list of variable names; determines column
+        ///   assignment in the matrix.
+        /// * `opts`      — Solver algorithm and free-variable mode selection.
+        ///
+        /// # Returns
+        ///
+        /// A `SystemSolveResult` with `is_unique == true` and `solutions`
+        /// populated for every variable in `var_order`. When
+        /// `opts.free_vars == true` and the system is underdetermined,
+        /// `is_unique` is `false` and `free_params` contains parametric
+        /// expressions.
+        ///
+        /// # Errors
+        ///
+        /// - If `forms` or `var_order` is empty — E0310 (no solution).
+        /// - If `rank([A|b]) > rank(A)` — E0310 (inconsistent system).
+        /// - If `rank(A) < n` and `opts.free_vars == false` — E0311 (infinite
+        ///   solutions).
         Result<SystemSolveResult>
         solve(const std::vector<LinearForm>&  forms,
               const std::vector<std::string>& var_order,

@@ -1,3 +1,9 @@
+//! # Module — `src/algebra/solver/solver.cpp`
+//!
+//! Implements `EquationSolver::solve` and `EquationSolver::solve_for`.
+//! Both methods collect a `LinearForm` from the equation AST, normalize it to
+//! `a·x + b = 0`, and return the unique solution `x = −b / a`.
+
 #include "solver.hpp"
 #include "algebra/linear/linear_collector.hpp"
 #include "ast/math/equation_expr.hpp"

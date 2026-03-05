@@ -1,3 +1,11 @@
+//! # Module — `src/algebra/matrix/matrix_solver.cpp`
+//!
+//! Implements `MatrixSolver::solve`. Internal helpers (anonymous namespace)
+//! cover: augmented-matrix construction, rank counting, Gaussian elimination
+//! with partial pivoting, back-substitution, free-variable parameterisation,
+//! and LU factorization (Doolittle with partial pivoting) with forward/back
+//! solve.
+
 #include "algebra/matrix/matrix_solver.hpp"
 #include "core/tolerance.hpp"
 #include "diagnostics/kinds/solver_errors.hpp"

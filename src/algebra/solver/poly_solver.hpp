@@ -43,19 +43,47 @@ namespace math_solver {
         /// Number of complex-only (non-real) roots discarded.
         int complex_count = 0;
 
+        /// Returns `true` if at least one real root was found.
         bool has_real() const { return !real_roots.empty(); }
     };
 
-    /// Solves univariate polynomial equations.
+    /// Solves univariate polynomial equations of the form `P(x) = 0`.
     ///
-    /// Thread-safety: stateless — safe to use from multiple threads.
+    /// Thread-safe: the class is stateless and safe to use from multiple
+    /// threads.
     class PolynomialSolver {
         public:
-        /// Solve poly = 0 where poly is univariate.
+        /// Solves `poly = 0` where `poly` must be univariate.
         ///
-        /// @param poly   The polynomial (lhs − rhs already normalised to = 0).
-        /// @param input  Source string for error messages.
-        /// @param tol    Tolerance for Im-part filtering and root-merging.
+        /// Dispatches by degree:
+        /// - Degree 0: constant — returns an infinite-solutions or no-solution
+        ///   error depending on the constant value.
+        /// - Degree 1: exact solve (`−b / a`).
+        /// - Degree 2: quadratic formula (real roots only).
+        /// - Degree 3+: Durand–Kerner numerical method followed by Newton
+        ///   polishing.
+        ///
+        /// # Arguments
+        ///
+        /// * `poly`  — The univariate polynomial with LHS − RHS already
+        ///   normalized to `= 0`.
+        /// * `input` — Raw source text used for diagnostic span labelling.
+        /// * `tol`   — Tolerance for imaginary-part filtering (classifying a
+        ///   complex root as real) and for merging near-duplicate real roots.
+        ///
+        /// # Returns
+        ///
+        /// A `PolyRoots` with `real_roots` sorted ascending. `all_roots`
+        /// contains every complex root returned by the solver.
+        ///
+        /// # Errors
+        ///
+        /// - If `poly` is multivariate — invalid equation error.
+        /// - If degree 0 and constant ≈ 0 — infinite solutions (E0311).
+        /// - If degree 0 and constant ≠ 0 — no solution (E0310).
+        /// - If degree 2 and discriminant < 0 — no solution (E0310).
+        /// - If all roots are complex after numerical solve — no solution
+        ///   (E0310).
         Result<PolyRoots> solve(const Polynomial& poly,
                                 const std::string& input = "",
                                 double             tol   = kCoeffTol) const {

@@ -10,14 +10,12 @@
   history.dedup = true
   [6] :config get auto_load_env
   auto_load_env = 
-  [7] :config path
-  ~\AppData\Roaming\cmath-solver\cmath_solver.json
-  [8] :config get
+  [7] :config get
 error[E0502]: missing setting key
-  --> config_read.msl:8:9
+  --> config_read.msl:7:9
    |
- 8 | :config get
+ 7 | :config get
    |         ^^^ key expected here
    = help: Usage: `config get <key>`
-  Loaded 'config_read.msl' (8 line(s), 1 error(s))
+  Loaded 'config_read.msl' (7 line(s), 1 error(s))
   Rolled back — env and config unchanged

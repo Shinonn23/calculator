@@ -133,14 +133,14 @@ Math Solver supports 17 built-in functions that can be used in any expression or
 x = 0.5 (saved)
 ```
 
-| Category     | Functions                              | Notes                              |
-| ------------ | -------------------------------------- | ---------------------------------- |
-| Trigonometry | `sin(x)`, `cos(x)`, `tan(x)`          | Argument in radians                |
-| Inverse trig | `asin(x)`, `acos(x)`, `atan(x)`       | `asin`/`acos` require `x ∈ [-1,1]` |
-| Hyperbolic   | `sinh(x)`, `cosh(x)`, `tanh(x)`       |                                    |
-| Exponential  | `exp(x)`, `ln(x)`, `log(x)`, `sqrt(x)`| `ln`/`log` require `x > 0`; `sqrt` requires `x ≥ 0` |
-| Rounding     | `floor(x)`, `ceil(x)`, `round(x)`     |                                    |
-| Other        | `abs(x)`                               |                                    |
+| Category     | Functions                              | Notes                                               |
+| ------------ | -------------------------------------- | --------------------------------------------------- |
+| Trigonometry | `sin(x)`, `cos(x)`, `tan(x)`           | Argument in radians                                 |
+| Inverse trig | `asin(x)`, `acos(x)`, `atan(x)`        | `asin`/`acos` require `x ∈ [-1,1]`                  |
+| Hyperbolic   | `sinh(x)`, `cosh(x)`, `tanh(x)`        |                                                     |
+| Exponential  | `exp(x)`, `ln(x)`, `log(x)`, `sqrt(x)` | `ln`/`log` require `x > 0`; `sqrt` requires `x ≥ 0` |
+| Rounding     | `floor(x)`, `ceil(x)`, `round(x)`      |                                                     |
+| Other        | `abs(x)`                               |                                                     |
 
 **Solver behaviour**: functions with constant arguments (e.g. `sin(pi/6)`) are numerically collapsed during equation solving. Functions applied to an unknown variable (e.g. `sin(x)`) are rejected as non-linear with a clear error.
 
@@ -150,16 +150,28 @@ Domain violations (e.g. `sqrt(-1)`, `ln(0)`, `asin(2)`) produce error `E0002`.
 
 ## Commands Reference
 
+### Command grammar
+
+Math commands accept flags and an expression argument. Two forms are supported:
+
+```
+:cmd [flags] <expr>             # Unquoted: flags MUST come before the expression
+:cmd [flags] "<expr>" [flags]   # Quoted: flags may appear before OR after the expression
+```
+
+Negative-number expressions (e.g. `-5 * x`) are always unambiguous because a leading `-digit` is lexed as a word, not a flag.
+
 ### Math operations
 
-| Input                      | What it does                                            |
-| -------------------------- | ------------------------------------------------------- |
-| `<expression>`             | Evaluate (e.g. `2 + 3 * x`)                             |
-| `:solve <lhs> = <rhs>`     | Solve an equation (linear, quadratic, or higher-degree) |
-| `:solve <eq1>; <eq2>; ...` | Solve a system of linear equations                      |
-| `simplify <equation>`      | Collect like terms, canonical form                      |
-| `expand <expression>`      | Expand to polynomial form                               |
-| `factor <polynomial>`      | Factor a polynomial                                     |
+| Input                            | What it does                                            |
+| -------------------------------- | ------------------------------------------------------- |
+| `<expression>`                   | Evaluate (e.g. `2 + 3 * x`)                             |
+| `:solve <lhs> = <rhs>`           | Solve an equation (linear, quadratic, or higher-degree) |
+| `:solve "<lhs> = <rhs>" [flags]` | Same, with quoted expression (flags allowed after)      |
+| `:solve <eq1>; <eq2>; ...`       | Solve a system of linear equations                      |
+| `simplify <equation>`            | Collect like terms, canonical form                      |
+| `expand <expression>`            | Expand to polynomial form                               |
+| `factor <polynomial>`            | Factor a polynomial                                     |
 
 ### Variables
 
@@ -167,6 +179,7 @@ Domain violations (e.g. `sqrt(-1)`, `ln(0)`, `asin(2)`) produce error `E0002`.
 | ------------------ | --------------------------------- |
 | `:set x 5`         | Set variable `x` to `5`           |
 | `:set a x + 2`     | Set `a` to the expression `x + 2` |
+| `:set a "x + 2"`   | Same, with quoted expression      |
 | `:set y solve ...` | Solve and store the result in `y` |
 | `:unset x`         | Remove variable `x`               |
 | `:ls`              | List all variables                |
@@ -261,16 +274,16 @@ Fetched automatically by CMake — no manual installation needed.
 
 Detailed walkthroughs for each feature are in [`docs/`](docs/):
 
-| Feature            | Doc                                                                          |
-| ------------------ | ---------------------------------------------------------------------------- |
-| built-in functions | [`docs/contributing/functions.md`](docs/contributing/functions.md)           |
-| math (all)         | [`docs/commands/math_commands.md`](docs/commands/math_commands.md)           |
-| polynomial solving | [`docs/solve-polynomial.md`](docs/solve-polynomial.md)                       |
-| system solving     | [`docs/solve-system.md`](docs/solve-system.md)                               |
-| :set / :unset      | [`docs/commands/var_command.md`](docs/commands/var_command.md)               |
-| :config            | [`docs/commands/config_command.md`](docs/commands/config_command.md)         |
-| :env               | [`docs/commands/env_command.md`](docs/commands/env_command.md)               |
-| :history           | [`docs/commands/history_command.md`](docs/commands/history_command.md)       |
-| :redo              | [`docs/commands/redo_command.md`](docs/commands/redo_command.md)             |
-| :load              | [`docs/commands/load_command.md`](docs/commands/load_command.md)             |
-| Architecture       | [`docs/dispatch_overview.md`](docs/dispatch_overview.md)                     |
+| Feature            | Doc                                                                    |
+| ------------------ | ---------------------------------------------------------------------- |
+| built-in functions | [`docs/contributing/functions.md`](docs/contributing/functions.md)     |
+| math (all)         | [`docs/commands/math_commands.md`](docs/commands/math_commands.md)     |
+| polynomial solving | [`docs/solve-polynomial.md`](docs/solve-polynomial.md)                 |
+| system solving     | [`docs/solve-system.md`](docs/solve-system.md)                         |
+| :set / :unset      | [`docs/commands/var_command.md`](docs/commands/var_command.md)         |
+| :config            | [`docs/commands/config_command.md`](docs/commands/config_command.md)   |
+| :env               | [`docs/commands/env_command.md`](docs/commands/env_command.md)         |
+| :history           | [`docs/commands/history_command.md`](docs/commands/history_command.md) |
+| :redo              | [`docs/commands/redo_command.md`](docs/commands/redo_command.md)       |
+| :load              | [`docs/commands/load_command.md`](docs/commands/load_command.md)       |
+| Architecture       | [`docs/dispatch_overview.md`](docs/dispatch_overview.md)               |

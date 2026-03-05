@@ -207,6 +207,8 @@ namespace math_solver {
                     if (!cmd.no_save()) {
                         ctx.set(var, val);
                         oss << ansi::dim << " (saved)" << ansi::reset;
+                    } else {
+                        oss << ansi::dim << " (not saved)" << ansi::reset;
                     }
                     oss << "\n";
                     sink.push_output(oss.str());
@@ -229,7 +231,8 @@ namespace math_solver {
             return HistoryStatus::Success;
         }
 
-        // ── Polynomial dispatch ───────────────────────────────────────────────
+        // ── Polynomial dispatch
+        // ───────────────────────────────────────────────
 
         // Format a double for fraction output (reuse fmt_double for now).
         inline std::string fmt_val(double v, bool as_frac) {
@@ -272,12 +275,12 @@ namespace math_solver {
             if (!combined.is_univariate())
                 return std::nullopt; // multivariate — linear solver may handle
 
-            // Only route to polynomial solver if the degree > 1; for degree <= 1
-            // the linear solver is exact and avoids floating-point rounding.
+            // Only route to polynomial solver if the degree > 1; for degree <=
+            // 1 the linear solver is exact and avoids floating-point rounding.
             if (combined.degree() <= 1)
                 return std::nullopt;
 
-            std::string var = combined.single_variable();
+            std::string      var = combined.single_variable();
 
             PolynomialSolver ps;
             auto             roots_r = ps.solve(combined, payload);
@@ -295,11 +298,11 @@ namespace math_solver {
                 std::string cnt = std::to_string(roots.complex_count);
                 Diagnostic  w   = Diagnostic::warning(
                     cnt + " complex root(s) have no real value and were "
-                          "discarded");
+                             "discarded");
                 sink.push(w);
             }
 
-            bool as_frac = cmd.as_fraction();
+            bool               as_frac = cmd.as_fraction();
 
             // Build output.
             std::ostringstream oss;
@@ -316,6 +319,8 @@ namespace math_solver {
                 if (!cmd.no_save()) {
                     ctx.set(var, val);
                     oss << ansi::dim << " (saved)" << ansi::reset;
+                } else {
+                    oss << ansi::dim << " (not saved)" << ansi::reset;
                 }
                 oss << "\n";
             } else {
@@ -332,10 +337,11 @@ namespace math_solver {
                 oss << "  " << var << " = " << arr_oss.str();
 
                 if (!cmd.no_save()) {
-                    ctx.set(var,
-                            std::vector<double>(roots.real_roots.begin(),
-                                                roots.real_roots.end()));
+                    ctx.set(var, std::vector<double>(roots.real_roots.begin(),
+                                                     roots.real_roots.end()));
                     oss << ansi::dim << " (saved)" << ansi::reset;
+                } else {
+                    oss << ansi::dim << " (not saved)" << ansi::reset;
                 }
 
                 // Annotate multiplicities > 1.
@@ -366,7 +372,8 @@ namespace math_solver {
             return HistoryStatus::Success;
         }
 
-        // ── Single-equation solve entry point ─────────────────────────────────
+        // ── Single-equation solve entry point
+        // ─────────────────────────────────
 
         // Entry point for equation solving.
         // - Attempts to infer the set of unknowns by comparing LHS and RHS
@@ -457,12 +464,19 @@ namespace math_solver {
                         cmd.source_file(), cmd.source_line()));
                     return HistoryStatus::Error;
                 }
-                SolveResult result = *result_r;
+                SolveResult        result = *result_r;
 
-                ctx.set(result.variable, result.value);
                 std::ostringstream oss;
-                oss << "  " << result.variable << " = " << result.value
-                    << ansi::dim << " (saved)" << ansi::reset << "\n";
+
+                if (!cmd.no_save()) {
+                    ctx.set(result.variable, result.value);
+                    oss << "  " << result.variable << " = " << result.value
+                        << ansi::dim << " (saved)" << ansi::reset << "\n";
+                } else {
+                    oss << "  " << result.variable << " = " << result.value
+                        << ansi::dim << " (not saved)" << ansi::reset << "\n";
+                }
+
                 sink.push_output(oss.str());
                 return HistoryStatus::Success;
 
@@ -629,8 +643,7 @@ namespace math_solver {
         // - Handles runtime exceptions explicitly to avoid silent failures.
         inline HistoryStatus do_evaluate(const std::string& payload,
                                          const MathCommand& cmd, Context& ctx,
-                                         Config& config,
-                                         DiagnosticSink& sink) {
+                                         Config& config, DiagnosticSink& sink) {
             if (payload.empty())
                 return HistoryStatus::Error;
             try {
@@ -651,8 +664,8 @@ namespace math_solver {
                     double    rhs       = eval.evaluate(eq->rhs());
                     if (sink.error_count() > err_count)
                         return HistoryStatus::Error;
-                    bool               ok = std::abs(lhs - rhs) <
-                                           config.settings().solver_tolerance;
+                    bool ok = std::abs(lhs - rhs) <
+                              config.settings().solver_tolerance;
                     std::ostringstream oss;
                     oss << "  " << lhs << " = " << rhs << "  "
                         << (ok ? ansi::green : ansi::red)
@@ -664,7 +677,7 @@ namespace math_solver {
                     Evaluator eval(&ctx, payload, &sink);
                     size_t    err_count = sink.error_count();
 
-                    auto results = eval.evaluate_broadcast(*expr, ctx);
+                    auto      results   = eval.evaluate_broadcast(*expr, ctx);
 
                     if (sink.error_count() > err_count)
                         return HistoryStatus::Error;
