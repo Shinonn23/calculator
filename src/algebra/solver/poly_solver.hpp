@@ -142,8 +142,12 @@ namespace math_solver {
         private:
         // ── Helpers ──────────────────────────────────────────────────────────
 
-        // Extract coefficients from highest to lowest degree.
-        // Returns vector of size (deg + 1): coeffs[0] = a_n, coeffs[deg] = a_0.
+        /// Extract polynomial coefficients from highest to lowest degree.
+        ///
+        /// # Returns
+        ///
+        /// A vector of size `deg + 1` where index 0 holds the leading
+        /// coefficient `a_n` and index `deg` holds the constant term `a_0`.
         std::vector<double> extract_coeffs(const Polynomial& poly,
                                            const std::string& var,
                                            int                deg) const {
@@ -162,8 +166,13 @@ namespace math_solver {
             return c;
         }
 
-        // Evaluate polynomial (Horner's scheme).
-        // coeffs[0] = leading coeff, coeffs[n] = constant term.
+        /// Evaluate a polynomial at a complex point using Horner's scheme.
+        ///
+        /// # Arguments
+        ///
+        /// * `c` — Coefficient vector: `c[0]` is the leading coefficient and
+        ///   `c[n]` is the constant term.
+        /// * `x` — The complex evaluation point.
         std::complex<double>
         eval_poly_c(const std::vector<double>&  c,
                     std::complex<double>         x) const {
@@ -173,8 +182,18 @@ namespace math_solver {
             return result;
         }
 
-        // Quadratic formula for degree-2 case.
-        // coeffs = [a, b, c] for ax^2 + bx + c = 0.
+        /// Apply the quadratic formula to a degree-2 polynomial.
+        ///
+        /// # Arguments
+        ///
+        /// * `coeffs` — `[a, b, c]` for `ax² + bx + c = 0`.
+        /// * `tol`    — Tolerance for discriminant sign and root deduplication.
+        /// * `input`  — Raw source text for diagnostic construction.
+        ///
+        /// # Errors
+        ///
+        /// Returns E0310 (no solution) when the discriminant is below `-tol`
+        /// (two complex-conjugate roots, no real solutions).
         Result<PolyRoots> solve_quadratic(const std::vector<double>& coeffs,
                                           double             tol,
                                           const std::string& input) const {
@@ -216,8 +235,25 @@ namespace math_solver {
             return Result<PolyRoots>::ok(r);
         }
 
-        // Durand–Kerner (Weierstrass) root-finding for degree >= 3.
-        // coeffs[0] = leading, coeffs[deg] = constant.
+        /// Find all roots of a degree ≥ 3 polynomial using the Durand–Kerner
+        /// (Weierstrass) method followed by Newton polishing.
+        ///
+        /// Initial approximations are placed on a circle of radius
+        /// `1 + max|a_i/a_n|` (Cauchy's bound). The iteration runs for up to
+        /// 2000 steps or until `max_delta < tol * 1e-3`.
+        ///
+        /// # Arguments
+        ///
+        /// * `coeffs` — Coefficient vector: `coeffs[0]` is the leading
+        ///   coefficient and `coeffs[deg]` is the constant term.
+        /// * `deg`    — Degree of the polynomial.
+        /// * `tol`    — Tolerance for imaginary-part filtering and root merging.
+        /// * `input`  — Raw source text for diagnostic construction.
+        ///
+        /// # Errors
+        ///
+        /// Returns E0310 (no solution) when all roots have a non-negligible
+        /// imaginary part (no real solutions found).
         Result<PolyRoots>
         solve_numerical(const std::vector<double>& coeffs, int deg,
                         double             tol,

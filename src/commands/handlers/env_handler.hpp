@@ -1,5 +1,12 @@
 #pragma once
 
+//! # Module — `src/commands/handlers/env_handler.hpp`
+//!
+//! Implements environment-management command handlers: `save_current_env`,
+//! `load_env_into_context`, and the top-level dispatcher `handle_env`.
+//! Environments are isolated variable workspaces persisted via `Config`.
+//! All functions are `inline` and live entirely in this header.
+
 #include "ast/command/env_command.hpp"
 #include "ast/command/history_entry.hpp"
 #include "config/config.hpp"
@@ -16,12 +23,43 @@
 namespace math_solver {
     namespace handlers {
 
+        /// Persist all variables in `ctx` to the named environment in `config`.
+        ///
+        /// Serialises the entire context via `ctx.all_as_strings()` and writes
+        /// the result to persistent storage with `config.save_env_variables`.
+        ///
+        /// # Arguments
+        ///
+        /// * `config`   — Configuration store that owns the environment data.
+        /// * `env_name` — Name of the environment to overwrite.
+        /// * `ctx`      — Variable context whose bindings are serialised.
         inline void save_current_env(Config&            config,
                                      const std::string& env_name,
                                      const Context&     ctx) {
             config.save_env_variables(env_name, ctx.all_as_strings());
         }
 
+        /// Clear `ctx` and populate it from the named environment in `config`.
+        ///
+        /// Retrieves the environment via `config.get_env`. For each stored
+        /// variable, attempts to parse the string value as a math expression;
+        /// falls back to `std::stod` when parsing fails. Clears `ctx` before
+        /// loading — any previous bindings are discarded.
+        ///
+        /// # Arguments
+        ///
+        /// * `config`    — Configuration store that provides the environment data.
+        /// * `env_name`  — Name of the environment to load.
+        /// * `ctx`       — Variable context to populate; cleared before loading.
+        /// * `raw`       — Raw command string used for diagnostic span construction.
+        /// * `file_line` — Source line number for diagnostics.
+        /// * `filename`  — Source file name for diagnostics.
+        /// * `sink`      — Diagnostic sink for `env_not_found` errors.
+        ///
+        /// # Returns
+        ///
+        /// `true` when the environment is found and loaded successfully;
+        /// `false` when the environment does not exist (error pushed to `sink`).
         inline bool load_env_into_context(Config&            config,
                                           const std::string& env_name,
                                           Context& ctx, const std::string& raw,
@@ -49,6 +87,42 @@ namespace math_solver {
             return true;
         }
 
+        /// Dispatch an `EnvCommand` to the appropriate environment sub-handler.
+        ///
+        /// Routes `cmd.action()` to one of the following sub-operations:
+        /// - `Show`   — Emits the active environment name.
+        /// - `List`   — Lists all environments, marking the active one with `*`.
+        /// - `Load`   — Saves the current env, then loads the target into `ctx`.
+        /// - `Save`   — Persists the current context (or a `--vars` subset).
+        /// - `New`    — Creates an empty environment via `config.create_env`.
+        /// - `Delete` — Removes an environment (active env is protected).
+        /// - `Move`   — Renames an env, or moves selected variables to another env.
+        /// - `Copy`   — Duplicates an environment.
+        /// - `Unknown` — Emits `unknown_env_subcommand` diagnostic.
+        ///
+        /// # Arguments
+        ///
+        /// * `cmd`         — The environment command to execute.
+        /// * `ctx`         — Variable context; mutated by `Load`, `Save`, `Move`.
+        /// * `config`      — Configuration store; mutated by most actions.
+        /// * `current_env` — Name of the active environment; updated by `Load`.
+        /// * `sink`        — Diagnostic sink for errors, warnings, and output.
+        ///
+        /// # Returns
+        ///
+        /// `HistoryStatus::Info` for `Show` and `List`.
+        /// `HistoryStatus::Success` for most successful mutating actions.
+        /// `HistoryStatus::Warning` when `Save` or `Move` skips missing variables.
+        /// `HistoryStatus::Error` on missing names, missing environments, or
+        /// attempts to delete/move the active environment.
+        ///
+        /// # Errors
+        ///
+        /// Pushes `missing_env_name` when a required name argument is absent.
+        /// Pushes `env_not_found` when a referenced environment does not exist.
+        /// Pushes E0602 when the active environment is the target of `Delete`/`Move`.
+        /// Pushes `var_skipped_warning` (as a warning) for unknown variable names in `--vars`.
+        /// Pushes `unknown_env_subcommand` for `Unknown` action.
         inline HistoryStatus handle_env(const EnvCommand& cmd, Context& ctx,
                                         Config&         config,
                                         std::string&    current_env,

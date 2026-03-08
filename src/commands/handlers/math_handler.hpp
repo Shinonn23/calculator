@@ -1,5 +1,14 @@
 #pragma once
 
+//! # Module — `src/commands/handlers/math_handler.hpp`
+//!
+//! Implements the math-command handler pipeline: `handle_math` dispatches to
+//! `do_evaluate`, `do_solve`, `do_simplify`, `do_expand`, and `do_factor`
+//! based on `MathCommand::Type`. The solve path splits on `;` to support
+//! multi-equation linear systems via `do_solve_system`, and also attempts
+//! polynomial solving via `try_poly_solve` before falling back to the linear
+//! solver. All functions are `inline` and live entirely in this header.
+
 #include "algebra/linear/simplify.hpp"
 #include "algebra/matrix/matrix_solver.hpp"
 #include "algebra/polynomial/ast_to_poly.hpp"
@@ -28,8 +37,11 @@
 namespace math_solver {
     namespace handlers {
 
-        // Splits a payload on ';', trims whitespace, and discards empty parts.
-        // Returns a vector of non-empty equation strings.
+        /// Split `payload` on `';'`, trim whitespace, and discard empty parts.
+        ///
+        /// # Returns
+        ///
+        /// A vector of non-empty, whitespace-trimmed equation strings.
         inline std::vector<std::string>
         split_equations(const std::string& payload) {
             std::vector<std::string> parts;
@@ -46,7 +58,12 @@ namespace math_solver {
             return parts;
         }
 
-        // Format a double for display: strip trailing zeros.
+        /// Format `v` as a decimal string with trailing zeros stripped.
+        ///
+        /// # Returns
+        ///
+        /// A string representation of `v` with no trailing fractional zeros
+        /// and no trailing decimal point.
         inline std::string fmt_double(double v) {
             std::string s   = std::to_string(v);
             size_t      dot = s.find('.');
@@ -58,7 +75,16 @@ namespace math_solver {
             return s;
         }
 
-        // Print the augmented matrix [A|b] to sink.
+        /// Emit the augmented matrix `[A|b]` for a linear system to `sink`.
+        ///
+        /// Columns are right-aligned to the widest entry in each column.
+        /// The RHS column `b` is separated by ` | `.
+        ///
+        /// # Arguments
+        ///
+        /// * `forms`     — One `LinearForm` per equation (LHS − RHS already combined).
+        /// * `var_order` — Variable names in the column order to use for `A`.
+        /// * `sink`      — Diagnostic sink that receives the formatted matrix text.
         inline void print_matrix(const std::vector<LinearForm>&  forms,
                                  const std::vector<std::string>& var_order,
                                  DiagnosticSink&                 sink) {
@@ -95,8 +121,31 @@ namespace math_solver {
             sink.push_output(oss.str());
         }
 
-        // Solve a system of equations given as a ';'-separated payload.
-        // Called from do_solve() when more than one equation is detected.
+        /// Solve a system of linear equations given as pre-split equation strings.
+        ///
+        /// Called from `do_solve` when the payload contains more than one
+        /// equation (separated by `';'`). Each string in `eq_strs` is parsed
+        /// and collected into a `LinearForm`; the resulting system is solved
+        /// via `MatrixSolver`. Solutions are saved to `ctx` unless
+        /// `cmd.no_save()` is set.
+        ///
+        /// # Arguments
+        ///
+        /// * `payload`  — The original raw payload string (used for diagnostics).
+        /// * `eq_strs`  — Pre-split, trimmed equation strings (at least two).
+        /// * `cmd`      — The originating `MathCommand`; supplies flags and source info.
+        /// * `ctx`      — Variable context; mutated when solutions are saved.
+        /// * `sink`     — Diagnostic sink for errors, warnings, and output.
+        ///
+        /// # Returns
+        ///
+        /// `HistoryStatus::Success` when the system is solved and output emitted,
+        /// `HistoryStatus::Error` on parse failure, collection failure, or solver error.
+        ///
+        /// # Errors
+        ///
+        /// Pushes a parse diagnostic (E-series) if any equation string fails to parse.
+        /// Pushes a solver diagnostic (E0310/E0311) on singular or inconsistent systems.
         inline HistoryStatus
         do_solve_system(const std::string&              payload,
                         const std::vector<std::string>& eq_strs,
@@ -229,10 +278,19 @@ namespace math_solver {
             return HistoryStatus::Success;
         }
 
-        // ── Polynomial dispatch
-        // ───────────────────────────────────────────────
+        // ── Polynomial dispatch ───────────────────────────────────────────────
 
-        // Format a double for fraction output (reuse fmt_double for now).
+        /// Format `v` as a decimal or fraction string depending on `as_frac`.
+        ///
+        /// # Arguments
+        ///
+        /// * `v`       — The value to format.
+        /// * `as_frac` — When `true`, convert via `double_to_fraction`; otherwise
+        ///   delegate to `fmt_double`.
+        ///
+        /// # Returns
+        ///
+        /// A human-readable string for `v`.
         inline std::string fmt_val(double v, bool as_frac) {
             if (as_frac) {
                 Fraction frac = double_to_fraction(v);
@@ -241,17 +299,35 @@ namespace math_solver {
             return fmt_double(v);
         }
 
-        // Try to solve a single equation as a univariate polynomial.
-        // Returns true and fills diagnostics/context on success or definitive
-        // error (no real roots). Returns false if the equation is not a
-        // univariate polynomial (caller should fall through to linear path).
-        //
-        // On success the solved variable is saved to context (unless
-        // cmd.no_save()).
-        // On no-real-solutions an error is pushed and HistoryStatus::Error is
-        // returned wrapped in an optional.
-        // If the equation cannot be handled here, returns std::nullopt so the
-        // caller falls through to the linear path.
+        /// Attempt to solve `eq` as a univariate polynomial of degree > 1.
+        ///
+        /// Converts both sides to `Polynomial` via `ASTToPolynomial`. If the
+        /// combined polynomial is univariate and has degree > 1, it is solved
+        /// with `PolynomialSolver`; roots are saved to `ctx` unless
+        /// `cmd.no_save()` is set. For degree ≤ 1, or when either side is
+        /// non-polynomial or multivariate, the function returns `std::nullopt`
+        /// so the caller can fall through to the linear solver.
+        ///
+        /// # Arguments
+        ///
+        /// * `eq`      — The parsed equation to attempt.
+        /// * `payload` — Raw source string for diagnostic span construction.
+        /// * `cmd`     — The originating `MathCommand`; supplies flags and source info.
+        /// * `ctx`     — Variable context; mutated when roots are saved.
+        /// * `sink`    — Diagnostic sink for warnings, errors, and output.
+        ///
+        /// # Returns
+        ///
+        /// `Some(HistoryStatus::Success)` when polynomial roots are found and output
+        /// is emitted. `Some(HistoryStatus::Error)` when the polynomial is valid but
+        /// has no real solutions. `std::nullopt` when the polynomial path does not
+        /// apply and the caller should try the linear solver.
+        ///
+        /// # Errors
+        ///
+        /// Pushes E0310 (no solution) when the discriminant is negative or all
+        /// roots are complex. Pushes a method-ignored warning when `--method` was
+        /// set (it has no effect on the polynomial solver).
         inline std::optional<HistoryStatus>
         try_poly_solve(const Equation& eq, const std::string& payload,
                        const MathCommand& cmd, Context& ctx,
@@ -381,18 +457,34 @@ namespace math_solver {
             return HistoryStatus::Success;
         }
 
-        // ── Single-equation solve entry point
-        // ─────────────────────────────────
+        // ── Single-equation solve entry point ────────────────────────────────
 
-        // Entry point for equation solving.
-        // - Attempts to infer the set of unknowns by comparing LHS and RHS
-        // variables.
-        // - If only one unknown, restricts the solving context to avoid
-        // accidental shadowing.
-        // - Assumes payload is a valid equation; errors are surfaced via
-        // diagnostics.
-        // - Side effect: updates the context with the solved variable.
-        // - Invariant: result.variable is always set on success.
+        /// Solve a single equation given as `payload` and save the result to `ctx`.
+        ///
+        /// Dispatches to `do_solve_system` when `payload` contains `';'`.
+        /// Otherwise, parses the payload as an equation, attempts the polynomial
+        /// path via `try_poly_solve`, and falls back to `EquationSolver` (linear).
+        /// When exactly one unknown is found and it already exists in `ctx`, a
+        /// temporary context is used to prevent the existing binding from
+        /// interfering with the solve.
+        ///
+        /// # Arguments
+        ///
+        /// * `payload` — Raw equation string (e.g. `"2x + 3 = 7"`).
+        /// * `cmd`     — The originating `MathCommand`; supplies flags and source info.
+        /// * `ctx`     — Variable context; updated with the solution unless `cmd.no_save()`.
+        /// * `config`  — Configuration store forwarded to `do_solve_system`.
+        /// * `sink`    — Diagnostic sink for errors, warnings, and output.
+        ///
+        /// # Returns
+        ///
+        /// `HistoryStatus::Success` when a solution is found and output emitted,
+        /// `HistoryStatus::Error` on parse or solver failure.
+        ///
+        /// # Errors
+        ///
+        /// Pushes parse diagnostics on invalid input. Pushes solver diagnostics
+        /// (E0310, E0311, E0315) from the underlying solvers.
         inline HistoryStatus do_solve(const std::string& payload,
                                       const MathCommand& cmd, Context& ctx,
                                       Config& config, DiagnosticSink& sink) {
@@ -499,13 +591,32 @@ namespace math_solver {
             }
         }
 
-        // Simplification entry point.
-        // - Handles both equations and expressions, with options for variable
-        // ordering, isolation, and fraction output.
-        // - Warnings are surfaced directly to the user; these may indicate
-        // domain-level issues (e.g., loss of generality).
-        // - Returns Warning status if any warnings are emitted, else Success.
-        // - Invariant: result.canonical is always printable.
+        /// Simplify `payload` to canonical `Ax + By = C` form and emit the result.
+        ///
+        /// Parses `payload` as an equation, applies `Simplifier` with the options
+        /// extracted from `cmd` (variable ordering, isolated mode, fraction output),
+        /// and emits the canonical form. If the result is a tautology or
+        /// contradiction, an annotation is appended. Any `SimplifyResult::warnings`
+        /// are forwarded to `sink` as `Diagnostic::warning` entries.
+        ///
+        /// # Arguments
+        ///
+        /// * `payload` — Raw equation string to simplify.
+        /// * `cmd`     — The originating `MathCommand`; supplies `--vars`, `--isolated`,
+        ///   `--fraction`, and source location.
+        /// * `ctx`     — Variable context consulted in non-isolated mode.
+        /// * `config`  — Configuration; `output_fraction` setting is OR-ed with `--fraction`.
+        /// * `sink`    — Diagnostic sink for warnings, errors, and output.
+        ///
+        /// # Returns
+        ///
+        /// `HistoryStatus::Warning` when at least one warning was emitted,
+        /// `HistoryStatus::Success` otherwise, `HistoryStatus::Error` on parse failure.
+        ///
+        /// # Errors
+        ///
+        /// Pushes parse diagnostics on invalid input. Pushes E0200 for unexpected
+        /// runtime exceptions.
         inline HistoryStatus do_simplify(const std::string& payload,
                                          const MathCommand& cmd, Context& ctx,
                                          Config& config, DiagnosticSink& sink) {
@@ -563,10 +674,30 @@ namespace math_solver {
             }
         }
 
-        // Expands a polynomial expression.
-        // - Assumes input is a valid expression; errors are surfaced via
-        // diagnostics.
-        // - No side effects on context.
+        /// Expand `payload` to standard polynomial form and emit the result.
+        ///
+        /// Parses `payload` as a math expression, converts it to a `Polynomial`
+        /// via `ASTToPolynomial`, and emits the expanded form. If the AST-to-poly
+        /// conversion fails (e.g. for transcendental expressions), the evaluator
+        /// is tried as a numeric fallback.
+        ///
+        /// # Arguments
+        ///
+        /// * `payload` — Raw expression string (e.g. `"(x+1)^3"`).
+        /// * `cmd`     — The originating `MathCommand`; supplies source location.
+        /// * `ctx`     — Variable context consulted by the numeric fallback evaluator.
+        /// * `sink`    — Diagnostic sink for errors and output.
+        ///
+        /// # Returns
+        ///
+        /// `HistoryStatus::Success` when expansion succeeds and output is emitted,
+        /// `HistoryStatus::Error` on parse or conversion failure.
+        ///
+        /// # Errors
+        ///
+        /// Pushes parse diagnostics on invalid input. Pushes the `ASTToPolynomial`
+        /// diagnostic (E0315 or similar) when conversion fails and numeric
+        /// evaluation also fails. Pushes E0200 for unexpected runtime exceptions.
         inline HistoryStatus do_expand(const std::string& payload,
                                        const MathCommand& cmd, Context& ctx,
                                        DiagnosticSink& sink) {
@@ -609,12 +740,29 @@ namespace math_solver {
             }
         }
 
-        // Factors a polynomial expression.
-        // - Assumes input is a valid expression; errors are surfaced via
-        // diagnostics.
-        // - No side effects on context.
-        // - Performance: factorization may be expensive for high-degree
-        // polynomials.
+        /// Factorise `payload` and emit the factored polynomial form.
+        ///
+        /// Parses `payload` as a math expression, converts it to a `Polynomial`
+        /// via `ASTToPolynomial`, and applies `factor_polynomial`. Does not
+        /// mutate the variable context.
+        ///
+        /// # Arguments
+        ///
+        /// * `payload` — Raw expression string to factorise.
+        /// * `cmd`     — The originating `MathCommand`; supplies source location.
+        /// * `ctx`     — Variable context (not mutated; passed for future extension).
+        /// * `sink`    — Diagnostic sink for errors and output.
+        ///
+        /// # Returns
+        ///
+        /// `HistoryStatus::Success` when factorisation succeeds and output is emitted,
+        /// `HistoryStatus::Error` on parse or conversion failure.
+        ///
+        /// # Errors
+        ///
+        /// Pushes parse diagnostics on invalid input. Pushes the `ASTToPolynomial`
+        /// diagnostic when conversion fails. Pushes E0200 for unexpected runtime
+        /// exceptions.
         inline HistoryStatus do_factor(const std::string& payload,
                                        const MathCommand& cmd, Context& ctx,
                                        DiagnosticSink& sink) {
@@ -651,12 +799,33 @@ namespace math_solver {
             }
         }
 
-        // Evaluates an expression or equation.
-        // - For equations, checks for approximate equality using
-        //   config.settings().solver_tolerance.
-        // - For expressions, prints the evaluated result.
-        // - No context mutation.
-        // - Handles runtime exceptions explicitly to avoid silent failures.
+        /// Evaluate `payload` as a math expression or equality check.
+        ///
+        /// Parses `payload` via `Parser::parse_expression_or_equation`. For an
+        /// equation, evaluates both sides and compares within
+        /// `config.settings().solver_tolerance`, printing `(true)` or `(false)`.
+        /// For a plain expression, calls `Evaluator::evaluate_broadcast`; if any
+        /// variable is array-bound the result is a bracketed list, otherwise a
+        /// scalar. Does not mutate the variable context.
+        ///
+        /// # Arguments
+        ///
+        /// * `payload` — Raw expression or equation string.
+        /// * `cmd`     — The originating `MathCommand`; supplies source location.
+        /// * `ctx`     — Variable context consulted during evaluation.
+        /// * `config`  — Configuration; `solver_tolerance` used for equality checks.
+        /// * `sink`    — Diagnostic sink for errors and output.
+        ///
+        /// # Returns
+        ///
+        /// `HistoryStatus::Success` when evaluation succeeds and output is emitted,
+        /// `HistoryStatus::Error` on parse or evaluation failure.
+        ///
+        /// # Errors
+        ///
+        /// Pushes parse diagnostics on invalid input. Pushes evaluator diagnostics
+        /// (variable-not-found, division-by-zero, etc.) from `Evaluator`. Pushes
+        /// E0200 for unexpected runtime exceptions.
         inline HistoryStatus do_evaluate(const std::string& payload,
                                          const MathCommand& cmd, Context& ctx,
                                          Config& config, DiagnosticSink& sink) {
@@ -729,9 +898,24 @@ namespace math_solver {
             }
         }
 
-        // Dispatches to the appropriate math handler based on command type.
-        // - Unknown commands are surfaced with diagnostics.
-        // - Invariant: returns a valid HistoryStatus for all cases.
+        /// Dispatch a `MathCommand` to the appropriate sub-handler and return its status.
+        ///
+        /// Routes `cmd.type()` to `do_solve`, `do_simplify`, `do_expand`,
+        /// `do_factor`, or `do_evaluate`. For `MathCommand::Type::Unknown`,
+        /// emits an `unknown_command` diagnostic.
+        ///
+        /// # Arguments
+        ///
+        /// * `cmd`    — The math command to execute.
+        /// * `ctx`    — Variable context forwarded to the selected sub-handler.
+        /// * `config` — Configuration forwarded to the selected sub-handler.
+        /// * `sink`   — Diagnostic sink for errors and output.
+        ///
+        /// # Returns
+        ///
+        /// The `HistoryStatus` produced by the selected sub-handler, or
+        /// `HistoryStatus::Error` for `Unknown`. Returns `HistoryStatus::Unknown`
+        /// only if a new `MathCommand::Type` is added without a corresponding case.
         inline HistoryStatus handle_math(const MathCommand& cmd, Context& ctx,
                                          Config& config, DiagnosticSink& sink) {
             const std::string& payload = cmd.payload();

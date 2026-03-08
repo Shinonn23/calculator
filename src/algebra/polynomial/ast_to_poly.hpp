@@ -84,12 +84,14 @@ namespace math_solver {
             return Result<Polynomial>::ok(result_);
         }
 
+        /// Reject an `ArrayExpr` node with a polynomial error diagnostic.
         void visit(const ArrayExpr& node) override {
             error_ = errors::polynomial(
                 "array value cannot appear in a polynomial expression",
                 node.span(), input_);
         }
 
+        /// Reject a `FunctionCall` node with a polynomial error diagnostic.
         void visit(const FunctionCall& node) override {
             error_ = errors::polynomial(
                 "function call '" + node.name() +
@@ -97,14 +99,17 @@ namespace math_solver {
                 node.span(), input_);
         }
 
+        /// Store the constant polynomial `value` from a `Number` leaf.
         void visit(const Number& node) override {
             result_ = Polynomial(node.value());
         }
 
+        /// Store the degree-1 polynomial `1·var` from a `Variable` leaf.
         void visit(const Variable& node) override {
             result_ = Polynomial(1.0, node.name(), 1);
         }
 
+        /// Apply negation to the accumulated polynomial for a `UnaryOp` node.
         void visit(const UnaryOp& node) override {
             if (error_)
                 return;
@@ -118,6 +123,11 @@ namespace math_solver {
             }
         }
 
+        /// Combine left and right polynomials for a `BinaryOp` node.
+        ///
+        /// Division requires a constant non-zero divisor; exponentiation
+        /// requires a non-negative integer constant exponent. Non-conforming
+        /// operands set `error_` and abort further traversal.
         void visit(const BinaryOp& node) override {
             if (error_)
                 return;

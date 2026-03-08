@@ -1,5 +1,12 @@
 #pragma once
 
+//! # Module — `src/commands/handlers/var_handler.hpp`
+//!
+//! Implements variable-management command handlers: `handle_set`, `handle_unset`,
+//! and the top-level dispatcher `handle_var`. All functions are `inline` and
+//! live entirely in this header. They operate on the live `Context` and surface
+//! errors via `DiagnosticSink` rather than exceptions.
+
 #include "algebra/polynomial/ast_to_poly.hpp"
 #include "algebra/polynomial/factor.hpp"
 #include "algebra/solver/solver.hpp"
@@ -20,12 +27,16 @@
 namespace math_solver {
     namespace handlers {
 
-        // Variable name validation:
-        // - Invariant: names must start with alpha/_ and contain only
-        // alphanum/_.
-        // - This is relied upon by downstream parsing and symbol table logic.
-        // - Reserved keywords are disallowed to avoid shadowing and semantic
-        // ambiguity.
+        /// Return `true` when `name` is a syntactically valid, non-reserved identifier.
+        ///
+        /// A valid identifier starts with an ASCII letter or `'_'` and contains
+        /// only ASCII alphanumeric characters or `'_'`. Reserved keywords (as
+        /// determined by `is_reserved_keyword`) are rejected even if they satisfy
+        /// the character rules.
+        ///
+        /// # Arguments
+        ///
+        /// * `name` — The candidate identifier string to validate.
         inline bool is_valid_identifier(const std::string& name) {
             if (name.empty() || !(std::isalpha(name[0]) || name[0] == '_'))
                 return false;
@@ -37,16 +48,38 @@ namespace math_solver {
             return true;
         }
 
-        // Handles all forms of :set commands.
-        // - Maintains the invariant that variable names are valid and not
-        // reserved.
-        // - Updates or inserts variable bindings in the context.
-        // - On error, prints diagnostics and leaves context unchanged.
-        // - For "solve", clones all context except the target variable to avoid
-        //   accidental self-reference during equation solving.
-        // - Performance: context cloning is O(n) in the number of variables.
-        // - Correctness: relies on parser and solver subsystems for semantic
-        // checks.
+        /// Execute a `:set <var> <expr|action>` command and bind the result in `ctx`.
+        ///
+        /// Dispatches on `cmd.math_action()`:
+        /// - `"solve"` — parses the payload as an equation, solves it via
+        ///   `EquationSolver` in a context that excludes the target variable to
+        ///   prevent self-reference, and stores the numeric result.
+        /// - `"expand"` — converts the expression to a `Polynomial` via
+        ///   `ASTToPolynomial`, then re-parses and stores the expanded form.
+        /// - `"factor"` — converts to `Polynomial`, applies `factor_polynomial`,
+        ///   re-parses, and stores the factored form.
+        /// - Default — stores the parsed expression. Attempts eager numeric
+        ///   evaluation via `Resolver`; falls back to symbolic display when
+        ///   variables are undefined.
+        ///
+        /// # Arguments
+        ///
+        /// * `cmd`    — The `:set` command node; supplies var name, payload, flags, and source info.
+        /// * `ctx`    — Variable context; updated on success.
+        /// * `config` — Configuration store (currently unused; reserved for future use).
+        /// * `sink`   — Diagnostic sink for errors and output.
+        ///
+        /// # Returns
+        ///
+        /// `HistoryStatus::Success` when the variable is bound and output emitted,
+        /// `HistoryStatus::Error` on any validation or solver failure.
+        ///
+        /// # Errors
+        ///
+        /// Pushes `missing_var_name` when the variable name is absent.
+        /// Pushes `reserved_keyword` or `invalid_identifier` for invalid names.
+        /// Pushes `missing_expr` when no payload is provided.
+        /// Pushes parse and solver diagnostics for `"solve"` / `"expand"` / `"factor"` actions.
         inline HistoryStatus handle_set(const VarCommand& cmd, Context& ctx,
                                         Config& config, DiagnosticSink& sink) {
             (void)config;
@@ -248,8 +281,29 @@ namespace math_solver {
             return HistoryStatus::Error;
         }
 
-        // Removes a variable binding from the context.
-        // - If the variable does not exist, emits a diagnostic.
+        /// Remove one or more variable bindings from `ctx`.
+        ///
+        /// Iterates over all names in `cmd.var_name()`. Each name is removed from
+        /// the live context if present; missing names produce a `var_not_found`
+        /// diagnostic. If any removal fails the context is restored to its state
+        /// before the call (transactional via clone).
+        ///
+        /// # Arguments
+        ///
+        /// * `cmd`  — The `:unset` command node; `var_name()` lists the targets.
+        /// * `ctx`  — Variable context; mutated on success.
+        /// * `sink` — Diagnostic sink for errors and output.
+        ///
+        /// # Returns
+        ///
+        /// `HistoryStatus::Success` when all named variables are removed,
+        /// `HistoryStatus::Error` when any variable is missing or a name is empty
+        /// (context is rolled back in this case).
+        ///
+        /// # Errors
+        ///
+        /// Pushes `missing_var_name` for empty name strings.
+        /// Pushes `var_not_found` for names not present in `ctx`.
         inline HistoryStatus handle_unset(const VarCommand& cmd, Context& ctx,
                                           DiagnosticSink& sink) {
             const std::vector<std::string>& vars       = cmd.var_name();
@@ -287,11 +341,24 @@ namespace math_solver {
             }
         }
 
-        // Dispatches to the appropriate handler based on the VarCommand action.
-        // - Only Set and Unset actions are supported.
-        // - If new actions are added, this switch must be updated.
-        // - Returns HistoryStatus::Unknown for unhandled actions (should be
-        // unreachable).
+        /// Dispatch a `VarCommand` to `handle_set` or `handle_unset`.
+        ///
+        /// Routes `cmd.action()` to the appropriate sub-handler. An `Unknown`
+        /// action emits an `unknown_command` diagnostic.
+        ///
+        /// # Arguments
+        ///
+        /// * `cmd`    — The variable command to execute.
+        /// * `ctx`    — Variable context forwarded to the sub-handler.
+        /// * `config` — Configuration forwarded to `handle_set`.
+        /// * `raw`    — Raw command string used for span construction in `Unknown` errors.
+        /// * `sink`   — Diagnostic sink for errors and output.
+        ///
+        /// # Returns
+        ///
+        /// The `HistoryStatus` from the selected sub-handler, or
+        /// `HistoryStatus::Error` for `Unknown`. Returns `HistoryStatus::Unknown`
+        /// only when a new `VarCommand::Action` is added without a matching case.
         inline HistoryStatus handle_var(const VarCommand& cmd, Context& ctx,
                                         Config& config, std::string& raw,
                                         DiagnosticSink& sink) {

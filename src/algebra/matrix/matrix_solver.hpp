@@ -1,7 +1,5 @@
 #pragma once
 
-//! # Module — `src/algebra/matrix/matrix_solver.hpp`
-//!
 //! Solves systems of linear equations expressed as `LinearForm` objects using
 //! Gaussian elimination with partial pivoting or LU decomposition.
 //!
@@ -28,31 +26,55 @@ namespace math_solver {
 
     /// Result of solving a linear system.
     struct SystemSolveResult {
-        std::map<std::string, double>
-            solutions;   ///< unique solution (rank_A == n)
-        std::map<std::string, std::string>
-            free_params; ///< var → expression (free-vars mode)
-        std::vector<std::string> free_vars;  ///< underdetermined variable names
+        /// Variable-to-value map; populated when a unique solution exists
+        /// (`rank(A) == n`).
+        std::map<std::string, double> solutions;
 
-        bool                     is_unique = true;
-        int                      rank_A = 0; ///< rank of coefficient matrix A
-        int    rank_Ab                  = 0; ///< rank of augmented matrix [A|b]
-        double smallest_pivot =
-            1e18; ///< smallest non-zero pivot (for singularity detection)
+        /// Variable-to-parametric-expression map; populated in free-variable
+        /// mode when `is_unique` is `false`.
+        std::map<std::string, std::string> free_params;
+
+        /// Names of the underdetermined (free) variables when `is_unique` is
+        /// `false`.
+        std::vector<std::string> free_vars;
+
+        /// `true` iff the system has a unique solution.
+        bool   is_unique      = true;
+
+        /// Rank of the coefficient matrix A.
+        int    rank_A         = 0;
+
+        /// Rank of the augmented matrix [A|b].
+        int    rank_Ab        = 0;
+
+        /// Smallest absolute non-zero pivot encountered during elimination;
+        /// used by the `--detect-singular` diagnostic.
+        double smallest_pivot = 1e18;
     };
 
     /// Options that control the solve algorithm.
     struct SolveSystemOptions {
-        SolveMethod method = SolveMethod::Gauss;
-        bool        free_vars =
-            false; ///< parameterise infinite solutions instead of error
+        /// Elimination algorithm; defaults to Gaussian elimination with
+        /// partial pivoting.
+        SolveMethod method    = SolveMethod::Gauss;
+
+        /// When `true`, parameterise underdetermined systems as free-variable
+        /// expressions instead of returning an infinite-solutions error.
+        bool        free_vars = false;
     };
 
     /// Solves a system of linear equations using matrix methods.
     class MatrixSolver {
-        std::string input_; ///< raw source text (for diagnostics)
+        /// Raw source text forwarded to error constructors for diagnostics.
+        std::string input_;
 
         public:
+        /// Constructs a `MatrixSolver` with a raw source string for diagnostics.
+        ///
+        /// # Arguments
+        ///
+        /// * `input` — Original source text; forwarded to `Diagnostic`
+        ///   constructors. Defaults to empty string.
         explicit MatrixSolver(const std::string& input = "");
 
         /// Solves the linear system represented by `forms` for the variables

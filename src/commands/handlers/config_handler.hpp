@@ -1,5 +1,13 @@
 #pragma once
 
+//! # Module — `src/commands/handlers/config_handler.hpp`
+//!
+//! Implements `handle_config` — the handler for `ConfigCommand` nodes (list,
+//! get, set, path, reset). All logic is `inline` and lives entirely in this
+//! header. Settings are validated against `Settings::all_keys()` /
+//! `Settings::is_valid_key()` before any mutation occurs, and every successful
+//! `Set` or `Reset` is persisted via `Config::save()`.
+
 #include "ast/command/config_command.hpp"
 #include "ast/command/history_entry.hpp"
 #include "config/config.hpp"
@@ -11,6 +19,38 @@
 namespace math_solver {
     namespace handlers {
 
+        /// Execute a `ConfigCommand` (list, get, set, path, reset) against `config`.
+        ///
+        /// Each action variant is handled as follows:
+        /// - `List`  — Emits all settings and their current values, aligned.
+        /// - `Get`   — Validates the key, then emits `key = value`.
+        /// - `Set`   — Validates key and value, applies the change, calls
+        ///   `config.save()`, and emits the updated value. For `auto_load_env`,
+        ///   also verifies that the referenced environment exists.
+        /// - `Path`  — Emits the on-disk config file path.
+        /// - `Reset` — Restores all settings to defaults and calls `config.save()`.
+        /// - `Unknown` — Emits `unknown_config_subcommand` diagnostic.
+        ///
+        /// # Arguments
+        ///
+        /// * `cmd`    — The configuration command to execute.
+        /// * `config` — Live configuration store; mutated by `Set` and `Reset`.
+        /// * `sink`   — Diagnostic sink for errors and output.
+        ///
+        /// # Returns
+        ///
+        /// `HistoryStatus::Info` for `List` and `Path`,
+        /// `HistoryStatus::Success` for `Get`, `Set`, and `Reset`,
+        /// `HistoryStatus::Error` on validation failure or `Unknown`.
+        ///
+        /// # Errors
+        ///
+        /// Pushes `missing_setting_key` when `Get` key is empty.
+        /// Pushes `unknown_setting` when the key is not in `Settings::all_keys()`.
+        /// Pushes `missing_key_or_value` when `Set` is missing key or value.
+        /// Pushes `env_ref_error` when `auto_load_env` references a non-existent environment.
+        /// Pushes `invalid_setting_value` when `Settings::set` rejects the value.
+        /// Pushes `unknown_config_subcommand` for `Unknown` action.
         inline HistoryStatus handle_config(const ConfigCommand& cmd,
                                            Config&              config,
                                            DiagnosticSink&      sink) {

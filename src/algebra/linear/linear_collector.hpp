@@ -232,16 +232,24 @@ namespace math_solver {
             return shadowed_vars_;
         }
 
+        /// Reject an `ArrayExpr` node with an invalid-equation diagnostic.
         void visit(const ArrayExpr& node) override {
             error_ = errors::invalid_equation(
                 "array value cannot appear in a linear equation",
                 node.span(), input_);
         }
 
+        /// Store the constant linear form `value` from a `Number` leaf.
         void visit(const Number& node) override {
             result_ = LinearForm(node.value());
         }
 
+        /// Record or substitute a `Variable` node.
+        ///
+        /// In non-isolated mode, variables bound in `context_` are resolved
+        /// by recursively visiting their stored expression. In isolated mode,
+        /// context-bound names are treated as free unknowns and recorded in
+        /// `shadowed_vars_` for diagnostic purposes.
         void visit(const Variable& node) override {
             const std::string& name = node.name();
 
@@ -261,6 +269,7 @@ namespace math_solver {
             result_ = LinearForm(name, 1.0);
         }
 
+        /// Negate the accumulated linear form for a `UnaryOp` node.
         void visit(const UnaryOp& node) override {
             if (error_)
                 return;
@@ -274,6 +283,12 @@ namespace math_solver {
             }
         }
 
+        /// Combine left and right linear forms for a `BinaryOp` node.
+        ///
+        /// Rejects multiplication of two variable-containing forms, division
+        /// by a variable expression, and any exponent that is neither 0 nor 1
+        /// on a non-constant base. Sets `error_` and aborts on any non-linear
+        /// term.
         void visit(const BinaryOp& node) override {
             if (error_)
                 return;
@@ -369,6 +384,10 @@ namespace math_solver {
             }
         }
 
+        /// Evaluate a `FunctionCall` numerically if its argument is constant.
+        ///
+        /// If the argument contains a variable, sets `error_` with an
+        /// unsupported-equation diagnostic and aborts traversal.
         void visit(const FunctionCall& node) override {
             if (error_)
                 return;

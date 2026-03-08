@@ -1,5 +1,11 @@
 #pragma once
 
+//! # Module — `src/commands/handlers/system_handler.hpp`
+//!
+//! Implements `handle_system` — the handler for `SystemCommand` nodes (exit,
+//! help, clear, ls) — and `print_help`, the full help-menu formatter. Both
+//! functions are `inline` and live entirely in this header.
+
 #include "ast/command/history_entry.hpp"
 #include "ast/command/system_command.hpp"
 #include "config/config.hpp"
@@ -16,13 +22,15 @@
 namespace math_solver {
     namespace handlers {
 
-        // Centralized help output for all supported commands.
-        //
-        // - Must be kept in sync with parser and command set; any additions or
-        //   removals require updating this output to avoid user confusion.
-        // - If the command set grows substantially, consider extracting help
-        //   text to a single authoritative source to avoid duplication.
-        // - Not performance critical; invoked only on explicit user request.
+        /// Emit the full help menu to `sink` as a formatted output message.
+        ///
+        /// Covers all command categories: evaluation, variable management,
+        /// environments, history, redo, scripts, configuration, and system
+        /// commands. Must be kept in sync with the parser and command set.
+        ///
+        /// # Arguments
+        ///
+        /// * `sink` — Diagnostic sink that receives the formatted help text.
         inline void print_help(DiagnosticSink& sink) {
             std::ostringstream oss;
 
@@ -157,19 +165,25 @@ namespace math_solver {
             sink.push_output(oss.str());
         }
 
-        // Handles system-level commands (exit, help, clear, ls).
-        //
-        // - Invariant: `cmd` must be a valid SystemCommand variant as produced
-        // by the parser.
-        // - Only `ctx` is mutated, and only for commands that require it.
-        // - Not performance sensitive; system commands are rare in normal
-        // usage.
-        // - All handled command variants must be kept in sync with the parser.
-        // - If new SystemCommand variants are added, this function must be
-        // updated
-        //   to avoid silent no-ops.
-        // - Returns HistoryStatus to indicate result for REPL history tracking.
-        // - Sets `out_should_exit` to signal REPL termination (for Exit).
+        /// Execute a `SystemCommand` (exit, help, clear, ls) and return its
+        /// history status.
+        ///
+        /// Sets `out_should_exit` to `true` when `cmd.type()` is
+        /// `SystemCommand::Type::Exit` to signal REPL termination. All other
+        /// variants leave `out_should_exit` as `false`.
+        ///
+        /// # Arguments
+        ///
+        /// * `cmd`            — The system command to execute.
+        /// * `ctx`            — Variable context; read for `Ls`, not mutated.
+        /// * `out_should_exit` — Set to `true` to signal REPL termination.
+        /// * `sink`           — Diagnostic sink for output and error messages.
+        ///
+        /// # Returns
+        ///
+        /// `HistoryStatus::Success` for `Exit`/`Clear`/`Ls` on success,
+        /// `HistoryStatus::Info` for `Help`/`Clear`, and
+        /// `HistoryStatus::Error` for `Unknown`.
         inline HistoryStatus handle_system(const SystemCommand& cmd,
                                            Context& ctx, Config& /*config*/,
                                            bool&    out_should_exit,

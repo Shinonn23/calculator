@@ -1,5 +1,12 @@
 #pragma once
 
+//! # Module — `src/commands/handlers/redo_handler.hpp`
+//!
+//! Implements `handle_redo` — the handler for `RedoCommand` nodes (`:redo`,
+//! `:redo <n>`, `:redo <selector>`). Re-dispatches one or more history entries
+//! by calling a caller-supplied `dispatch_fn`. The function is a function
+//! template to keep the handler decoupled from `HandlerRegistry`.
+
 #include "ast/command/history_entry.hpp"
 #include "ast/command/redo_command.hpp"
 #include "commands/handlers/history_handler.hpp"
@@ -14,38 +21,37 @@
 namespace math_solver {
     namespace handlers {
 
-        // Redo handler: re-dispatches commands from session history.
-        //
-        // Invariants:
-        // - `dispatch_fn` must not mutate `session_history` directly; all
-        // mutations
-        //   are expected to go through the main event loop to preserve history
-        //   integrity.
-        // - If `cmd.range()` is empty, only the most recent command is
-        // re-executed.
-        // - Each redo is treated as a new history entry by the main loop, so
-        // repeated
-        //   redos will accumulate in history.
-        //
-        // Correctness:
-        // - The function assumes that `session_history` is append-only and that
-        // indices
-        //   are stable for the duration of this call.
-        // - If `resolve_range` fails, an error is reported and no commands are
-        // dispatched.
-        // - There is no feedback channel from `dispatch_fn` to indicate
-        // success/failure
-        //   of individual commands; this is a deliberate design to keep the
-        //   handler stateless with respect to command execution outcomes.
-        //
-        // Edge cases:
-        // - If history is empty, returns early with an informational status.
-        // - If the range is invalid, emits a diagnostic with precise span info.
-        //
-        // Performance:
-        // - Linear scan over `session_history` to extract command strings; cost
-        // is
-        //   negligible unless history is extremely large.
+        /// Re-execute one or more commands from `session_history` by calling `dispatch_fn`.
+        ///
+        /// When `cmd.range()` is empty, re-executes the most recent history entry.
+        /// Otherwise, parses the range selector via `resolve_range` and dispatches
+        /// each selected entry in order. Each re-executed command is echoed to
+        /// `sink` with a dim `">> "` prefix before dispatch.
+        ///
+        /// Each redo call is itself recorded as a new history entry by the main
+        /// loop; `dispatch_fn` must not mutate `session_history` directly.
+        /// There is no feedback channel from `dispatch_fn` for per-command
+        /// success/failure — this is intentional to keep the handler stateless.
+        ///
+        /// # Arguments
+        ///
+        /// * `cmd`             — The `:redo` command node; supplies `range()` and source info.
+        /// * `session_history` — Immutable snapshot of the current session history;
+        ///   assumed append-only and index-stable for the duration of this call.
+        /// * `dispatch_fn`     — Callable `(const std::string& raw) -> void` that
+        ///   re-parses and dispatches the given command string.
+        /// * `sink`            — Diagnostic sink for errors and echoed command output.
+        ///
+        /// # Returns
+        ///
+        /// `HistoryStatus::Info` when history is empty.
+        /// `HistoryStatus::Success` when all selected commands are dispatched.
+        /// `HistoryStatus::Error` when the range selector is invalid (E0801).
+        ///
+        /// # Errors
+        ///
+        /// Pushes E0801 with an `"invalid range"` label when `resolve_range` fails
+        /// to parse `cmd.range()`.
         template <typename DispatchFn>
         inline HistoryStatus
         handle_redo(const RedoCommand&               cmd,

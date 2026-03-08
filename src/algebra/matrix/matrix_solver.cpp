@@ -1,5 +1,3 @@
-//! # Module — `src/algebra/matrix/matrix_solver.cpp`
-//!
 //! Implements `MatrixSolver::solve`. Internal helpers (anonymous namespace)
 //! cover: augmented-matrix construction, rank counting, Gaussian elimination
 //! with partial pivoting, back-substitution, free-variable parameterisation,
@@ -15,11 +13,6 @@
 #include <sstream>
 
 namespace math_solver {
-
-    // ────────────────────────────────────────────────────────────────────────────
-    // Internal helpers
-    // ────────────────────────────────────────────────────────────────────────────
-
     namespace {
 
         using Matrix = std::vector<std::vector<double>>;
@@ -338,10 +331,6 @@ namespace math_solver {
 
     } // anonymous namespace
 
-    // ────────────────────────────────────────────────────────────────────────────
-    // MatrixSolver
-    // ────────────────────────────────────────────────────────────────────────────
-
     MatrixSolver::MatrixSolver(const std::string& input) : input_(input) {}
 
     Result<SystemSolveResult>
@@ -423,7 +412,6 @@ namespace math_solver {
         }
 
     gauss_path: {
-        // ── Gauss path ────────────────────────────────────────────────────
         Matrix work        = aug;
         double min_piv     = gauss_eliminate(work, n);
         res.smallest_pivot = min_piv;

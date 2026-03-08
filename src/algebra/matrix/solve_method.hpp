@@ -1,7 +1,5 @@
 #pragma once
 
-//! # Module — `src/algebra/matrix/solve_method.hpp`
-//!
 //! Declares the `SolveMethod` enum used by `MatrixSolver` to select between
 //! Gaussian elimination and LU decomposition when solving linear systems.
 

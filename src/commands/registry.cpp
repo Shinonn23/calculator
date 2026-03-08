@@ -1,3 +1,9 @@
+//! # Module — `src/commands/registry.cpp`
+//!
+//! Implements `HandlerRegistry::push_history`, all `CommandVisitor::visit`
+//! overrides, and the `build_handler_registry` factory. Also contains the
+//! internal `get_current_timestamp` helper used when persisting history entries.
+
 #include "commands/registry.hpp"
 #include "ast/command/math_command.hpp"
 #include "ast/command/var_command.hpp"

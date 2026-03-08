@@ -32,11 +32,20 @@ namespace math_solver {
         std::vector<ExprPtr> elements_;
 
         public:
-        /// Construct an ArrayExpr taking ownership of `elements`.
+        /// Construct an `ArrayExpr` taking ownership of `elements`, with no source span.
+        ///
+        /// # Arguments
+        ///
+        /// * `elements` — The ordered list of child expression nodes; may be empty.
         explicit ArrayExpr(std::vector<ExprPtr> elements)
             : Expr(), elements_(std::move(elements)) {}
 
-        /// Construct an ArrayExpr with a source span.
+        /// Construct an `ArrayExpr` with an explicit source span.
+        ///
+        /// # Arguments
+        ///
+        /// * `elements` — The ordered list of child expression nodes; may be empty.
+        /// * `span`     — Source region in the original input covering this array.
         ArrayExpr(std::vector<ExprPtr> elements, const Span& span)
             : Expr(span), elements_(std::move(elements)) {}
 
@@ -49,7 +58,7 @@ namespace math_solver {
         /// Returns true if there are no elements.
         bool                        empty() const { return elements_.empty(); }
 
-        /// Double-dispatch to visitor.
+        /// Dispatch to `ExprVisitor::visit(const ArrayExpr&)`.
         void accept(ExprVisitor& visitor) const override {
             visitor.visit(*this);
         }
@@ -67,7 +76,12 @@ namespace math_solver {
             return oss.str();
         }
 
-        /// Deep-copies all elements.
+        /// Produce a deep copy of this node and all element subtrees.
+        ///
+        /// # Returns
+        ///
+        /// A new `ArrayExpr` with independent copies of every element and the
+        /// same `span_`.
         std::unique_ptr<Expr> clone() const override {
             std::vector<ExprPtr> cloned;
             cloned.reserve(elements_.size());

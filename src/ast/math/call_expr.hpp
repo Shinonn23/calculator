@@ -25,7 +25,17 @@ namespace math_solver {
 
     /// Resolve a function name to its `FuncKind`, if known.
     ///
-    /// Returns `std::nullopt` for unrecognised names.
+    /// Lookup is performed via a static hash table; the function has O(1)
+    /// amortised cost after the first call.
+    ///
+    /// # Arguments
+    ///
+    /// * `name` — The raw identifier string as it appears in the source.
+    ///   Must exactly match a known function name; no case-folding is applied.
+    ///
+    /// # Returns
+    ///
+    /// The corresponding `FuncKind`, or `std::nullopt` for unrecognised names.
     inline std::optional<FuncKind> func_kind_from_name(const std::string& name) {
         static const std::unordered_map<std::string, FuncKind> table = {
             {"sin",   FuncKind::Sin},
@@ -65,6 +75,15 @@ namespace math_solver {
         ExprPtr     arg_;
 
     public:
+        /// Construct a `FunctionCall` with a resolved function kind and argument.
+        ///
+        /// # Arguments
+        ///
+        /// * `name` — The original source name of the function (for diagnostics).
+        /// * `kind` — The resolved `FuncKind` (obtained via `func_kind_from_name`).
+        /// * `arg`  — The single argument expression; must be non-null.
+        /// * `span` — Source region covering the full call expression; defaults
+        ///            to an empty span.
         FunctionCall(std::string name, FuncKind kind, ExprPtr arg,
                      const Span& span = Span())
             : Expr(span), name_(std::move(name)), kind_(kind),
@@ -90,6 +109,11 @@ namespace math_solver {
         }
 
         /// Produce a deep copy of this node and its argument subtree.
+        ///
+        /// # Returns
+        ///
+        /// A new `FunctionCall` with the same `name_`, `kind_`, `span_`, and an
+        /// independent copy of the argument subtree.
         std::unique_ptr<Expr> clone() const override {
             return std::make_unique<FunctionCall>(name_, kind_, arg_->clone(),
                                                   span_);

@@ -198,6 +198,37 @@ target_compile_options(parser_tests PRIVATE
 
 gtest_discover_tests(parser_tests)
 
+# ===== Algebra Unit Tests =====
+add_executable(algebra_tests
+    tests/algebra/test_monomial_polynomial.cpp
+    tests/algebra/test_ast_to_poly.cpp
+    tests/algebra/test_factor.cpp
+    tests/algebra/test_linear_form.cpp
+    tests/algebra/test_simplify.cpp
+    tests/algebra/test_poly_solver.cpp
+    tests/algebra/test_matrix_solver.cpp
+    tests/algebra/test_equation_solver.cpp
+)
+
+target_include_directories(algebra_tests PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/src
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests
+)
+
+target_compile_features(algebra_tests PRIVATE cxx_std_17)
+
+target_link_libraries(algebra_tests PRIVATE
+    GTest::gtest_main
+    math_core
+)
+
+target_compile_options(algebra_tests PRIVATE
+    $<$<CXX_COMPILER_ID:MSVC>:/W4>
+    $<$<NOT:$<CXX_COMPILER_ID:MSVC>>:-Wall -Wextra>
+)
+
+gtest_discover_tests(algebra_tests)
+
 # ===== UI Integration Tests =====
 find_package(Python3 COMPONENTS Interpreter REQUIRED)
 
