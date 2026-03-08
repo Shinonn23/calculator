@@ -70,12 +70,12 @@ namespace math_solver {
                 "Solve a linear system of equations simultaneously");
             note("e.g.  :solve x + y = 5; 2x - y = 1");
             flag("--method=gauss|lu", "Solver algorithm (default: gauss)");
-            flag("--show-matrix",     "Print the augmented matrix [A|b]");
-            flag("--rank",            "Display the matrix rank after solving");
+            flag("--show-matrix", "Print the augmented matrix [A|b]");
+            flag("--rank", "Display the matrix rank after solving");
             flag("--detect-singular", "Warn when the system is singular");
             flag("--free-vars",
                  "Report free variables for under-determined systems");
-            flag("--vars x y",   "Force variable ordering in solution output");
+            flag("--vars x y", "Force variable ordering in solution output");
             cmd(":simplify <eq>", "Canonicalise equation to Ax + By = C form");
             flag("--vars x y", "Force variable ordering in output");
             flag("--isolated",
@@ -93,8 +93,9 @@ namespace math_solver {
             cmd(":set <var> expand <expr>", "Expand and store result in <var>");
             cmd(":set <var> factor <expr>",
                 "Factorise and store result in <var>");
-            cmd(":unset <var>", "Remove a variable from the current context");
-            cmd(":rm <var>", "Alias for :unset");
+            cmd(":unset <var>, <var2>, ...",
+                "Remove variables from the current context");
+            cmd(":rm <var>, <var2>, ...", "Alias for :unset");
             cmd(":ls", "List all variables with their current values");
             cmd(":clear", "Remove all variables from the current environment");
 
@@ -242,7 +243,7 @@ namespace math_solver {
 
                 std::string bad_cmd = input.substr(0, input.find(' '));
 
-                Diagnostic  e = errors::unknown_command(
+                Diagnostic  e       = errors::unknown_command(
                     bad_cmd, find_token_span(input, bad_cmd), input,
                     cmd.source_file(), cmd.source_line());
                 sink.push(e);

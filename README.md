@@ -259,6 +259,20 @@ Config is saved to `~/.config/cmath-solver/` on Linux or `%APPDATA%\cmath-solver
 
 ---
 
+## Documentation
+
+Full developer and contributor documentation lives in the [`docs/`](docs/) directory:
+
+- **[Architecture](docs/architecture/overview.md)** — Pipeline overview, AST, parser, evaluator, algebra, commands, diagnostics, config & runtime
+- **[Contributing](docs/contributing/CONTRIBUTING.md)** — Build instructions, code style, PR workflow
+- **[Walkthroughs](docs/contributing/adding-a-command.md)** — Step-by-step guides for adding commands, AST nodes, and math functions
+- **[Testing](docs/contributing/testing.md)** — Unit tests (GoogleTest) and UI tests (.msl scripts)
+- **[Reference](docs/reference/error-codes.md)** — Error codes and settings reference
+
+See [`docs/README.md`](docs/README.md) for the full navigation index.
+
+---
+
 ## Dependencies
 
 Fetched automatically by CMake — no manual installation needed.
@@ -269,21 +283,3 @@ Fetched automatically by CMake — no manual installation needed.
 | replxx        | History, completion, colors  |
 
 ---
-
-## Documentation
-
-Detailed walkthroughs for each feature are in [`docs/`](docs/):
-
-| Feature            | Doc                                                                    |
-| ------------------ | ---------------------------------------------------------------------- |
-| built-in functions | [`docs/contributing/functions.md`](docs/contributing/functions.md)     |
-| math (all)         | [`docs/commands/math_commands.md`](docs/commands/math_commands.md)     |
-| polynomial solving | [`docs/solve-polynomial.md`](docs/solve-polynomial.md)                 |
-| system solving     | [`docs/solve-system.md`](docs/solve-system.md)                         |
-| :set / :unset      | [`docs/commands/var_command.md`](docs/commands/var_command.md)         |
-| :config            | [`docs/commands/config_command.md`](docs/commands/config_command.md)   |
-| :env               | [`docs/commands/env_command.md`](docs/commands/env_command.md)         |
-| :history           | [`docs/commands/history_command.md`](docs/commands/history_command.md) |
-| :redo              | [`docs/commands/redo_command.md`](docs/commands/redo_command.md)       |
-| :load              | [`docs/commands/load_command.md`](docs/commands/load_command.md)       |
-| Architecture       | [`docs/dispatch_overview.md`](docs/dispatch_overview.md)               |
