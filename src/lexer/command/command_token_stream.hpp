@@ -27,11 +27,23 @@ namespace math_solver {
         std::string  raw_input_;
 
         public:
-        explicit CommandTokenStream(const std::string& input);
-
+        explicit CommandTokenStream(const std::string& input)
+            : lexer_(input), current_(lexer_.next_token()), raw_input_(input) {}
         CommandToken peek() const override { return current_; }
-        CommandToken advance() override;
-        bool         is_eof() const override {
+
+        // Advances the stream by one token.
+        // Returns the previous token, updating `current_` to the next.
+        // - Correctness relies on the invariant that `current_` is always valid
+        // after construction.
+        // - No internal buffering beyond single-token lookahead; callers must
+        // not retain references to tokens beyond their lifetime.
+        CommandToken advance() override {
+            CommandToken prev = current_;
+            current_          = lexer_.next_token();
+            return prev;
+        };
+
+        bool is_eof() const override {
             return current_.is(CommandTokenType::Eof);
         }
         const std::string& raw_input() const override { return raw_input_; }

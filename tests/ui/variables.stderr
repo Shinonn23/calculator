@@ -4,21 +4,14 @@
   y = 10
   [3] x + y
   = 15
-  [4] :unset x
+  [4] :unset x, y
   Removed: x
+  Removed: y
   [5] :unset x
-  Removed: x
-error[E0425]: variable `x` not found
-  --> variables.msl:4:8
-   |
- 4 | :unset x
-   |        ^ unknown variable
-   = help: a variable with a similar name exists: `y`
 error[E0425]: variable `x` not found
   --> variables.msl:5:8
    |
  5 | :unset x
    |        ^ unknown variable
-   = help: a variable with a similar name exists: `y`
-  Loaded 'variables.msl' (5 line(s), 2 error(s))
+  Loaded 'variables.msl' (5 line(s), 1 error(s))
   Rolled back — env and config unchanged

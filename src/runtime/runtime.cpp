@@ -51,12 +51,8 @@ namespace math_solver {
             if (parse_result) {
                 context_.set(name, std::move(*parse_result));
             } else {
-                try {
-                    double val = std::stod(expr_str);
-                    context_.set(name, val);
-                } catch (...) {
-                    // Intentionally ignored: variable is omitted from context.
-                }
+                double val = std::stod(expr_str);
+                context_.set(name, val);
             }
         }
         current_env_ = env_name;

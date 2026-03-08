@@ -51,6 +51,11 @@ namespace math_solver {
 
             char c = current();
 
+            if (c == ',') {
+                advance();
+                return CommandToken(CommandTokenType::Comma, ",", start, pos_);
+            }
+
             // Quoted string: consumes until next '"' or end of input.
             // No support for escaped quotes; input is assumed well-formed.
             if (c == '"') {
@@ -62,8 +67,8 @@ namespace math_solver {
                 }
                 if (current() == '"')
                     advance();
-                return CommandToken(
-                    CommandTokenType::QuotedString, val, start, pos_);
+                return CommandToken(CommandTokenType::QuotedString, val, start,
+                                    pos_);
             }
 
             // Command: must start with ':' and continues until whitespace.
@@ -75,8 +80,8 @@ namespace math_solver {
                     val += current();
                     advance();
                 }
-                return CommandToken(
-                    CommandTokenType::Command, val, start, pos_);
+                return CommandToken(CommandTokenType::Command, val, start,
+                                    pos_);
             }
 
             // Flag: must start with '-' or '--' and be followed by alpha or
@@ -98,7 +103,7 @@ namespace math_solver {
             std::string val;
             while (current() != '\0' &&
                    !std::isspace(static_cast<unsigned char>(current())) &&
-                   current() != '"') {
+                   current() != '"' && current() != ',') {
                 val += current();
                 advance();
             }

@@ -43,10 +43,7 @@ namespace math_solver {
                 if (parse_result) {
                     ctx.set(name, std::move(*parse_result));
                 } else {
-                    try {
-                        ctx.set(name, std::stod(expr_str));
-                    } catch (...) {
-                    }
+                    ctx.set(name, std::stod(expr_str));
                 }
             }
             return true;

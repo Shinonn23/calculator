@@ -284,8 +284,9 @@ namespace math_solver {
                 std::string method_flag =
                     (cmd.method() == SolveMethod::LU) ? "--method=lu"
                                                       : "--method=gauss";
-                sink.push(errors::method_ignored_for_poly(method_flag,
-                                                          cmd.raw_command()));
+                sink.push(errors::method_ignored_for_poly(
+                    method_flag, cmd.raw_command(),
+                    cmd.source_file(), cmd.source_line()));
             }
 
             std::string      var = combined.single_variable();
@@ -748,9 +749,9 @@ namespace math_solver {
             case MathCommand::Type::Unknown: {
                 std::string raw = cmd.raw_command();
                 std::string bad = raw.substr(0, raw.find(' '));
-                Diagnostic  d   = errors::unknown_command(
-                    bad, find_token_span(raw, bad), raw);
-                d = d.with_location(cmd.source_file(), cmd.source_line());
+                Diagnostic  d = errors::unknown_command(
+                    bad, find_token_span(raw, bad), raw,
+                    cmd.source_file(), cmd.source_line());
                 sink.push(d);
             }
                 return HistoryStatus::Error;

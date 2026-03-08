@@ -100,33 +100,33 @@ namespace math_solver {
             // correctness.
             // - Any MathError is surfaced directly to the user.
             if (math_action == "solve") {
-                try {
-                    Parser parser(payload);
-                    auto   parse_result = parser.parse_equation().with_location(
-                        cmd.source_file(), cmd.source_line());
-                    if (!parse_result) {
-                        sink.push(parse_result.error());
-                        return HistoryStatus::Error;
-                    }
-                    auto    eq = std::move(*parse_result);
-                    Context temp_ctx;
-                    for (const auto& [n, e] : ctx.all())
-                        if (n != var)
-                            temp_ctx.set(n, *e);
 
-                    EquationSolver      solver(&temp_ctx, payload);
-                    Result<SolveResult> result = solver.solve(*eq);
-
-                    ctx.set(var, result->value);
-                    std::ostringstream oss;
-                    oss << "  " << var << " = " << result->value << "\n";
-                    sink.push_output(oss.str());
-                    return HistoryStatus::Success;
-                } catch (const std::exception& e) {
-                    // TODO: convert solver to Result-based flow.
-                    (void)e;
+                Parser parser(payload);
+                auto   parse_result = parser.parse_equation().with_location(
+                    cmd.source_file(), cmd.source_line());
+                if (!parse_result) {
+                    sink.push(parse_result.error());
                     return HistoryStatus::Error;
                 }
+                auto    eq = std::move(*parse_result);
+                Context temp_ctx;
+                for (const auto& [n, e] : ctx.all())
+                    if (n != var)
+                        temp_ctx.set(n, *e);
+
+                EquationSolver      solver(&temp_ctx, payload);
+                Result<SolveResult> result = solver.solve(*eq);
+
+                if (!result) {
+                    sink.push(result.error());
+                    return HistoryStatus::Error;
+                }
+
+                ctx.set(var, result->value);
+                std::ostringstream oss;
+                oss << "  " << var << " = " << result->value << "\n";
+                sink.push_output(oss.str());
+                return HistoryStatus::Success;
             }
 
             // "expand" action:
@@ -152,6 +152,7 @@ namespace math_solver {
                     Polynomial poly = *poly_r;
                     Parser     sp(poly.to_string());
                     auto       sr = sp.parse();
+
                     if (!sr) {
                         sink.push(sr.error().with_location(cmd.source_file(),
                                                            cmd.source_line()));
@@ -175,49 +176,6 @@ namespace math_solver {
             // form.
             // - Assumes factor_polynomial is correct and total.
             if (math_action == "factor") {
-                try {
-                    Parser parser(payload);
-                    auto   parse_result = parser.parse().with_location(
-                        cmd.source_file(), cmd.source_line());
-                    if (!parse_result) {
-                        sink.push(parse_result.error());
-                        return HistoryStatus::Error;
-                    }
-                    auto expr   = std::move(*parse_result);
-                    auto poly_r = ASTToPolynomial(payload).convert(*expr);
-                    if (!poly_r) {
-                        sink.push(poly_r.error().with_location(
-                            cmd.source_file(), cmd.source_line()));
-                        return HistoryStatus::Error;
-                    }
-                    auto        factored = factor_polynomial(*poly_r);
-                    std::string str      = factored.to_string();
-                    Parser      sp(str);
-                    auto        sr = sp.parse();
-                    if (!sr) {
-                        sink.push(sr.error().with_location(cmd.source_file(),
-                                                           cmd.source_line()));
-                        return HistoryStatus::Error;
-                    }
-                    // Only set after successful parse
-                    ctx.set(var, std::move(*sr));
-                    std::ostringstream oss;
-                    oss << "  " << var << " = " << str << "\n";
-                    sink.push_output(oss.str());
-                    return HistoryStatus::Success;
-                } catch (const std::exception& e) {
-                    // TODO: convert factor_polynomial to Result-based flow.
-                    (void)e;
-                    return HistoryStatus::Error;
-                }
-            }
-
-            // Default assignment:
-            // - Parses and stores the expression.
-            // - Attempts eager evaluation; if undefined variables are present,
-            //   falls back to expansion.
-            // - Handles circular dependencies gracefully, emitting a warning.
-            try {
                 Parser parser(payload);
                 auto   parse_result = parser.parse().with_location(
                     cmd.source_file(), cmd.source_line());
@@ -225,34 +183,68 @@ namespace math_solver {
                     sink.push(parse_result.error());
                     return HistoryStatus::Error;
                 }
-                ctx.set(var, std::move(*parse_result));
-
-                // Array literals are stored directly; skip scalar evaluation.
-                if (dynamic_cast<const ArrayExpr*>(&ctx.get_expr(var))) {
-                    std::ostringstream oss;
-                    oss << "  " << var << " = " << ctx.get_expr(var).to_string()
-                        << "\n";
-                    sink.push_output(oss.str());
-                    return HistoryStatus::Success;
+                auto expr   = std::move(*parse_result);
+                auto poly_r = ASTToPolynomial(payload).convert(*expr);
+                if (!poly_r) {
+                    sink.push(poly_r.error().with_location(cmd.source_file(),
+                                                           cmd.source_line()));
+                    return HistoryStatus::Error;
                 }
+                auto        factored = factor_polynomial(*poly_r);
+                std::string str      = factored.to_string();
+                Parser      sp(str);
+                auto        sr = sp.parse();
 
-                auto res = Resolver::evaluate(ctx.get_expr(var), ctx);
+                if (!sr) {
+                    sink.push(sr.error().with_location(cmd.source_file(),
+                                                       cmd.source_line()));
+                    return HistoryStatus::Error;
+                }
+                // Only set after successful parse
+                ctx.set(var, std::move(*sr));
                 std::ostringstream oss;
-                if (res) {
-                    oss << "  " << var << " = " << *res << "\n";
-                } else {
-                    // Fall back to symbolic display when variables are
-                    // undefined.
-                    oss << "  " << var << " = " << ctx.get_expr(var).to_string()
-                        << "\n";
-                }
+                oss << "  " << var << " = " << str << "\n";
                 sink.push_output(oss.str());
                 return HistoryStatus::Success;
-            } catch (const std::exception& e) {
-                // TODO: convert parser to Result-based flow.
-                (void)e;
+            }
+
+            // Default assignment:
+            // - Parses and stores the expression.
+            // - Attempts eager evaluation; if undefined variables are present,
+            //   falls back to expansion.
+            // - Handles circular dependencies gracefully, emitting a warning.
+
+            Parser parser(payload);
+            auto parse_result = parser.parse().with_location(cmd.source_file(),
+                                                             cmd.source_line());
+            if (!parse_result) {
+                sink.push(parse_result.error());
                 return HistoryStatus::Error;
             }
+            ctx.set(var, std::move(*parse_result));
+
+            // Array literals are stored directly; skip scalar evaluation.
+            if (dynamic_cast<const ArrayExpr*>(&ctx.get_expr(var))) {
+                std::ostringstream oss;
+                oss << "  " << var << " = " << ctx.get_expr(var).to_string()
+                    << "\n";
+                sink.push_output(oss.str());
+                return HistoryStatus::Success;
+            }
+
+            auto               res = Resolver::evaluate(ctx.get_expr(var), ctx);
+            std::ostringstream oss;
+            if (res) {
+                oss << "  " << var << " = " << *res << "\n";
+            } else {
+                // Fall back to symbolic display when variables are
+                // undefined.
+                oss << "  " << var << " = " << ctx.get_expr(var).to_string()
+                    << "\n";
+            }
+            sink.push_output(oss.str());
+            return HistoryStatus::Success;
+
             return HistoryStatus::Error;
         }
 
@@ -270,7 +262,7 @@ namespace math_solver {
 
             for (const std::string& var : vars) {
 
-                if (var.size() < 0) {
+                if (var.size() < 1) {
                     sink.push(errors::missing_var_name(
                         raw, ":unset", "`:unset <var>, <var>, ...`", file,
                         line));
@@ -281,10 +273,10 @@ namespace math_solver {
                     ctx.unset(var);
                     sink.push_output("  Removed: " + var + "\n");
                     is_success = true;
+                } else {
+                    sink.push(errors::var_not_found(raw, var, ctx, file, line));
+                    is_success = false;
                 }
-
-                sink.push(errors::var_not_found(raw, var, ctx, file, line));
-                is_success = false;
             }
 
             if (!is_success) {
@@ -313,8 +305,8 @@ namespace math_solver {
                 std::string bad_cmd = input.substr(0, input.find(' '));
 
                 Diagnostic  e       = errors::unknown_command(
-                    bad_cmd, find_token_span(raw, bad_cmd), raw);
-                e = e.with_location(cmd.source_file(), cmd.source_line());
+                    bad_cmd, find_token_span(raw, bad_cmd), raw,
+                    cmd.source_file(), cmd.source_line());
                 sink.push(e);
                 return HistoryStatus::Error;
             }

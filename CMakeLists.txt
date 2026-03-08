@@ -59,7 +59,6 @@ add_library(math_core
     src/commands/registry.cpp
     src/config/config.cpp
     src/eval/evaluator.cpp
-    src/lexer/command/command_token_stream.cpp
     src/parser/command/command_parser.cpp
     src/parser/command/command_parser_registry.cpp
     src/parser/command/subparsers/config_command_parser.cpp

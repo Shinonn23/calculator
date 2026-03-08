@@ -44,15 +44,18 @@ namespace math_solver {
                 std::vector<std::string>(), stream.raw_input()));
         }
 
-        std::vector<std::string> var_names = {stream.peek().value};
+        std::vector<std::string> var_names = {};
 
-        while (stream.peek().value == ",") {
-            stream.advance();
+        while ((stream.peek_is(CommandTokenType::Word))) {
             var_names.push_back(stream.peek().value);
             stream.advance();
+            if (stream.peek_is(CommandTokenType::Comma)) {
+                stream.advance();
+            } else {
+                break;
+            }
         }
 
-        stream.advance();
         auto var_cmd = std::make_unique<VarCommand>(
             is_set ? VarCommand::Action::Set : VarCommand::Action::Unset,
             var_names, stream.raw_input());

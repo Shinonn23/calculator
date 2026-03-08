@@ -20,11 +20,11 @@ namespace math_solver {
         static Result ok(T value) { return Result(std::move(value)); }
         static Result err(Diagnostic d) { return Result(std::move(d)); }
 
-        bool     ok() const { return std::holds_alternative<T>(data_); }
-        bool     failed() const { return !ok(); }
-        explicit operator bool() const { return ok(); }
+        bool          ok() const { return std::holds_alternative<T>(data_); }
+        bool          failed() const { return !ok(); }
+        explicit      operator bool() const { return ok(); }
 
-        T& operator*() {
+        T&            operator*() {
             assert(ok() && "dereferenced failed Result");
             return std::get<T>(data_);
         }
@@ -32,8 +32,8 @@ namespace math_solver {
             assert(ok() && "dereferenced failed Result");
             return std::get<T>(data_);
         }
-        T*       operator->() { return &**this; }
-        const T* operator->() const { return &**this; }
+        T*                operator->() { return &**this; }
+        const T*          operator->() const { return &**this; }
 
         const Diagnostic& error() const {
             assert(failed() && "called error() on successful Result");

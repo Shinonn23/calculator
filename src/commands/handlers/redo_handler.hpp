@@ -72,7 +72,7 @@ namespace math_solver {
                         errors::math(
                             err,
                             Span(raw.find_last_of(" \t") + 1, raw.length()),
-                            raw)
+                            raw, cmd.source_file(), cmd.source_line())
                             .with_label("invalid range");
                     d.code = "E0801";
                     sink.push(d);

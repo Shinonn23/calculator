@@ -228,9 +228,9 @@ namespace math_solver {
 
                 std::string bad_cmd = input.substr(0, input.find(' '));
 
-                Diagnostic  e       = errors::unknown_command(
-                    bad_cmd, find_token_span(input, bad_cmd), input);
-                e = e.with_location(cmd.source_file(), cmd.source_line());
+                Diagnostic  e = errors::unknown_command(
+                    bad_cmd, find_token_span(input, bad_cmd), input,
+                    cmd.source_file(), cmd.source_line());
                 sink.push(e);
                 return HistoryStatus::Error;
             }

@@ -86,6 +86,8 @@ namespace math_solver {
         }
         [[nodiscard]] Diagnostic with_location(const std::string& file,
                                                size_t             line) const {
+            if (file.empty() && line == 0)
+                return *this;
             return with_location(SourceLocation::from_file(file, line));
         }
 

@@ -1,5 +1,5 @@
 :set x 5
 :set y x * 2
 x + y
-:unset x
+:unset x, y
 :unset x

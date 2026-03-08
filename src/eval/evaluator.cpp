@@ -27,15 +27,15 @@ namespace math_solver {
     void Evaluator::visit(const Variable& node) {
         // Variable resolution requires a valid context.
         if (!context_) {
-            auto d = undefined_variable(node.name(), node.span(), input_)
-                         .with_location(source_file_, source_line_);
+            auto d = undefined_variable(node.name(), node.span(), input_,
+                                        source_file_, source_line_);
             if (sink_)
                 sink_->push(d);
             return;
         }
         if (!context_->has(node.name())) {
-            auto d = undefined_variable(node.name(), node.span(), input_)
-                         .with_location(source_file_, source_line_);
+            auto d = undefined_variable(node.name(), node.span(), input_,
+                                        source_file_, source_line_);
             if (sink_)
                 sink_->push(d);
             return;
@@ -47,7 +47,8 @@ namespace math_solver {
         // This is critical to avoid infinite recursion in cases like `a = a +
         // 1`.
         if (auto it = visited_.find(name); it != visited_.end()) {
-            auto d = circular_dependency(name, it->second, input_);
+            auto d = circular_dependency(name, it->second, input_,
+                                         source_file_, source_line_);
             if (sink_)
                 sink_->push(d);
             return;
@@ -95,7 +96,8 @@ namespace math_solver {
             // Division by zero is explicitly checked to avoid undefined
             // behavior.
             if (right_val == 0) {
-                auto d = math("division by zero", node.right().span(), input_);
+                auto d = math("division by zero", node.right().span(), input_,
+                              source_file_, source_line_);
                 if (sink_)
                     sink_->push(d);
                 break;
@@ -115,7 +117,8 @@ namespace math_solver {
         // The caller should use evaluate_broadcast() when array variables are
         // expected.
         auto d = errors::math("array value cannot be used in scalar context",
-                              node.span(), input_);
+                              node.span(), input_,
+                              source_file_, source_line_);
         if (sink_)
             sink_->push(d);
         result_ = 0.0;
@@ -237,7 +240,7 @@ namespace math_solver {
                     "array size mismatch: '" + arr_vars[0] + "' has " +
                         std::to_string(arr_size) + " elements but '" + name +
                         "' has " + std::to_string(arr->size()),
-                    Span{}, input_);
+                    Span{}, input_, source_file_, source_line_);
                 if (sink_)
                     sink_->push(d);
                 return {};

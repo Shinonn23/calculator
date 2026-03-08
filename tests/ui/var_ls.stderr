@@ -10,13 +10,5 @@
   [5] :unset a
   Removed: a
   [6] :ls
-  a  =  10
   b  =  20
-error[E0425]: variable `a` not found
-  --> var_ls.msl:5:8
-   |
- 5 | :unset a
-   |        ^ unknown variable
-   = help: a variable with a similar name exists: `b`
-  Loaded 'var_ls.msl' (6 line(s), 1 error(s))
-  Rolled back — env and config unchanged
+  Loaded 'var_ls.msl' (6 line(s))
