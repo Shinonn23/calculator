@@ -3,11 +3,6 @@
   [3] :set 1x 5
   [4] :set x
   [5] undefined_var
-error[E0425]: cannot find value `undefined_var` in this scope
-  --> <repl>:1:1
-   |
- 1 | undefined_var
-   | ^^^^^^^^^^^^^ not found in this scope
 error[E0401]: missing variable name
   --> var_errors.msl:1:1
    |
@@ -32,5 +27,10 @@ error[E0404]: missing expression
  4 | :set x
    |      ^ expression expected after this
    = help: Usage: `:set <var> <expr>`
+error[E0425]: cannot find value `undefined_var` in this scope
+  --> var_errors.msl:5:1
+   |
+ 5 | undefined_var
+   | ^^^^^^^^^^^^^ not found in this scope
   Loaded 'var_errors.msl' (5 line(s), 5 error(s))
   Rolled back — env and config unchanged

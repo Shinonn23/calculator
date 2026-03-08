@@ -1,36 +1,30 @@
-  [3] sin(pi/2)
-  [4] cos(0)
+  [2] :set pi 3.1415926535897932384626433832795
+  pi = 3.14159
+  [5] sin(pi/2)
   = 1
-  [5] tan(pi/4)
-  = 0
-  [7] :expand sin(pi/2) + cos(0)
-  [9] :solve sin(x) = 0
-  [10] :solve cos(x) = 1
-  [11] :solve sin(x) + cos(x) = 1
-error[E0425]: cannot find value `pi` in this scope
-  --> <repl>:1:5
-   |
- 1 | sin(pi/2)
-   |     ^^ not found in this scope
-error[E0310]: function call 'sin' cannot appear in polynomial expression
-  --> trig_symbolic.msl:7:1
-   |
- 7 | sin(pi/2) + cos(0)
-   | ^^^^^^^^^ polynomial error
-error[E0315]: non-linear term: function 'sin' applied to variable expression
-  --> trig_symbolic.msl:9:1
-   |
- 9 | sin(x) = 0
-   | ^^^^^^ unsupported
-error[E0315]: non-linear term: function 'cos' applied to variable expression
-   --> trig_symbolic.msl:10:1
-    |
- 10 | cos(x) = 1
-    | ^^^^^^ unsupported
+  [6] cos(0)
+  = 1
+  [7] tan(pi/4)
+  = 1
+  [9] :expand sin(pi/2) + cos(0)
+  2
+  [11] :solve sin(x) = 0
+  [12] :solve cos(x) = 1
+  [13] :solve sin(x) + cos(x) = 1
 error[E0315]: non-linear term: function 'sin' applied to variable expression
    --> trig_symbolic.msl:11:1
     |
- 11 | sin(x) + cos(x) = 1
+ 11 | sin(x) = 0
     | ^^^^^^ unsupported
-  Loaded 'trig_symbolic.msl' (7 line(s), 5 error(s))
+error[E0315]: non-linear term: function 'cos' applied to variable expression
+   --> trig_symbolic.msl:12:1
+    |
+ 12 | cos(x) = 1
+    | ^^^^^^ unsupported
+error[E0315]: non-linear term: function 'sin' applied to variable expression
+   --> trig_symbolic.msl:13:1
+    |
+ 13 | sin(x) + cos(x) = 1
+    | ^^^^^^ unsupported
+  Loaded 'trig_symbolic.msl' (8 line(s), 3 error(s))
   Rolled back — env and config unchanged

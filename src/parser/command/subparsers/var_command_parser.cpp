@@ -1,7 +1,23 @@
 #include "var_command_parser.hpp"
 #include "ast/command/var_command.hpp"
+#include "diagnostics/kinds/command_errors.hpp"
+
+#include <cctype>
 
 namespace math_solver {
+
+    static std::string extract_trailing_flag(const std::string& s) {
+        size_t e = s.find_last_not_of(" \t\r\n");
+        if (e == std::string::npos)
+            return "";
+        size_t b = s.find_last_of(" \t\r\n", e);
+        b        = (b == std::string::npos) ? 0 : b + 1;
+        if (e - b + 1 >= 2 && s[b] == '-' &&
+            (std::isalpha(static_cast<unsigned char>(s[b + 1])) ||
+             s[b + 1] == '-'))
+            return s.substr(b, e - b + 1);
+        return "";
+    }
 
     // Parses a variable command from the token stream.
     //
@@ -25,13 +41,21 @@ namespace math_solver {
         if (stream.is_eof()) {
             return Result<CommandPtr>::ok(std::make_unique<VarCommand>(
                 is_set ? VarCommand::Action::Set : VarCommand::Action::Unset,
-                "", stream.raw_input()));
+                std::vector<std::string>(), stream.raw_input()));
         }
-        std::string var_name = stream.peek().value;
+
+        std::vector<std::string> var_names = {stream.peek().value};
+
+        while (stream.peek().value == ",") {
+            stream.advance();
+            var_names.push_back(stream.peek().value);
+            stream.advance();
+        }
+
         stream.advance();
         auto var_cmd = std::make_unique<VarCommand>(
             is_set ? VarCommand::Action::Set : VarCommand::Action::Unset,
-            var_name, stream.raw_input());
+            var_names, stream.raw_input());
         if (is_set) {
             // Only attach a math action payload if the next token is a
             // recognized action. This avoids misinterpreting arbitrary input as
@@ -47,16 +71,30 @@ namespace math_solver {
                  stream.peek().value == "factor")) {
                 std::string math_action = stream.peek().value;
                 stream.advance();
-                std::string payload =
-                    stream.peek_is(CommandTokenType::QuotedString)
-                        ? stream.advance().value
-                        : stream.consume_remaining();
+                std::string payload;
+                if (stream.peek_is(CommandTokenType::QuotedString)) {
+                    payload = stream.advance().value;
+                } else {
+                    payload = stream.consume_remaining();
+                    if (auto flag = extract_trailing_flag(payload);
+                        !flag.empty())
+                        return Result<CommandPtr>::err(
+                            errors::trailing_flag_after_expr(
+                                flag, stream.raw_input()));
+                }
                 var_cmd->set_payload(math_action, payload);
             } else {
-                std::string payload =
-                    stream.peek_is(CommandTokenType::QuotedString)
-                        ? stream.advance().value
-                        : stream.consume_remaining();
+                std::string payload;
+                if (stream.peek_is(CommandTokenType::QuotedString)) {
+                    payload = stream.advance().value;
+                } else {
+                    payload = stream.consume_remaining();
+                    if (auto flag = extract_trailing_flag(payload);
+                        !flag.empty())
+                        return Result<CommandPtr>::err(
+                            errors::trailing_flag_after_expr(
+                                flag, stream.raw_input()));
+                }
                 var_cmd->set_payload("", payload);
             }
         }

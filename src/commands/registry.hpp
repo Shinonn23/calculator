@@ -130,10 +130,16 @@ namespace math_solver {
 
         // Returns false if the command signals process exit.
         // Main loop must call clear_history() if should_clear_history_ is set.
+        // Postcondition: last_command_status_ is Warning if the handler
+        // succeeded but warnings were emitted, so push_history() records the
+        // correct label.
         bool dispatch(const Command& cmd, DiagnosticSink& sink) {
             should_exit_          = false;
             should_clear_history_ = false;
             cmd.accept(*this, sink);
+            if (last_command_status_ == HistoryStatus::Success &&
+                sink.has_warnings())
+                last_command_status_ = HistoryStatus::Warning;
             return !should_exit_;
         }
 

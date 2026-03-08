@@ -57,6 +57,17 @@ namespace math_solver {
             cmd("<lhs> = <rhs>", "Check equality (returns true/false)");
             cmd(":solve <eq>", "Solve for the unknown, auto-saves result");
             note("e.g.  :solve 2x + 3 = 7");
+            flag("--no-save", "Print result without storing it in context");
+            cmd(":solve eq1; eq2; ...",
+                "Solve a linear system of equations simultaneously");
+            note("e.g.  :solve x + y = 5; 2x - y = 1");
+            flag("--method=gauss|lu", "Solver algorithm (default: gauss)");
+            flag("--show-matrix",     "Print the augmented matrix [A|b]");
+            flag("--rank",            "Display the matrix rank after solving");
+            flag("--detect-singular", "Warn when the system is singular");
+            flag("--free-vars",
+                 "Report free variables for under-determined systems");
+            flag("--vars x y",   "Force variable ordering in solution output");
             cmd(":simplify <eq>", "Canonicalise equation to Ax + By = C form");
             flag("--vars x y", "Force variable ordering in output");
             flag("--isolated",

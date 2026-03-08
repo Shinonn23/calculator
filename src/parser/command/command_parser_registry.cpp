@@ -65,4 +65,16 @@ namespace math_solver {
         return reg;
     }
 
+    const std::unordered_set<std::string>& registered_command_names() {
+        static const std::unordered_set<std::string> names = [] {
+            auto                             reg = build_registry();
+            std::unordered_set<std::string> s;
+            s.reserve(reg.size());
+            for (const auto& [k, _] : reg)
+                s.insert(k);
+            return s;
+        }();
+        return names;
+    }
+
 } // namespace math_solver

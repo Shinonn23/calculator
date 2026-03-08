@@ -28,8 +28,6 @@
 namespace math_solver {
     namespace handlers {
 
-        // ── Helpers ──────────────────────────────────────────────────────────
-
         // Splits a payload on ';', trims whitespace, and discards empty parts.
         // Returns a vector of non-empty equation strings.
         inline std::vector<std::string>
@@ -279,6 +277,16 @@ namespace math_solver {
             // 1 the linear solver is exact and avoids floating-point rounding.
             if (combined.degree() <= 1)
                 return std::nullopt;
+
+            // Warn if --method was explicitly set — it has no effect here.
+            if (cmd.method_explicitly_set()) {
+                // Reconstruct the flag string to point span at it.
+                std::string method_flag =
+                    (cmd.method() == SolveMethod::LU) ? "--method=lu"
+                                                      : "--method=gauss";
+                sink.push(errors::method_ignored_for_poly(method_flag,
+                                                          cmd.raw_command()));
+            }
 
             std::string      var = combined.single_variable();
 
@@ -561,7 +569,6 @@ namespace math_solver {
         inline HistoryStatus do_expand(const std::string& payload,
                                        const MathCommand& cmd, Context& ctx,
                                        DiagnosticSink& sink) {
-            (void)ctx;
             if (payload.empty()) {
                 sink.push_output("  Usage: :expand <expr>\n");
                 return HistoryStatus::Error;
@@ -577,6 +584,14 @@ namespace math_solver {
                 auto expr   = std::move(*parse_result);
                 auto poly_r = ASTToPolynomial(payload).convert(*expr);
                 if (!poly_r) {
+                    // Fallback: try numeric evaluation (handles trig, etc.)
+                    DiagnosticSink temp_sink;
+                    Evaluator      eval(&ctx, payload, &temp_sink);
+                    double         val = eval.evaluate(*expr);
+                    if (temp_sink.error_count() == 0) {
+                        sink.push_output("  " + fmt_double(val) + "\n");
+                        return HistoryStatus::Success;
+                    }
                     sink.push(poly_r.error().with_location(cmd.source_file(),
                                                            cmd.source_line()));
                     return HistoryStatus::Error;
@@ -675,6 +690,7 @@ namespace math_solver {
                     // Check whether any variable in the expression is
                     // array-bound; if so, take the broadcast path.
                     Evaluator eval(&ctx, payload, &sink);
+                    eval.set_source(cmd.source_file(), cmd.source_line());
                     size_t    err_count = sink.error_count();
 
                     auto      results   = eval.evaluate_broadcast(*expr, ctx);

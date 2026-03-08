@@ -27,13 +27,15 @@ namespace math_solver {
     void Evaluator::visit(const Variable& node) {
         // Variable resolution requires a valid context.
         if (!context_) {
-            auto d = undefined_variable(node.name(), node.span(), input_);
+            auto d = undefined_variable(node.name(), node.span(), input_)
+                         .with_location(source_file_, source_line_);
             if (sink_)
                 sink_->push(d);
             return;
         }
         if (!context_->has(node.name())) {
-            auto d = undefined_variable(node.name(), node.span(), input_);
+            auto d = undefined_variable(node.name(), node.span(), input_)
+                         .with_location(source_file_, source_line_);
             if (sink_)
                 sink_->push(d);
             return;

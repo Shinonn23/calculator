@@ -47,12 +47,13 @@ namespace math_solver {
         bool                     as_fraction_     = false;
 
         // System-solve flags (multi-equation path only).
-        SolveMethod              method_          = SolveMethod::Gauss;
-        bool                     show_matrix_     = false;
-        bool                     no_save_         = false;
-        bool                     show_rank_       = false;
-        bool                     detect_singular_ = false;
-        bool                     free_vars_       = false;
+        SolveMethod              method_                = SolveMethod::Gauss;
+        bool                     method_explicitly_set_ = false;
+        bool                     show_matrix_           = false;
+        bool                     no_save_               = false;
+        bool                     show_rank_             = false;
+        bool                     detect_singular_       = false;
+        bool                     free_vars_             = false;
 
         public:
         /// Construct a `MathCommand` with a given operation type and payload.
@@ -86,15 +87,16 @@ namespace math_solver {
         /// Set flags specific to the multi-equation system solver.
         ///
         /// Call after `set_flags()`; the two setters are orthogonal.
-        void set_system_flags(SolveMethod method, bool show_matrix,
-                              bool no_save, bool show_rank,
+        void set_system_flags(SolveMethod method, bool method_explicitly_set,
+                              bool show_matrix, bool no_save, bool show_rank,
                               bool detect_singular, bool free_vars) {
-            method_          = method;
-            show_matrix_     = show_matrix;
-            no_save_         = no_save;
-            show_rank_       = show_rank;
-            detect_singular_ = detect_singular;
-            free_vars_       = free_vars;
+            method_                = method;
+            method_explicitly_set_ = method_explicitly_set;
+            show_matrix_           = show_matrix;
+            no_save_               = no_save;
+            show_rank_             = show_rank;
+            detect_singular_       = detect_singular;
+            free_vars_             = free_vars;
         }
 
         /// Return the operation type.
@@ -117,6 +119,9 @@ namespace math_solver {
 
         /// Return the selected system-solve method.
         SolveMethod method() const { return method_; }
+
+        /// Return true if --method was explicitly provided by the user.
+        bool method_explicitly_set() const { return method_explicitly_set_; }
 
         /// Return true if the augmented matrix should be printed before
         /// solving.

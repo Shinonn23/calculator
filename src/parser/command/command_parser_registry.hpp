@@ -4,6 +4,7 @@
 #include <memory>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 
 namespace math_solver {
 
@@ -27,5 +28,13 @@ namespace math_solver {
     // This function is the single point of extension for new command types.
     // Callers must not mutate the returned registry after construction.
     SubparserRegistry build_registry();
+
+    // Returns the set of all registered command names (e.g. ":solve",
+    // ":set"). Built once from build_registry() and cached as a static local.
+    //
+    // Use this as the single source of truth for command validation — avoids
+    // duplicating the command list in callers such as the REPL highlighter.
+    // Any command added to build_registry() is automatically reflected here.
+    const std::unordered_set<std::string>& registered_command_names();
 
 } // namespace math_solver

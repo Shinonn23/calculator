@@ -50,10 +50,23 @@ namespace math_solver {
         inline HistoryStatus handle_set(const VarCommand& cmd, Context& ctx,
                                         Config& config, DiagnosticSink& sink) {
             (void)config;
-            const std::string& var  = cmd.var_name();
-            const std::string& raw  = cmd.raw_command();
-            const std::string& file = cmd.source_file();
-            size_t             line = cmd.source_line();
+            const std::vector<std::string>& vars = cmd.var_name();
+            const std::string&              raw  = cmd.raw_command();
+            const std::string&              file = cmd.source_file();
+            size_t                          line = cmd.source_line();
+
+            if (vars.empty()) {
+                sink.push(errors::missing_var_name(
+                    raw, ":set", "`:set <var> <expr>`", file, line));
+                return HistoryStatus::Error;
+            }
+
+            if (vars.size() > 1) {
+                sink.push(errors::not_support_multiple(raw, vars, file, line));
+                return HistoryStatus::Error;
+            }
+
+            const std::string& var = vars[0];
 
             if (var.empty()) {
                 sink.push(errors::missing_var_name(
@@ -247,25 +260,39 @@ namespace math_solver {
         // - If the variable does not exist, emits a diagnostic.
         inline HistoryStatus handle_unset(const VarCommand& cmd, Context& ctx,
                                           DiagnosticSink& sink) {
-            const std::string& var  = cmd.var_name();
-            const std::string& raw  = cmd.raw_command();
-            const std::string& file = cmd.source_file();
-            size_t             line = cmd.source_line();
+            const std::vector<std::string>& vars       = cmd.var_name();
+            const std::string&              raw        = cmd.raw_command();
+            const std::string&              file       = cmd.source_file();
+            size_t                          line       = cmd.source_line();
+            bool                            is_success = true;
 
-            if (var.empty()) {
-                sink.push(errors::missing_var_name(
-                    raw, ":unset", "`:unset <var>`", file, line));
-                return HistoryStatus::Error;
+            Context                         temp       = ctx.clone(ctx);
+
+            for (const std::string& var : vars) {
+
+                if (var.size() < 0) {
+                    sink.push(errors::missing_var_name(
+                        raw, ":unset", "`:unset <var>, <var>, ...`", file,
+                        line));
+                    is_success = false;
+                }
+
+                if (ctx.has(var)) {
+                    ctx.unset(var);
+                    sink.push_output("  Removed: " + var + "\n");
+                    is_success = true;
+                }
+
+                sink.push(errors::var_not_found(raw, var, ctx, file, line));
+                is_success = false;
             }
 
-            if (ctx.has(var)) {
-                ctx.unset(var);
-                sink.push_output("  Removed: " + var + "\n");
+            if (!is_success) {
+                ctx = std::move(temp);
+                return HistoryStatus::Error;
+            } else {
                 return HistoryStatus::Success;
             }
-
-            sink.push(errors::var_not_found(raw, var, ctx, file, line));
-            return HistoryStatus::Error;
         }
 
         // Dispatches to the appropriate handler based on the VarCommand action.

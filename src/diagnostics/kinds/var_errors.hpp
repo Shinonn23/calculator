@@ -36,6 +36,25 @@ namespace math_solver {
             return d;
         }
 
+        inline Diagnostic
+        not_support_multiple(const std::string&              raw,
+                             const std::vector<std::string>& vars,
+                             const std::string& file, size_t line) {
+            std::string var_list;
+            for (size_t i = 0; i < vars.size(); ++i) {
+                if (i > 0)
+                    var_list += ", ";
+                var_list += "`" + vars[i] + "`";
+            }
+            auto d = Diagnostic::make(
+                         "multiple variable names not supported: " + var_list,
+                         "E0405", find_token_span(raw, var_list), raw,
+                         "only one variable name allowed in :set command")
+                         .with_location(file, line);
+            d.help = "Usage: `:set <var> <expr>` or `:unset <var>, <var>, ...`";
+            return d;
+        }
+
         inline Diagnostic reserved_keyword(const std::string& raw,
                                            const std::string& name,
                                            const std::string& file,

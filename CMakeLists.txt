@@ -54,11 +54,7 @@ FetchContent_MakeAvailable(json replxx googletest)
 
 # ===== Core Library =====
 add_library(math_core
-    src/algebra/linear/linear_collector.cpp
-    src/algebra/linear/simplify.cpp
     src/algebra/matrix/matrix_solver.cpp
-    src/algebra/polynomial/ast_to_poly.cpp
-    src/algebra/polynomial/factor.cpp
     src/algebra/solver/solver.cpp
     src/commands/registry.cpp
     src/config/config.cpp
@@ -77,7 +73,6 @@ add_library(math_core
     src/parser/math/math_parser.cpp
     src/runtime/context/context.cpp
     src/runtime/context/resolver.cpp
-    src/runtime/context/validator.cpp
     src/runtime/runtime.cpp
     src/ui/repl/repl.cpp
     src/ui/repl/runner.cpp
@@ -169,6 +164,40 @@ target_compile_options(ast_tests PRIVATE
 )
 
 gtest_discover_tests(ast_tests)
+
+# ===== Lexer & Parser Unit Tests =====
+add_executable(parser_tests
+    tests/lexer/test_math_lexer.cpp
+    tests/lexer/test_command_lexer.cpp
+    tests/parser/test_math_parser.cpp
+    tests/parser/test_var_command_parser.cpp
+    tests/parser/test_math_command_parser.cpp
+    tests/parser/test_system_command_parser.cpp
+    tests/parser/test_config_command_parser.cpp
+    tests/parser/test_env_command_parser.cpp
+    tests/parser/test_load_command_parser.cpp
+    tests/parser/test_history_command_parser.cpp
+    tests/parser/test_redo_command_parser.cpp
+)
+
+target_include_directories(parser_tests PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/src
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests
+)
+
+target_compile_features(parser_tests PRIVATE cxx_std_17)
+
+target_link_libraries(parser_tests PRIVATE
+    GTest::gtest_main
+    math_core
+)
+
+target_compile_options(parser_tests PRIVATE
+    $<$<CXX_COMPILER_ID:MSVC>:/W4>
+    $<$<NOT:$<CXX_COMPILER_ID:MSVC>>:-Wall -Wextra>
+)
+
+gtest_discover_tests(parser_tests)
 
 # ===== UI Integration Tests =====
 find_package(Python3 COMPONENTS Interpreter REQUIRED)

@@ -15,7 +15,14 @@ namespace math_solver {
     //
     // Invariant: Each token type is mutually exclusive and fully partitions the
     // input.
-    enum class CommandTokenType { Command, Flag, Word, QuotedString, Eof };
+    enum class CommandTokenType {
+        Command,
+        Flag,
+        Word,
+        Comma,
+        QuotedString,
+        Eof
+    };
 
     struct CommandToken {
         CommandTokenType type;
@@ -29,10 +36,8 @@ namespace math_solver {
         // the input. Consumers may rely on this for error reporting and
         // diagnostics.
 
-        CommandToken(CommandTokenType   t,
-                     const std::string& v,
-                     size_t             s,
-                     size_t             e)
+        CommandToken(CommandTokenType t, const std::string& v, size_t s,
+                     size_t e)
             : type(t), value(v), start(s), end(e) {}
 
         // Returns true if the token is of the specified type.
@@ -55,6 +60,8 @@ namespace math_solver {
             return "quoted string";
         case CommandTokenType::Eof:
             return "end of input";
+        case CommandTokenType::Comma:
+            return "comma";
         default:
             return "unknown";
         }

@@ -40,6 +40,8 @@ namespace math_solver {
         std::string                           input_;
         DiagnosticSink*                       sink_;
         std::unordered_map<std::string, Span> visited_;
+        std::string                           source_file_ = "<repl>";
+        size_t                                source_line_ = 1;
 
         public:
         Evaluator()
@@ -53,6 +55,11 @@ namespace math_solver {
             : result_(0.0), context_(ctx), input_(input), sink_(sink) {}
 
         void   set_input(const std::string& input) { input_ = input; }
+
+        void   set_source(const std::string& file, size_t line) {
+            source_file_ = file;
+            source_line_ = line;
+        }
 
         // Entry point for evaluation. The caller must ensure that `expr` is
         // valid for the duration of the call. Returns the computed value. Side

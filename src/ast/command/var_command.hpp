@@ -10,6 +10,7 @@
 #include <cassert>
 #include <optional>
 #include <string>
+#include <vector>
 
 #include "command.hpp"
 #include "command_visitor.hpp"
@@ -34,7 +35,7 @@ namespace math_solver {
 
         private:
         Action                     action_;
-        std::string                var_name_;
+        std::vector<std::string>   var_name_;
         std::optional<std::string> payload_;
         std::optional<std::string> math_action_;
 
@@ -46,7 +47,8 @@ namespace math_solver {
         /// * `act` — The variable operation (`Set`, `Unset`, or `Unknown`).
         /// * `var` — The target variable identifier.
         /// * `raw` — The full raw input line for diagnostics.
-        VarCommand(Action act, const std::string& var, const std::string& raw)
+        VarCommand(Action act, const std::vector<std::string>& var,
+                   const std::string& raw)
             : Command(raw), action_(act), var_name_(var) {}
 
         /// Set the math action and its associated expression payload.
@@ -65,10 +67,10 @@ namespace math_solver {
         }
 
         /// Return the variable operation kind.
-        Action             action() const { return action_; }
+        Action                          action() const { return action_; }
 
         /// Return the target variable name.
-        const std::string& var_name() const { return var_name_; }
+        const std::vector<std::string>& var_name() const { return var_name_; }
 
         /// Return true if an expression payload is present.
         bool               has_payload() const { return payload_.has_value(); }
@@ -86,16 +88,18 @@ namespace math_solver {
         ///
         /// Aborts via `assert` if `has_math_action()` is false.
         const std::string& math_action() const {
-            assert(math_action_.has_value() && "math_action() called when math_action_ is not set");
+            assert(math_action_.has_value() &&
+                   "math_action() called when math_action_ is not set");
             return *math_action_;
         }
 
         /// Return true if a math action has been set via `set_payload`.
         bool has_math_action() const { return math_action_.has_value(); }
 
-        /// Dispatch to `CommandVisitor::visit(const VarCommand&, DiagnosticSink&)`.
-        void               accept(CommandVisitor& visitor,
-                                  DiagnosticSink& sink) const override {
+        /// Dispatch to `CommandVisitor::visit(const VarCommand&,
+        /// DiagnosticSink&)`.
+        void accept(CommandVisitor& visitor,
+                    DiagnosticSink& sink) const override {
             visitor.visit(*this, sink);
         }
     };
