@@ -75,6 +75,8 @@ namespace math_solver {
             flag("--detect-singular", "Warn when the system is singular");
             flag("--free-vars",
                  "Report free variables for under-determined systems");
+            flag("--isolated",
+                 "Treat all identifiers as unknowns (ignore context)");
             flag("--vars x y", "Force variable ordering in solution output");
             cmd(":simplify <eq>", "Canonicalise equation to Ax + By = C form");
             flag("--vars x y", "Force variable ordering in output");

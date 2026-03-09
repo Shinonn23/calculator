@@ -155,12 +155,12 @@ namespace math_solver {
                     pivot_set.insert(static_cast<size_t>(pivot_col[r]));
 
             // Free variables are those not in the pivot set.
+            // Use the variable's own name as its parameter symbol so that
+            // expressions read naturally (e.g. "x = 5 - y" not "x = 5 - t0").
             std::map<size_t, std::string> free_param; // col → parameter name
-            int                           t_idx = 0;
             for (size_t c = 0; c < n; ++c) {
                 if (pivot_set.find(c) == pivot_set.end()) {
-                    std::string pname = "t" + std::to_string(t_idx++);
-                    free_param[c]     = pname;
+                    free_param[c] = var_order[c];
                     free_var_names.push_back(var_order[c]);
                 }
             }
@@ -183,12 +183,17 @@ namespace math_solver {
                     double coeff = mat[r][k];
                     if (std::abs(coeff) < kEpsilon)
                         continue;
+                    // Use the parameter name (e.g. "t") if this column is a
+                    // free variable, otherwise use the variable name directly.
+                    const std::string& sym = (exprs.count(var_order[k]))
+                                                 ? exprs.at(var_order[k])
+                                                 : var_order[k];
                     std::ostringstream oss;
-                    // Format coefficient·variable term.
+                    // Format coefficient·symbol term.
                     if (std::abs(coeff + 1.0) < kCoeffTol)
-                        oss << "-" << var_order[k];
+                        oss << "-" << sym;
                     else if (std::abs(coeff - 1.0) < kCoeffTol)
-                        oss << var_order[k];
+                        oss << sym;
                     else {
                         std::string cs = std::to_string(-coeff);
                         size_t      dp = cs.find('.');
@@ -197,7 +202,7 @@ namespace math_solver {
                             if (cs.back() == '.')
                                 cs.pop_back();
                         }
-                        oss << cs << var_order[k];
+                        oss << cs << sym;
                     }
                     terms.push_back(oss.str());
                 }

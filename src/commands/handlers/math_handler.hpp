@@ -72,8 +72,8 @@ namespace math_solver {
             if (off == std::string::npos)
                 return d;
             d.span.start += off;
-            d.span.end   += off;
-            d.input       = raw_cmd;
+            d.span.end += off;
+            d.input = raw_cmd;
             return d;
         }
 
@@ -101,9 +101,11 @@ namespace math_solver {
         ///
         /// # Arguments
         ///
-        /// * `forms`     — One `LinearForm` per equation (LHS − RHS already combined).
+        /// * `forms`     — One `LinearForm` per equation (LHS − RHS already
+        /// combined).
         /// * `var_order` — Variable names in the column order to use for `A`.
-        /// * `sink`      — Diagnostic sink that receives the formatted matrix text.
+        /// * `sink`      — Diagnostic sink that receives the formatted matrix
+        /// text.
         inline void print_matrix(const std::vector<LinearForm>&  forms,
                                  const std::vector<std::string>& var_order,
                                  DiagnosticSink&                 sink) {
@@ -140,7 +142,8 @@ namespace math_solver {
             sink.push_output(oss.str());
         }
 
-        /// Solve a system of linear equations given as pre-split equation strings.
+        /// Solve a system of linear equations given as pre-split equation
+        /// strings.
         ///
         /// Called from `do_solve` when the payload contains more than one
         /// equation (separated by `';'`). Each string in `eq_strs` is parsed
@@ -150,21 +153,25 @@ namespace math_solver {
         ///
         /// # Arguments
         ///
-        /// * `payload`  — The original raw payload string (used for diagnostics).
+        /// * `payload`  — The original raw payload string (used for
+        /// diagnostics).
         /// * `eq_strs`  — Pre-split, trimmed equation strings (at least two).
-        /// * `cmd`      — The originating `MathCommand`; supplies flags and source info.
+        /// * `cmd`      — The originating `MathCommand`; supplies flags and
+        /// source info.
         /// * `ctx`      — Variable context; mutated when solutions are saved.
         /// * `sink`     — Diagnostic sink for errors, warnings, and output.
         ///
         /// # Returns
         ///
-        /// `HistoryStatus::Success` when the system is solved and output emitted,
-        /// `HistoryStatus::Error` on parse failure, collection failure, or solver error.
+        /// `HistoryStatus::Success` when the system is solved and output
+        /// emitted, `HistoryStatus::Error` on parse failure, collection
+        /// failure, or solver error.
         ///
         /// # Errors
         ///
-        /// Pushes a parse diagnostic (E-series) if any equation string fails to parse.
-        /// Pushes a solver diagnostic (E0310/E0311) on singular or inconsistent systems.
+        /// Pushes a parse diagnostic (E-series) if any equation string fails to
+        /// parse. Pushes a solver diagnostic (E0310/E0311) on singular or
+        /// inconsistent systems.
         inline HistoryStatus
         do_solve_system(const std::string&              payload,
                         const std::vector<std::string>& eq_strs,
@@ -188,14 +195,20 @@ namespace math_solver {
                 auto            lhs_r = lc.collect(eq->lhs());
                 auto            rhs_r = lc.collect(eq->rhs());
                 if (!lhs_r || !rhs_r) {
-                    // Retry with context.
+                    if (cmd.isolated()) {
+                        sink.push(
+                            lift_to_cmd(!lhs_r ? lhs_r.error() : rhs_r.error(),
+                                        cmd.raw_command()));
+                        return HistoryStatus::Error;
+                    }
+                    // Retry with context (non-isolated mode only).
                     LinearCollector lc2(&ctx, eq_str, false);
                     lhs_r = lc2.collect(eq->lhs());
                     rhs_r = lc2.collect(eq->rhs());
                     if (!lhs_r || !rhs_r) {
-                        sink.push(lift_to_cmd(
-                            !lhs_r ? lhs_r.error() : rhs_r.error(),
-                            cmd.raw_command()));
+                        sink.push(
+                            lift_to_cmd(!lhs_r ? lhs_r.error() : rhs_r.error(),
+                                        cmd.raw_command()));
                         return HistoryStatus::Error;
                     }
                 }
@@ -233,10 +246,9 @@ namespace math_solver {
             MatrixSolver ms(payload);
             auto         result_r = ms.solve(forms, var_order, opts);
             if (!result_r) {
-                sink.push(lift_to_cmd(
-                    result_r.error().with_location(cmd.source_file(),
-                                                   cmd.source_line()),
-                    cmd.raw_command()));
+                sink.push(lift_to_cmd(result_r.error().with_location(
+                                          cmd.source_file(), cmd.source_line()),
+                                      cmd.raw_command()));
                 return HistoryStatus::Error;
             }
             const SystemSolveResult& result = *result_r;
@@ -288,27 +300,36 @@ namespace math_solver {
                 std::ostringstream oss;
                 oss << "  Free variables:";
                 for (const auto& fv : result.free_vars)
-                    oss << " " << fv;
-                oss << "\n";
+                    oss << " " << fv << ",";
+                // Remove trailing comma
+                std::string line = oss.str();
+                if (!line.empty() && line.back() == ',')
+                    line.pop_back();
+                sink.push_output(line + "\n");
+
                 for (const auto& var : var_order) {
                     auto it = result.free_params.find(var);
-                    if (it != result.free_params.end())
-                        oss << "  " << var << " = " << it->second << "\n";
+                    if (it != result.free_params.end() && it->second != var) {
+                        std::ostringstream param_oss;
+                        param_oss << "  " << var << " = " << it->second << "\n";
+                        sink.push_output(param_oss.str());
+                    }
                 }
-                sink.push_output(oss.str());
             }
 
             return HistoryStatus::Success;
         }
 
-        // ── Polynomial dispatch ───────────────────────────────────────────────
+        // ── Polynomial dispatch
+        // ───────────────────────────────────────────────
 
         /// Format `v` as a decimal or fraction string depending on `as_frac`.
         ///
         /// # Arguments
         ///
         /// * `v`       — The value to format.
-        /// * `as_frac` — When `true`, convert via `double_to_fraction`; otherwise
+        /// * `as_frac` — When `true`, convert via `double_to_fraction`;
+        /// otherwise
         ///   delegate to `fmt_double`.
         ///
         /// # Returns
@@ -335,22 +356,24 @@ namespace math_solver {
         ///
         /// * `eq`      — The parsed equation to attempt.
         /// * `payload` — Raw source string for diagnostic span construction.
-        /// * `cmd`     — The originating `MathCommand`; supplies flags and source info.
+        /// * `cmd`     — The originating `MathCommand`; supplies flags and
+        /// source info.
         /// * `ctx`     — Variable context; mutated when roots are saved.
         /// * `sink`    — Diagnostic sink for warnings, errors, and output.
         ///
         /// # Returns
         ///
-        /// `Some(HistoryStatus::Success)` when polynomial roots are found and output
-        /// is emitted. `Some(HistoryStatus::Error)` when the polynomial is valid but
-        /// has no real solutions. `std::nullopt` when the polynomial path does not
-        /// apply and the caller should try the linear solver.
+        /// `Some(HistoryStatus::Success)` when polynomial roots are found and
+        /// output is emitted. `Some(HistoryStatus::Error)` when the polynomial
+        /// is valid but has no real solutions. `std::nullopt` when the
+        /// polynomial path does not apply and the caller should try the linear
+        /// solver.
         ///
         /// # Errors
         ///
         /// Pushes E0310 (no solution) when the discriminant is negative or all
-        /// roots are complex. Pushes a method-ignored warning when `--method` was
-        /// set (it has no effect on the polynomial solver).
+        /// roots are complex. Pushes a method-ignored warning when `--method`
+        /// was set (it has no effect on the polynomial solver).
         inline std::optional<HistoryStatus>
         try_poly_solve(const Equation& eq, const std::string& payload,
                        const MathCommand& cmd, Context& ctx,
@@ -380,12 +403,12 @@ namespace math_solver {
             // Warn if --method was explicitly set — it has no effect here.
             if (cmd.method_explicitly_set()) {
                 // Reconstruct the flag string to point span at it.
-                std::string method_flag =
-                    (cmd.method() == SolveMethod::LU) ? "--method=lu"
-                                                      : "--method=gauss";
+                std::string method_flag = (cmd.method() == SolveMethod::LU)
+                                              ? "--method=lu"
+                                              : "--method=gauss";
                 sink.push(errors::method_ignored_for_poly(
-                    method_flag, cmd.raw_command(),
-                    cmd.source_file(), cmd.source_line()));
+                    method_flag, cmd.raw_command(), cmd.source_file(),
+                    cmd.source_line()));
             }
 
             std::string      var = combined.single_variable();
@@ -394,10 +417,9 @@ namespace math_solver {
             auto             roots_r = ps.solve(combined, payload);
 
             if (!roots_r) {
-                sink.push(lift_to_cmd(
-                    roots_r.error().with_location(cmd.source_file(),
-                                                  cmd.source_line()),
-                    cmd.raw_command()));
+                sink.push(lift_to_cmd(roots_r.error().with_location(
+                                          cmd.source_file(), cmd.source_line()),
+                                      cmd.raw_command()));
                 return HistoryStatus::Error;
             }
 
@@ -484,27 +506,30 @@ namespace math_solver {
 
         // ── Single-equation solve entry point ────────────────────────────────
 
-        /// Solve a single equation given as `payload` and save the result to `ctx`.
+        /// Solve a single equation given as `payload` and save the result to
+        /// `ctx`.
         ///
         /// Dispatches to `do_solve_system` when `payload` contains `';'`.
-        /// Otherwise, parses the payload as an equation, attempts the polynomial
-        /// path via `try_poly_solve`, and falls back to `EquationSolver` (linear).
-        /// When exactly one unknown is found and it already exists in `ctx`, a
-        /// temporary context is used to prevent the existing binding from
-        /// interfering with the solve.
+        /// Otherwise, parses the payload as an equation, attempts the
+        /// polynomial path via `try_poly_solve`, and falls back to
+        /// `EquationSolver` (linear). When exactly one unknown is found and it
+        /// already exists in `ctx`, a temporary context is used to prevent the
+        /// existing binding from interfering with the solve.
         ///
         /// # Arguments
         ///
         /// * `payload` — Raw equation string (e.g. `"2x + 3 = 7"`).
-        /// * `cmd`     — The originating `MathCommand`; supplies flags and source info.
-        /// * `ctx`     — Variable context; updated with the solution unless `cmd.no_save()`.
+        /// * `cmd`     — The originating `MathCommand`; supplies flags and
+        /// source info.
+        /// * `ctx`     — Variable context; updated with the solution unless
+        /// `cmd.no_save()`.
         /// * `config`  — Configuration store forwarded to `do_solve_system`.
         /// * `sink`    — Diagnostic sink for errors, warnings, and output.
         ///
         /// # Returns
         ///
-        /// `HistoryStatus::Success` when a solution is found and output emitted,
-        /// `HistoryStatus::Error` on parse or solver failure.
+        /// `HistoryStatus::Success` when a solution is found and output
+        /// emitted, `HistoryStatus::Error` on parse or solver failure.
         ///
         /// # Errors
         ///
@@ -546,7 +571,8 @@ namespace math_solver {
                 std::set<std::string> unknowns;
 
                 try {
-                    LinearCollector lc(&ctx, payload, false);
+                    const Context*  lc_ctx = cmd.isolated() ? nullptr : &ctx;
+                    LinearCollector lc(lc_ctx, payload, cmd.isolated());
                     auto            lhs_r = lc.collect(eq->lhs());
                     auto            rhs_r = lc.collect(eq->rhs());
                     if (lhs_r && rhs_r)
@@ -559,7 +585,7 @@ namespace math_solver {
                     sink.push(lift_to_cmd(d, cmd.raw_command()));
                 }
 
-                if (unknowns.empty()) {
+                if (unknowns.empty() && !cmd.isolated()) {
                     // Fallback: contextless collection, e.g. for malformed or
                     // incomplete input.
                     LinearCollector lc(nullptr, payload, true);
@@ -569,9 +595,17 @@ namespace math_solver {
                         unknowns = ((*lhs_r) - (*rhs_r)).variables();
                 }
 
-                const Context* solve_ctx = &ctx;
+                // When --free-vars is set and the equation has multiple
+                // unknowns, delegate to the system solver so parameterisation
+                // logic is applied (treat the single equation as a 1×n system).
+                if (cmd.free_vars() && unknowns.size() > 1) {
+                    return do_solve_system(payload, {payload}, cmd, ctx, config,
+                                           sink);
+                }
+
+                const Context* solve_ctx = cmd.isolated() ? nullptr : &ctx;
                 Context        temp_ctx;
-                if (unknowns.size() == 1) {
+                if (!cmd.isolated() && unknowns.size() == 1) {
                     // If the target variable is already present in the context,
                     // restrict the solving context to avoid interference from
                     // unrelated bindings.
@@ -587,10 +621,10 @@ namespace math_solver {
                 EquationSolver solver(solve_ctx, payload);
                 auto           result_r = solver.solve(*eq);
                 if (!result_r) {
-                    sink.push(lift_to_cmd(
-                        result_r.error().with_location(cmd.source_file(),
-                                                       cmd.source_line()),
-                        cmd.raw_command()));
+                    sink.push(
+                        lift_to_cmd(result_r.error().with_location(
+                                        cmd.source_file(), cmd.source_line()),
+                                    cmd.raw_command()));
                     return HistoryStatus::Error;
                 }
                 SolveResult        result = *result_r;
@@ -619,32 +653,37 @@ namespace math_solver {
             }
         }
 
-        /// Simplify `payload` to canonical `Ax + By = C` form and emit the result.
+        /// Simplify `payload` to canonical `Ax + By = C` form and emit the
+        /// result.
         ///
-        /// Parses `payload` as an equation, applies `Simplifier` with the options
-        /// extracted from `cmd` (variable ordering, isolated mode, fraction output),
-        /// and emits the canonical form. If the result is a tautology or
-        /// contradiction, an annotation is appended. Any `SimplifyResult::warnings`
-        /// are forwarded to `sink` as `Diagnostic::warning` entries.
+        /// Parses `payload` as an equation, applies `Simplifier` with the
+        /// options extracted from `cmd` (variable ordering, isolated mode,
+        /// fraction output), and emits the canonical form. If the result is a
+        /// tautology or contradiction, an annotation is appended. Any
+        /// `SimplifyResult::warnings` are forwarded to `sink` as
+        /// `Diagnostic::warning` entries.
         ///
         /// # Arguments
         ///
         /// * `payload` — Raw equation string to simplify.
-        /// * `cmd`     — The originating `MathCommand`; supplies `--vars`, `--isolated`,
+        /// * `cmd`     — The originating `MathCommand`; supplies `--vars`,
+        /// `--isolated`,
         ///   `--fraction`, and source location.
         /// * `ctx`     — Variable context consulted in non-isolated mode.
-        /// * `config`  — Configuration; `output_fraction` setting is OR-ed with `--fraction`.
+        /// * `config`  — Configuration; `output_fraction` setting is OR-ed with
+        /// `--fraction`.
         /// * `sink`    — Diagnostic sink for warnings, errors, and output.
         ///
         /// # Returns
         ///
         /// `HistoryStatus::Warning` when at least one warning was emitted,
-        /// `HistoryStatus::Success` otherwise, `HistoryStatus::Error` on parse failure.
+        /// `HistoryStatus::Success` otherwise, `HistoryStatus::Error` on parse
+        /// failure.
         ///
         /// # Errors
         ///
-        /// Pushes parse diagnostics on invalid input. Pushes E0200 for unexpected
-        /// runtime exceptions.
+        /// Pushes parse diagnostics on invalid input. Pushes E0200 for
+        /// unexpected runtime exceptions.
         inline HistoryStatus do_simplify(const std::string& payload,
                                          const MathCommand& cmd, Context& ctx,
                                          Config& config, DiagnosticSink& sink) {
@@ -705,27 +744,30 @@ namespace math_solver {
         /// Expand `payload` to standard polynomial form and emit the result.
         ///
         /// Parses `payload` as a math expression, converts it to a `Polynomial`
-        /// via `ASTToPolynomial`, and emits the expanded form. If the AST-to-poly
-        /// conversion fails (e.g. for transcendental expressions), the evaluator
-        /// is tried as a numeric fallback.
+        /// via `ASTToPolynomial`, and emits the expanded form. If the
+        /// AST-to-poly conversion fails (e.g. for transcendental expressions),
+        /// the evaluator is tried as a numeric fallback.
         ///
         /// # Arguments
         ///
         /// * `payload` — Raw expression string (e.g. `"(x+1)^3"`).
-        /// * `cmd`     — The originating `MathCommand`; supplies source location.
-        /// * `ctx`     — Variable context consulted by the numeric fallback evaluator.
+        /// * `cmd`     — The originating `MathCommand`; supplies source
+        /// location.
+        /// * `ctx`     — Variable context consulted by the numeric fallback
+        /// evaluator.
         /// * `sink`    — Diagnostic sink for errors and output.
         ///
         /// # Returns
         ///
-        /// `HistoryStatus::Success` when expansion succeeds and output is emitted,
-        /// `HistoryStatus::Error` on parse or conversion failure.
+        /// `HistoryStatus::Success` when expansion succeeds and output is
+        /// emitted, `HistoryStatus::Error` on parse or conversion failure.
         ///
         /// # Errors
         ///
-        /// Pushes parse diagnostics on invalid input. Pushes the `ASTToPolynomial`
-        /// diagnostic (E0315 or similar) when conversion fails and numeric
-        /// evaluation also fails. Pushes E0200 for unexpected runtime exceptions.
+        /// Pushes parse diagnostics on invalid input. Pushes the
+        /// `ASTToPolynomial` diagnostic (E0315 or similar) when conversion
+        /// fails and numeric evaluation also fails. Pushes E0200 for unexpected
+        /// runtime exceptions.
         inline HistoryStatus do_expand(const std::string& payload,
                                        const MathCommand& cmd, Context& ctx,
                                        DiagnosticSink& sink) {
@@ -777,20 +819,22 @@ namespace math_solver {
         /// # Arguments
         ///
         /// * `payload` — Raw expression string to factorise.
-        /// * `cmd`     — The originating `MathCommand`; supplies source location.
-        /// * `ctx`     — Variable context (not mutated; passed for future extension).
+        /// * `cmd`     — The originating `MathCommand`; supplies source
+        /// location.
+        /// * `ctx`     — Variable context (not mutated; passed for future
+        /// extension).
         /// * `sink`    — Diagnostic sink for errors and output.
         ///
         /// # Returns
         ///
-        /// `HistoryStatus::Success` when factorisation succeeds and output is emitted,
-        /// `HistoryStatus::Error` on parse or conversion failure.
+        /// `HistoryStatus::Success` when factorisation succeeds and output is
+        /// emitted, `HistoryStatus::Error` on parse or conversion failure.
         ///
         /// # Errors
         ///
-        /// Pushes parse diagnostics on invalid input. Pushes the `ASTToPolynomial`
-        /// diagnostic when conversion fails. Pushes E0200 for unexpected runtime
-        /// exceptions.
+        /// Pushes parse diagnostics on invalid input. Pushes the
+        /// `ASTToPolynomial` diagnostic when conversion fails. Pushes E0200 for
+        /// unexpected runtime exceptions.
         inline HistoryStatus do_factor(const std::string& payload,
                                        const MathCommand& cmd, Context& ctx,
                                        DiagnosticSink& sink) {
@@ -831,29 +875,32 @@ namespace math_solver {
         ///
         /// Parses `payload` via `Parser::parse_expression_or_equation`. For an
         /// equation, evaluates both sides and compares within
-        /// `config.settings().solver_tolerance`, printing `(true)` or `(false)`.
-        /// For a plain expression, calls `Evaluator::evaluate_broadcast`; if any
-        /// variable is array-bound the result is a bracketed list, otherwise a
-        /// scalar. Does not mutate the variable context.
+        /// `config.settings().solver_tolerance`, printing `(true)` or
+        /// `(false)`. For a plain expression, calls
+        /// `Evaluator::evaluate_broadcast`; if any variable is array-bound the
+        /// result is a bracketed list, otherwise a scalar. Does not mutate the
+        /// variable context.
         ///
         /// # Arguments
         ///
         /// * `payload` — Raw expression or equation string.
-        /// * `cmd`     — The originating `MathCommand`; supplies source location.
+        /// * `cmd`     — The originating `MathCommand`; supplies source
+        /// location.
         /// * `ctx`     — Variable context consulted during evaluation.
-        /// * `config`  — Configuration; `solver_tolerance` used for equality checks.
+        /// * `config`  — Configuration; `solver_tolerance` used for equality
+        /// checks.
         /// * `sink`    — Diagnostic sink for errors and output.
         ///
         /// # Returns
         ///
-        /// `HistoryStatus::Success` when evaluation succeeds and output is emitted,
-        /// `HistoryStatus::Error` on parse or evaluation failure.
+        /// `HistoryStatus::Success` when evaluation succeeds and output is
+        /// emitted, `HistoryStatus::Error` on parse or evaluation failure.
         ///
         /// # Errors
         ///
-        /// Pushes parse diagnostics on invalid input. Pushes evaluator diagnostics
-        /// (variable-not-found, division-by-zero, etc.) from `Evaluator`. Pushes
-        /// E0200 for unexpected runtime exceptions.
+        /// Pushes parse diagnostics on invalid input. Pushes evaluator
+        /// diagnostics (variable-not-found, division-by-zero, etc.) from
+        /// `Evaluator`. Pushes E0200 for unexpected runtime exceptions.
         inline HistoryStatus do_evaluate(const std::string& payload,
                                          const MathCommand& cmd, Context& ctx,
                                          Config& config, DiagnosticSink& sink) {
@@ -889,9 +936,9 @@ namespace math_solver {
                     // array-bound; if so, take the broadcast path.
                     Evaluator eval(&ctx, payload, &sink);
                     eval.set_source(cmd.source_file(), cmd.source_line());
-                    size_t    err_count = sink.error_count();
+                    size_t err_count = sink.error_count();
 
-                    auto      results   = eval.evaluate_broadcast(*expr, ctx);
+                    auto   results   = eval.evaluate_broadcast(*expr, ctx);
 
                     if (sink.error_count() > err_count)
                         return HistoryStatus::Error;
@@ -926,7 +973,8 @@ namespace math_solver {
             }
         }
 
-        /// Dispatch a `MathCommand` to the appropriate sub-handler and return its status.
+        /// Dispatch a `MathCommand` to the appropriate sub-handler and return
+        /// its status.
         ///
         /// Routes `cmd.type()` to `do_solve`, `do_simplify`, `do_expand`,
         /// `do_factor`, or `do_evaluate`. For `MathCommand::Type::Unknown`,
@@ -942,8 +990,9 @@ namespace math_solver {
         /// # Returns
         ///
         /// The `HistoryStatus` produced by the selected sub-handler, or
-        /// `HistoryStatus::Error` for `Unknown`. Returns `HistoryStatus::Unknown`
-        /// only if a new `MathCommand::Type` is added without a corresponding case.
+        /// `HistoryStatus::Error` for `Unknown`. Returns
+        /// `HistoryStatus::Unknown` only if a new `MathCommand::Type` is added
+        /// without a corresponding case.
         inline HistoryStatus handle_math(const MathCommand& cmd, Context& ctx,
                                          Config& config, DiagnosticSink& sink) {
             const std::string& payload = cmd.payload();
@@ -961,9 +1010,9 @@ namespace math_solver {
             case MathCommand::Type::Unknown: {
                 std::string raw = cmd.raw_command();
                 std::string bad = raw.substr(0, raw.find(' '));
-                Diagnostic  d = errors::unknown_command(
-                    bad, find_token_span(raw, bad), raw,
-                    cmd.source_file(), cmd.source_line());
+                Diagnostic  d   = errors::unknown_command(
+                    bad, find_token_span(raw, bad), raw, cmd.source_file(),
+                    cmd.source_line());
                 sink.push(d);
             }
                 return HistoryStatus::Error;

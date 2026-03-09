@@ -3,6 +3,8 @@
   x = 3 (saved)
   [5] :solve "x + y = 3; 2*x + 2*y = 6" --detect-singular
   [7] :solve "x + y = 5" --free-vars
+  Free variables: y
+  x = 5 - y
   [9] :solve "x + y = 4; x - y = 2" --rank --vars y x
   rank(A) = 2, rank([A|b]) = 2
   y = 1 (saved)
@@ -13,10 +15,5 @@ error[E0311]: system has infinitely many solutions
  5 | :solve "x + y = 3; 2*x + 2*y = 6" --detect-singular
    |         ^ infinite solutions
    = help: use --free-vars to see parameterised form
-error[E0301]: equation has no solution (-1.000000 != 0)
-  --> solve_system_flags2.msl:7:9
-   |
- 7 | :solve "x + y = 5" --free-vars
-   |         ^^^^^^^^^ no solution
-  Loaded 'solve_system_flags2.msl' (4 line(s), 2 error(s))
+  Loaded 'solve_system_flags2.msl' (4 line(s), 1 error(s))
   Rolled back — env and config unchanged
