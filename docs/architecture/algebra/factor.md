@@ -226,7 +226,7 @@ Higher-degree univariate polynomials and multivariate polynomials are returned *
 
 The factored form always satisfies:
 
-$$P_{\text{original}} \equiv \text{numeric\_factor} \times \text{common\_monomial} \times \prod_i \text{factor}_i^{e_i}$$
+$$P_{\text{original}} \equiv \text{numericFactor} \times \text{commonMonomial} \times \prod_i \text{factor}_i^{e_i}$$
 
 ---
 
