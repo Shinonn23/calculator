@@ -1,0 +1,16 @@
+# Test :env list and :env load
+:env list
+:env new ui_test_load_a
+:set x 100
+:env save ui_test_load_a
+:env new ui_test_load_b
+:set y 200
+:env save ui_test_load_b
+:env list
+:env load ui_test_load_a
+:ls
+:env load ui_test_load_b
+:ls
+:env load default
+:env delete ui_test_load_a
+:env delete ui_test_load_b

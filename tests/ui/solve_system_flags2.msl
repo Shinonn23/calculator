@@ -1,0 +1,9 @@
+# Test :solve system advanced flags
+# --vars: force variable ordering in solution output
+:solve "x + y = 4; x - y = 2" --vars y x
+# --detect-singular: warn when system is singular (infinite solutions)
+:solve "x + y = 3; 2*x + 2*y = 6" --detect-singular
+# --free-vars: under-determined single-equation fallback
+:solve "x + y = 5" --free-vars
+# Combined: --rank and --vars
+:solve "x + y = 4; x - y = 2" --rank --vars y x

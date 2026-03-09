@@ -1,0 +1,10 @@
+  [3] :load --dry-run tests/ui/math_solve.msl
+  [1] :solve 2*x + 4 = 10
+  [2] :solve x = 0
+  [3] :solve 3 = x + 1
+  [4] :solve "2*x + 4 = 10"
+  [5] :solve "x - 7 = 0" --no-save
+  [6] :solve --no-save "3 = x + 1"
+  Loaded 'tests/ui/math_solve.msl' (6 line(s))
+  [5] :load --silent tests/ui/math_solve.msl
+  Loaded 'load_basic.msl' (2 line(s))

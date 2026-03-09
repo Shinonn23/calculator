@@ -1,0 +1,7 @@
+# Test :history commands (deterministic subset only)
+# :history clear clears in-memory; disk may persist (known behavior)
+:history clear
+# After clear, searching for unique pattern finds nothing in memory
+:history search zzzznomatch_history_test_unique
+# history all with range: empty (no entries recorded in this script session)
+:history 0

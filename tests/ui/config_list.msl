@@ -1,0 +1,4 @@
+# Test :config (list all settings) and :config path
+:config reset
+:config
+:config path

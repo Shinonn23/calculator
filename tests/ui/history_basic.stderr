@@ -1,0 +1,7 @@
+  [3] :history clear
+  History cleared
+  [5] :history search zzzznomatch_history_test_unique
+  No matches found for 'zzzznomatch_history_test_unique'
+  [7] :history 0
+  No history
+  Loaded 'history_basic.msl' (3 line(s))

@@ -1,0 +1,54 @@
+  [2] :env new ui_test_mv_src
+  Created environment 'ui_test_mv_src'
+  [3] :env new ui_test_cp_src
+  Created environment 'ui_test_cp_src'
+  [4] :env list
+  * default (current)
+    mywork
+    ui_test_cp_src
+    ui_test_mv_src
+  [5] :env mv ui_test_mv_src ui_test_mv_dst
+  Renamed environment 'ui_test_mv_src' to 'ui_test_mv_dst'
+  [6] :env list
+  * default (current)
+    mywork
+    ui_test_cp_src
+    ui_test_mv_dst
+  [7] :env cp ui_test_cp_src ui_test_cp_dst
+  Copied environment 'ui_test_cp_src' to 'ui_test_cp_dst'
+  [8] :env list
+  * default (current)
+    mywork
+    ui_test_cp_dst
+    ui_test_cp_src
+    ui_test_mv_dst
+  [10] :env load ui_test_cp_src
+  Switched to environment 'ui_test_cp_src'
+  [11] :set alpha 42
+  alpha = 42
+  [12] :set beta 99
+  beta = 99
+  [13] :env save ui_test_cp_src
+  Saved to environment 'ui_test_cp_src'
+  [14] :env new ui_test_vars_dst
+  Created environment 'ui_test_vars_dst'
+  [15] :env mv --vars alpha --to ui_test_vars_dst
+  Moved 1 variable(s) to 'ui_test_vars_dst'
+  [16] :env list
+    default
+    mywork
+    ui_test_cp_dst
+  * ui_test_cp_src (current)
+    ui_test_mv_dst
+    ui_test_vars_dst
+  [18] :env load default
+  Switched to environment 'default'
+  [19] :env delete ui_test_mv_dst
+  Deleted environment 'ui_test_mv_dst'
+  [20] :env delete ui_test_cp_src
+  Deleted environment 'ui_test_cp_src'
+  [21] :env delete ui_test_cp_dst
+  Deleted environment 'ui_test_cp_dst'
+  [22] :env delete ui_test_vars_dst
+  Deleted environment 'ui_test_vars_dst'
+  Loaded 'env_mv_cp.msl' (19 line(s))

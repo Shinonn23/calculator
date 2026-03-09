@@ -1,0 +1,10 @@
+# Test :simplify flags with quoted expressions (flags require quoting)
+:simplify "2*x + y = 8"
+:simplify "2*x + y = 8" --vars y x
+:simplify "3*x + 2*y = 6" --fraction
+:set k 5
+:simplify "k*x + 2 = 0"
+:simplify "k*x + 2 = 0" --isolated
+:simplify "3*x + 4*y = 12" --vars x y --fraction
+# Flags on unquoted expressions are rejected
+:simplify 2*x + y = 8 --fraction

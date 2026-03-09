@@ -1,0 +1,25 @@
+  [2] :set a 1
+  a = 1
+  [3] :set b 2
+  b = 2
+  [4] :set c 3
+  c = 3
+  [5] :ls
+  c  =  3
+  b  =  2
+  a  =  1
+  [7] :rm a, b
+  Removed: a
+  Removed: b
+  [8] :ls
+  c  =  3
+  [11] :set p 10
+  p = 10
+  [12] :set q 20
+  q = 20
+  [13] :unset p, q
+  Removed: p
+  Removed: q
+  [14] :ls
+  c  =  3
+  Loaded 'var_clear.msl' (10 line(s))

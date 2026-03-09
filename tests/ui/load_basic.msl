@@ -1,0 +1,5 @@
+# Test :load with --dry-run and --silent flags
+# --dry-run: parse and echo commands without executing
+:load --dry-run tests/ui/math_solve.msl
+# --silent: suppress output except errors
+:load --silent tests/ui/math_solve.msl

@@ -1,0 +1,24 @@
+  [2] :config reset
+  Settings reset to defaults
+  [3] :config
+  Settings
+  output.mode                 auto
+  output.decimals             6
+  output.fraction             false
+  output.trailing_zeros       false
+  output.thousands_sep        false
+  solver.tolerance            1e-12
+  solver.coeff_tol            1e-9
+  solver.pivot_tol            1e-10
+  solver.max_iter             1000
+  history.size                1000
+  history.dedup               true
+  history.ignore              
+  repl.prompt                 > 
+  repl.show_timing            false
+  repl.auto_save_env          true
+  repl.confirm_delete         true
+  auto_load_env               
+  [4] :config path
+  ~/.config/cmath-solver/cmath_solver.json
+  Loaded 'config_list.msl' (3 line(s))

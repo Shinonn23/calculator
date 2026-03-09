@@ -1,0 +1,22 @@
+# Test :env mv and :env cp
+:env new ui_test_mv_src
+:env new ui_test_cp_src
+:env list
+:env mv ui_test_mv_src ui_test_mv_dst
+:env list
+:env cp ui_test_cp_src ui_test_cp_dst
+:env list
+# Test :env mv --vars (move specific variables to another env)
+:env load ui_test_cp_src
+:set alpha 42
+:set beta 99
+:env save ui_test_cp_src
+:env new ui_test_vars_dst
+:env mv --vars alpha --to ui_test_vars_dst
+:env list
+# Clean up
+:env load default
+:env delete ui_test_mv_dst
+:env delete ui_test_cp_src
+:env delete ui_test_cp_dst
+:env delete ui_test_vars_dst

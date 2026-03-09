@@ -1,0 +1,7 @@
+# Test :redo commands
+:set a 5
+:set b 10
+a + b
+:redo
+:redo 1
+:redo 2,3

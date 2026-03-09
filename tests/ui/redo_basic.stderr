@@ -1,0 +1,13 @@
+  [2] :set a 5
+  a = 5
+  [3] :set b 10
+  b = 10
+  [4] a + b
+  = 15
+  [5] :redo
+  No history to redo
+  [6] :redo 1
+  No history to redo
+  [7] :redo 2,3
+  No history to redo
+  Loaded 'redo_basic.msl' (6 line(s))

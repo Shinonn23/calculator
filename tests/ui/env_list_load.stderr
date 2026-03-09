@@ -1,0 +1,36 @@
+  [2] :env list
+  * default (current)
+    mywork
+  [3] :env new ui_test_load_a
+  Created environment 'ui_test_load_a'
+  [4] :set x 100
+  x = 100
+  [5] :env save ui_test_load_a
+  Saved to environment 'ui_test_load_a'
+  [6] :env new ui_test_load_b
+  Created environment 'ui_test_load_b'
+  [7] :set y 200
+  y = 200
+  [8] :env save ui_test_load_b
+  Saved to environment 'ui_test_load_b'
+  [9] :env list
+  * default (current)
+    mywork
+    ui_test_load_a
+    ui_test_load_b
+  [10] :env load ui_test_load_a
+  Switched to environment 'ui_test_load_a'
+  [11] :ls
+  x  =  100
+  [12] :env load ui_test_load_b
+  Switched to environment 'ui_test_load_b'
+  [13] :ls
+  y  =  200
+  x  =  100
+  [14] :env load default
+  Switched to environment 'default'
+  [15] :env delete ui_test_load_a
+  Deleted environment 'ui_test_load_a'
+  [16] :env delete ui_test_load_b
+  Deleted environment 'ui_test_load_b'
+  Loaded 'env_list_load.msl' (15 line(s))

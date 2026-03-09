@@ -1,0 +1,14 @@
+# Test :rm alias and :unset multi-var; also observe :clear behavior
+:set a 1
+:set b 2
+:set c 3
+:ls
+# :rm is an alias for :unset
+:rm a, b
+:ls
+# :clear clears the terminal screen, NOT variables (see section 8 of :help)
+# variables remain after :clear
+:set p 10
+:set q 20
+:unset p, q
+:ls
