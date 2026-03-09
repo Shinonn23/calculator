@@ -341,8 +341,8 @@ z = t0     (free)
 | `rank_A`  | `rank_Ab`          | Interpretation                                              | Result                                    |
 | --------- | ------------------ | ----------------------------------------------------------- | ----------------------------------------- |
 | $= n = m$ | $= n$              | Fully determined, consistent                                | **Unique solution**                       |
-| $< n$     | $= \text{rank\_A}$ | Underdetermined, consistent                                 | **Infinite solutions** (or parameterized) |
-| Any       | $> \text{rank\_A}$ | Inconsistent row $[0 \; 0 \; \ldots \; 0 \;\mid\; c \ne 0]$ | **No solution**                           |
+| $< n$     | $= \mathrm{rankA}$ | Underdetermined, consistent                                 | **Infinite solutions** (or parameterized) |
+| Any       | $> \mathrm{rankA}$ | Inconsistent row $[0 \; 0 \; \ldots \; 0 \;\mid\; c \ne 0]$ | **No solution**                           |
 
 ---
 

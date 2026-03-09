@@ -18,7 +18,7 @@ The factoring system takes a `Polynomial` and produces a `FactoredForm` — a st
 
 The result of factorization:
 
-$$P = \text{numeric\_factor} \times \text{common\_monomial} \times \prod_i (\text{factor}_i)^{e_i}$$
+$$P = \mathrm{numericFactor} \times \mathrm{commonMonomial} \times \prod_i (\mathrm{factor}_i)^{e_i}$$
 
 ```cpp
 struct FactoredForm {
