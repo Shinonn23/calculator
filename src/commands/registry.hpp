@@ -46,8 +46,8 @@ namespace math_solver {
         /// Callable type stored per key; signature matches the handler
         /// convention expected by `HandlerRegistry::visit` overrides.
         using Handler = std::function<HistoryStatus(
-            const Cmd&, Context&, Config&, std::string& /*current_env*/,
-            DiagnosticSink& /*sink*/)>;
+            const Cmd&, Context&, Config&, std::string& current_env,
+            DiagnosticSink& sink)>;
 
         /// Register `handler` for `key`, overwriting any previous registration.
         ///
@@ -68,7 +68,8 @@ namespace math_solver {
         ///
         /// * `key`         — Discriminant identifying the handler to invoke.
         /// * `cmd`         — The command node to forward to the handler.
-        /// * `ctx`         — Live variable context passed through to the handler.
+        /// * `ctx`         — Live variable context passed through to the
+        /// handler.
         /// * `config`      — Live configuration passed through to the handler.
         /// * `current_env` — Name of the active environment.
         /// * `sink`        — Diagnostic sink for errors and output.
@@ -111,7 +112,8 @@ namespace math_solver {
     ///
     /// History:
     /// - `session_history_` is the canonical in-memory history for the session.
-    /// - Only `push_history()` and `session_history_push_persisted()` mutate it.
+    /// - Only `push_history()` and `session_history_push_persisted()` mutate
+    /// it.
     /// - `should_clear_history_` is set by handlers to signal the main loop.
     ///
     /// Interactions:

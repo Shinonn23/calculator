@@ -116,12 +116,9 @@ namespace math_solver {
             return;
         }
 
-        // ── Snapshot before touching anything ────────────────────────────────
         RuntimeSnapshot snap{registry_.ctx(), registry_.config(),
                              registry_.current_env()};
 
-        // ── Switch env if requested
-        // ───────────────────────────────────────────
         std::string     old_env;
         bool            should_switch_back = false;
         if (!flags.env.empty()) {
@@ -138,8 +135,6 @@ namespace math_solver {
             run_line(":env load " + flags.env);
         }
 
-        // ── Execute
-        // ───────────────────────────────────────────────────────────
         DiagnosticSink sink(DiagnosticSink::Options(50, true, true));
 
         std::string    line;
@@ -199,8 +194,6 @@ namespace math_solver {
             }
         }
 
-        // ── Rollback if any error
-        // ─────────────────────────────────────────────
         if (should_rollback) {
             last_script_had_errors_ = true;
         }

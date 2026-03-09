@@ -1,13 +1,10 @@
 #include "ui/repl/repl.hpp"
 #include "commands/handlers/env_handler.hpp"
 #include "commands/registry.hpp"
-#include "completions.hpp"
 #include "diagnostics/sink.hpp"
-#include "hints.hpp"
 #include "history.hpp"
 #include "runner.hpp"
 #include "ui/color.hpp"
-#include "ui/repl/highlighter.hpp"
 
 #include <replxx.hxx>
 
@@ -60,9 +57,6 @@ namespace math_solver {
 
         const std::string hist_path = setup_history(rx, g_config);
 
-        setup_completions(rx, g_config, g_ctx);
-        setup_hints(rx);
-
         print_banner(g_current_env, version);
 
         DiagnosticSink  sink;
@@ -74,8 +68,6 @@ namespace math_solver {
         // Custom history loading is required to maintain consistency with
         // our persistence model. Do not use replxx's built-in history_load.
         registry.load_persisted_history();
-
-        setup_highlighter(rx);
 
         Runner runner(registry);
         runner.run_interactive(rx, g_current_env);
