@@ -1,6 +1,7 @@
 #pragma once
 
 #include "config/config.hpp"
+#include "core/span.hpp"
 #include "diagnostics/diagnostic.hpp"
 #include "ui/suggestions.hpp"
 
@@ -11,13 +12,12 @@ namespace math_solver {
 
     namespace errors {
 
-        inline Diagnostic env_not_found(const std::string& raw,
+        inline Diagnostic env_not_found(const std::string& raw, const Span& span,
                                         const std::string& name,
                                         const Config&      config,
                                         const std::string& file, size_t line) {
             auto d = Diagnostic::make("environment `" + name + "` not found",
-                                      "E0601", find_token_span(raw, name), raw,
-                                      "unknown environment")
+                                      "E0601", span, raw, "unknown environment")
                          .with_location(file, line);
             if (auto m = suggest(name, config.list_envs()))
                 d.help =
@@ -26,12 +26,11 @@ namespace math_solver {
         }
 
         inline Diagnostic missing_env_name(const std::string& raw,
-                                           const std::string& after_token,
+                                           const Span&        span,
                                            const std::string& usage,
                                            const std::string& file,
                                            size_t             line) {
-            auto d = Diagnostic::make("missing name", "E0600",
-                                      find_token_span(raw, after_token), raw,
+            auto d = Diagnostic::make("missing name", "E0600", span, raw,
                                       "name expected here")
                          .with_location(file, line);
             d.help = "Usage: " + usage;
@@ -58,12 +57,13 @@ namespace math_solver {
         }
 
         inline Diagnostic var_skipped_warning(const std::string& raw,
+                                              const Span&        span,
                                               const std::string& var_name,
                                               const std::string& file,
                                               size_t             line) {
             auto d = Diagnostic::warning("variable `" + var_name +
                                              "` not defined, skipped",
-                                         find_token_span(raw, var_name), raw)
+                                         span, raw)
                          .with_location(file, line);
             d.inline_label = "not in current context";
             return d;

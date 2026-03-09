@@ -1,5 +1,6 @@
 #include "env_command_parser.hpp"
 #include "ast/command/env_command.hpp"
+#include "core/span.hpp"
 #include "diagnostics/kinds/env_errors.hpp"
 
 namespace math_solver {
@@ -57,13 +58,18 @@ namespace math_solver {
 
         // For all other actions, at most one argument (target_env) is expected.
         std::string target_env;
+        Span        target_span;
         if (!stream.is_eof()) {
-            target_env = stream.peek().value;
+            auto tok   = stream.peek();
+            target_env = tok.value;
+            target_span = Span{tok.start, tok.end};
             stream.advance();
         }
 
-        return Result<CommandPtr>::ok(std::make_unique<EnvCommand>(
-            action, target_env, stream.raw_input()));
+        auto cmd = std::make_unique<EnvCommand>(action, target_env,
+                                                stream.raw_input());
+        cmd->set_target_span(target_span);
+        return Result<CommandPtr>::ok(std::move(cmd));
     }
 
     Result<CommandPtr>
@@ -88,10 +94,13 @@ namespace math_solver {
 
             // "--to" is mandatory in vars_mode; if missing, to_env remains
             // empty.
+            Span to_span;
             if (!stream.is_eof() && stream.peek().value == "--to") {
                 stream.advance();
                 if (!stream.is_eof()) {
-                    flags.to_env = stream.peek().value;
+                    auto tok   = stream.peek();
+                    flags.to_env = tok.value;
+                    to_span      = Span{tok.start, tok.end};
                     stream.advance();
                 }
             }
@@ -102,23 +111,31 @@ namespace math_solver {
                                                     stream.raw_input());
             cmd->set_flags(flags);
             cmd->set_vars_to_save(vars);
+            cmd->set_target_span(to_span);
             return Result<CommandPtr>::ok(std::move(cmd));
         }
 
         // env mode: expects two positional arguments (source_env, target_env).
         // If either is missing, empty string is passed; downstream must handle.
+        Span source_span, target_span;
         if (!stream.is_eof()) {
-            source_env = stream.peek().value;
+            auto tok   = stream.peek();
+            source_env = tok.value;
+            source_span = Span{tok.start, tok.end};
             stream.advance();
         }
         if (!stream.is_eof()) {
-            target_env = stream.peek().value;
+            auto tok   = stream.peek();
+            target_env = tok.value;
+            target_span = Span{tok.start, tok.end};
             stream.advance();
         }
 
         auto cmd = std::make_unique<EnvCommand>(action, target_env,
                                                 stream.raw_input());
         cmd->set_source_env(source_env);
+        cmd->set_source_span(source_span);
+        cmd->set_target_span(target_span);
         cmd->set_flags(flags); // vars_mode = false by default
         return Result<CommandPtr>::ok(std::move(cmd));
     }
@@ -126,10 +143,13 @@ namespace math_solver {
     Result<CommandPtr> EnvCommandParser::parse_save(ITokenStream& stream) {
         std::string              target_env;
         std::vector<std::string> vars;
+        Span                     target_span;
 
         // target_env is optional; must not start with "--".
         if (!stream.is_eof() && stream.peek().value.rfind("--", 0) != 0) {
-            target_env = stream.peek().value;
+            auto tok   = stream.peek();
+            target_env = tok.value;
+            target_span = Span{tok.start, tok.end};
             stream.advance();
         }
 
@@ -145,6 +165,7 @@ namespace math_solver {
 
         auto cmd = std::make_unique<EnvCommand>(EnvCommand::Action::Save,
                                                 target_env, stream.raw_input());
+        cmd->set_target_span(target_span);
         if (!vars.empty())
             cmd->set_vars_to_save(vars);
         return Result<CommandPtr>::ok(std::move(cmd));

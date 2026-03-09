@@ -12,19 +12,19 @@
   [12] :solve cos(x) = 1
   [13] :solve sin(x) + cos(x) = 1
 error[E0315]: non-linear term: function 'sin' applied to variable expression
-   --> trig_symbolic.msl:11:1
+   --> trig_symbolic.msl:11:8
     |
- 11 | sin(x) = 0
-    | ^^^^^^ unsupported
+ 11 | :solve sin(x) = 0
+    |        ^^^^^^ unsupported
 error[E0315]: non-linear term: function 'cos' applied to variable expression
-   --> trig_symbolic.msl:12:1
+   --> trig_symbolic.msl:12:8
     |
- 12 | cos(x) = 1
-    | ^^^^^^ unsupported
+ 12 | :solve cos(x) = 1
+    |        ^^^^^^ unsupported
 error[E0315]: non-linear term: function 'sin' applied to variable expression
-   --> trig_symbolic.msl:13:1
+   --> trig_symbolic.msl:13:8
     |
- 13 | sin(x) + cos(x) = 1
-    | ^^^^^^ unsupported
+ 13 | :solve sin(x) + cos(x) = 1
+    |        ^^^^^^ unsupported
   Loaded 'trig_symbolic.msl' (8 line(s), 3 error(s))
   Rolled back — env and config unchanged

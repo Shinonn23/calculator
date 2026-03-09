@@ -284,7 +284,7 @@ namespace math_solver {
         auto it = envs_.find(name);
         if (it == envs_.end())
             return Result<Environment*>::err(errors::env_not_found(
-                "<config>", name, *this, __FILE__, __LINE__));
+                "<config>", Span{}, name, *this, __FILE__, __LINE__));
         return Result<Environment*>::ok(&it->second);
     }
 
@@ -292,7 +292,7 @@ namespace math_solver {
         auto it = envs_.find(name);
         if (it == envs_.end())
             return Result<const Environment*>::err(errors::env_not_found(
-                "<config>", name, *this, __FILE__, __LINE__));
+                "<config>", Span{}, name, *this, __FILE__, __LINE__));
         return Result<const Environment*>::ok(&it->second);
     }
 
@@ -309,7 +309,7 @@ namespace math_solver {
     Result<bool> Config::delete_env(const std::string& name) {
         if (!envs_.erase(name))
             return Result<bool>::err(errors::env_not_found(
-                "<config>", name, *this, __FILE__, __LINE__));
+                "<config>", Span{}, name, *this, __FILE__, __LINE__));
         return Result<bool>::ok(true);
     }
 
@@ -336,7 +336,7 @@ namespace math_solver {
                                     const std::string& dest) {
         if (!env_exists(src))
             return Result<bool>::err(errors::env_not_found(
-                "<config>", src, *this, __FILE__, __LINE__));
+                "<config>", Span{}, src, *this, __FILE__, __LINE__));
         if (env_exists(dest))
             return Result<bool>::err(
                 Diagnostic::make("environment '" + dest + "' already exists",
@@ -351,7 +351,7 @@ namespace math_solver {
                                   const std::string& dest) {
         if (!env_exists(src))
             return Result<bool>::err(errors::env_not_found(
-                "<config>", src, *this, __FILE__, __LINE__));
+                "<config>", Span{}, src, *this, __FILE__, __LINE__));
         if (env_exists(dest))
             return Result<bool>::err(
                 Diagnostic::make("environment '" + dest + "' already exists",

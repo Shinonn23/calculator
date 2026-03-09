@@ -58,9 +58,9 @@ namespace math_solver {
 
         if (word == "save") {
             // "save" expects a filepath and optional selector.
-            // Selector parsing is deferred to parse_save.
+            // Pass any flags already parsed (e.g. :history --errors save file).
             stream.advance();
-            return parse_save(stream);
+            return parse_save(stream, flags);
         }
 
         if (word == "all") {
@@ -168,10 +168,37 @@ namespace math_solver {
         return Result<CommandPtr>::ok(std::move(cmd));
     }
 
-    Result<CommandPtr> HistoryCommandParser::parse_save(ITokenStream& stream) {
+    Result<CommandPtr> HistoryCommandParser::parse_save(
+        ITokenStream&                     stream,
+        std::vector<HistoryCommand::Flag> inherited_flags) {
+
+        // Helper: parse any --flag tokens from stream into a flags vector.
+        auto parse_flags = [](ITokenStream&                      s,
+                              std::vector<HistoryCommand::Flag>& out) {
+            while (!s.is_eof() && s.peek().value.rfind("--", 0) == 0) {
+                const std::string& f = s.peek().value;
+                if (f == "--errors")
+                    out.push_back(HistoryCommand::Flag::Errors);
+                else if (f == "--success")
+                    out.push_back(HistoryCommand::Flag::Success);
+                else if (f == "--info")
+                    out.push_back(HistoryCommand::Flag::Info);
+                else if (f == "--warning")
+                    out.push_back(HistoryCommand::Flag::Warning);
+                else
+                    out.push_back(HistoryCommand::Flag::None);
+                s.advance();
+            }
+        };
+
+        // Flags may appear before the filepath: :history save --errors file.msl
+        parse_flags(stream, inherited_flags);
+
         if (stream.is_eof()) {
-            return Result<CommandPtr>::ok(std::make_unique<HistoryCommand>(
-                HistoryCommand::Action::Save, stream.raw_input()));
+            auto cmd = std::make_unique<HistoryCommand>(
+                HistoryCommand::Action::Save, stream.raw_input());
+            cmd->set_flags(inherited_flags);
+            return Result<CommandPtr>::ok(std::move(cmd));
         }
 
         std::string filepath = stream.peek().value;
@@ -180,6 +207,11 @@ namespace math_solver {
         auto cmd = std::make_unique<HistoryCommand>(
             HistoryCommand::Action::Save, stream.raw_input());
         cmd->set_filepath(filepath);
+
+        // Flags may also appear after the filepath: :history save file.msl
+        // --errors
+        parse_flags(stream, inherited_flags);
+        cmd->set_flags(inherited_flags);
 
         if (!stream.is_eof()) {
             std::string full_selector = stream.consume_remaining();

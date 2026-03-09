@@ -63,6 +63,7 @@ namespace math_solver {
         inline bool load_env_into_context(Config&            config,
                                           const std::string& env_name,
                                           Context& ctx, const std::string& raw,
+                                          const Span&        env_span,
                                           size_t             file_line,
                                           const std::string& filename,
                                           DiagnosticSink&    sink) {
@@ -70,8 +71,8 @@ namespace math_solver {
             if (!env_res) {
                 // If the targeted env isn't found, replace the generic error
                 // with a UI-friendly one
-                sink.push(errors::env_not_found(raw, env_name, config, filename,
-                                                file_line));
+                sink.push(errors::env_not_found(raw, env_span, env_name, config,
+                                                filename, file_line));
                 return false;
             }
             ctx.clear();
@@ -163,13 +164,14 @@ namespace math_solver {
                 const std::string& target = cmd.target_env();
                 if (target.empty()) {
                     sink.push(errors::missing_env_name(
-                        raw, "load", "`env load <name>`", file, line));
+                        raw, find_token_span(raw, "load"),
+                        "`env load <name>`", file, line));
                     return HistoryStatus::Error;
                 }
                 save_current_env(config, current_env, ctx);
                 if (load_env_into_context(config, target, ctx, raw,
-                                          cmd.source_line(), cmd.source_file(),
-                                          sink)) {
+                                          cmd.target_span(), cmd.source_line(),
+                                          cmd.source_file(), sink)) {
                     current_env = target;
                     std::ostringstream oss;
                     oss << "  Switched to environment '" << ansi::bold << target
@@ -193,8 +195,8 @@ namespace math_solver {
                         if (auto it = all.find(v); it != all.end()) {
                             subset[v] = it->second;
                         } else {
-                            sink.push(errors::var_skipped_warning(raw, v, file,
-                                                                  line));
+                            sink.push(errors::var_skipped_warning(
+                                raw, find_token_span(raw, v), v, file, line));
                             has_warning = true;
                         }
                     }
@@ -214,14 +216,14 @@ namespace math_solver {
                 const std::string& name = cmd.target_env();
                 if (name.empty()) {
                     sink.push(errors::missing_env_name(
-                        raw, "new", "`env new <name>`", file, line));
+                        raw, find_token_span(raw, "new"),
+                        "`env new <name>`", file, line));
                     return HistoryStatus::Error;
                 }
                 auto res = config.create_env(name);
                 if (!res) {
                     Diagnostic d = res.error().with_location(file, line);
-                    // attempt to span highlight the name if possible
-                    d.span       = find_token_span(raw, name);
+                    d.span       = cmd.target_span();
                     d.input      = raw;
                     sink.push(d);
                     return HistoryStatus::Error;
@@ -238,14 +240,15 @@ namespace math_solver {
                 const std::string& name = cmd.target_env();
                 if (name.empty()) {
                     sink.push(errors::missing_env_name(
-                        raw, "delete", "`env delete <name>`", file, line));
+                        raw, find_token_span(raw, "delete"),
+                        "`env delete <name>`", file, line));
                     return HistoryStatus::Error;
                 }
                 if (name == current_env) {
                     Diagnostic d =
                         Diagnostic::make("cannot delete the active environment",
-                                         "E0602", find_token_span(raw, name),
-                                         raw, "active environment")
+                                         "E0602", cmd.target_span(), raw,
+                                         "active environment")
                             .with_location(file, line);
                     d.help = "switch first with `:env load <name>`";
                     sink.push(d);
@@ -254,7 +257,7 @@ namespace math_solver {
                 auto res = config.delete_env(name);
                 if (!res) {
                     Diagnostic d = res.error().with_location(file, line);
-                    d.span       = find_token_span(raw, name);
+                    d.span       = cmd.target_span();
                     d.input      = raw;
                     sink.push(d);
                     return HistoryStatus::Error;
@@ -273,13 +276,13 @@ namespace math_solver {
                     const std::string& dest = flags.to_env;
                     if (dest.empty()) {
                         sink.push(errors::missing_env_name(
-                            raw, "--to", "`env mv --vars x y --to <env>`", file,
-                            line));
+                            raw, find_token_span(raw, "--to"),
+                            "`env mv --vars x y --to <env>`", file, line));
                         return HistoryStatus::Error;
                     }
                     if (!config.env_exists(dest)) {
-                        sink.push(errors::env_not_found(raw, dest, config, file,
-                                                        line));
+                        sink.push(errors::env_not_found(
+                            raw, cmd.target_span(), dest, config, file, line));
                         return HistoryStatus::Error;
                     }
                     auto all = ctx.all_as_strings();
@@ -290,12 +293,21 @@ namespace math_solver {
                             subset[v] = it->second;
                             ctx.unset(v);
                         } else {
-                            sink.push(errors::var_skipped_warning(raw, v, file,
-                                                                  line));
+                            sink.push(errors::var_skipped_warning(
+                                raw, find_token_span(raw, v), v, file, line));
                             has_warning = true;
                         }
                     }
-                    config.save_env_variables(dest, subset);
+                    // Merge subset into existing dest env (preserve existing vars)
+                    auto dest_res = config.get_env(dest);
+                    if (dest_res) {
+                        auto merged = (*dest_res)->variables;
+                        for (const auto& [k, v] : subset)
+                            merged[k] = v;
+                        config.save_env_variables(dest, merged);
+                    } else {
+                        config.save_env_variables(dest, subset);
+                    }
                     save_current_env(config, current_env, ctx);
                     std::ostringstream oss;
                     oss << "  Moved " << subset.size() << " variable(s) to '"
@@ -308,22 +320,23 @@ namespace math_solver {
                     const std::string& dest = cmd.target_env();
                     if (src.empty() || dest.empty()) {
                         sink.push(errors::missing_env_name(
-                            raw, "mv", "`env mv <src> <dst>`", file, line));
+                            raw, find_token_span(raw, "mv"),
+                            "`env mv <src> <dst>`", file, line));
                         return HistoryStatus::Error;
                     }
                     if (src == current_env) {
                         Diagnostic d = Diagnostic::make(
                                            "cannot move the active environment",
-                                           "E0602", find_token_span(raw, src),
-                                           raw, "active environment")
+                                           "E0602", cmd.source_span(), raw,
+                                           "active environment")
                                            .with_location(file, line);
                         d.help = "switch first with `:env load <name>`";
                         sink.push(d);
                         return HistoryStatus::Error;
                     }
                     if (!config.env_exists(src)) {
-                        sink.push(errors::env_not_found(raw, src, config, file,
-                                                        line));
+                        sink.push(errors::env_not_found(
+                            raw, cmd.source_span(), src, config, file, line));
                         return HistoryStatus::Error;
                     }
                     config.rename_env(src, dest);
@@ -340,15 +353,23 @@ namespace math_solver {
                 const std::string& dest = cmd.target_env();
                 if (src.empty() || dest.empty()) {
                     sink.push(errors::missing_env_name(
-                        raw, "cp", "`env cp <src> <dst>`", file, line));
+                        raw, find_token_span(raw, "cp"),
+                        "`env cp <src> <dst>`", file, line));
                     return HistoryStatus::Error;
                 }
                 if (!config.env_exists(src)) {
-                    sink.push(
-                        errors::env_not_found(raw, src, config, file, line));
+                    sink.push(errors::env_not_found(raw, cmd.source_span(), src,
+                                                    config, file, line));
                     return HistoryStatus::Error;
                 }
-                config.copy_env(src, dest);
+                auto cp_res = config.copy_env(src, dest);
+                if (!cp_res) {
+                    Diagnostic d = cp_res.error().with_location(file, line);
+                    d.span       = cmd.target_span();
+                    d.input      = raw;
+                    sink.push(d);
+                    return HistoryStatus::Error;
+                }
                 std::ostringstream oss;
                 oss << "  Copied environment '" << ansi::bold << src
                     << ansi::reset << "' to '" << dest << "'\n";

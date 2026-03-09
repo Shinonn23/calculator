@@ -128,7 +128,10 @@ namespace math_solver {
                 "Export history as a runnable .msl script");
             note("e.g.  :history save session.msl   or   :history save out.msl "
                  "1,3,5-8");
-            flag("--errors", "Show only commands that resulted in an error");
+            flag("--error", "Show only commands that resulted in an error");
+            flag("--success", "Show only commands that succeeded");
+            flag("--warning",
+                 "Show only commands that completed with warnings");
             cmd(":history clear", "Clear all history (in-memory and on disk)");
 
             section("5. Redo");

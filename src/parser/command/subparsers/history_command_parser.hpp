@@ -1,7 +1,10 @@
 #pragma once
 
+#include "ast/command/history_command.hpp"
 #include "icommand_subparser.hpp"
 #include "lexer/command/token_stream.hpp"
+
+#include <vector>
 
 namespace math_solver {
 
@@ -32,7 +35,9 @@ namespace math_solver {
         Result<CommandPtr> parse_show(ITokenStream& stream, int first);
 
         // Parses the "save" subcommand, handling both full and range forms.
-        Result<CommandPtr> parse_save(ITokenStream& stream);
+        // `inherited_flags` are flags already consumed before the "save" token.
+        Result<CommandPtr> parse_save(ITokenStream& stream,
+                                      std::vector<HistoryCommand::Flag> inherited_flags = {});
 
         // Parses the "search" subcommand, extracting the pattern argument.
         Result<CommandPtr> parse_search(ITokenStream& stream);

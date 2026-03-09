@@ -81,10 +81,10 @@ error[E0002]: domain error: acos argument must be in [-1, 1]
  1 | acos(-2)
    | ^^^^^^^^ domain error
 error[E0301]: equation has no solution (0.479426 != 0)
-   --> math_functions.msl:43:1
+   --> math_functions.msl:43:8
     |
- 43 | sin(x) = 0
-    | ^^^^^^^^^^ no solution
+ 43 | :solve sin(x) = 0
+    |        ^^^^^^^^^^ no solution
 error[E0001]: unknown function 'badname'
    --> math_functions.msl:53:1
     |

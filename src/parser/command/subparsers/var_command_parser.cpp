@@ -1,5 +1,6 @@
 #include "var_command_parser.hpp"
 #include "ast/command/var_command.hpp"
+#include "core/span.hpp"
 #include "diagnostics/kinds/command_errors.hpp"
 
 #include <cctype>
@@ -45,9 +46,13 @@ namespace math_solver {
         }
 
         std::vector<std::string> var_names = {};
+        Span                     first_var_span;
 
         while ((stream.peek_is(CommandTokenType::Word))) {
-            var_names.push_back(stream.peek().value);
+            auto tok = stream.peek();
+            if (var_names.empty())
+                first_var_span = Span{tok.start, tok.end};
+            var_names.push_back(tok.value);
             stream.advance();
             if (stream.peek_is(CommandTokenType::Comma)) {
                 stream.advance();
@@ -59,6 +64,7 @@ namespace math_solver {
         auto var_cmd = std::make_unique<VarCommand>(
             is_set ? VarCommand::Action::Set : VarCommand::Action::Unset,
             var_names, stream.raw_input());
+        var_cmd->set_var_name_span(first_var_span);
         if (is_set) {
             // Only attach a math action payload if the next token is a
             // recognized action. This avoids misinterpreting arbitrary input as

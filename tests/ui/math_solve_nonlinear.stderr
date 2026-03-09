@@ -11,9 +11,9 @@
   [6] :solve 2*x = 6
   x = 3 (saved)
 error[E0301]: no real solutions (discriminant < 0)
-  --> math_solve_nonlinear.msl:5:1
+  --> math_solve_nonlinear.msl:5:8
    |
- 5 | x^2 + 1 = 0
-   | ^ no solution
+ 5 | :solve x^2 + 1 = 0
+   |        ^ no solution
   Loaded 'math_solve_nonlinear.msl' (6 line(s), 1 error(s))
   Rolled back — env and config unchanged

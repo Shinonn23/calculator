@@ -58,6 +58,25 @@ namespace math_solver {
             return parts;
         }
 
+        /// Lift a Diagnostic from payload-space to command-space.
+        ///
+        /// Searches for `d.input` as a literal substring in `raw_cmd`. If
+        /// found, shifts `d.span` by that byte offset and sets `d.input` to
+        /// `raw_cmd` so the full command line is shown in error output. Returns
+        /// `d` unchanged if `d.input` is not a substring.
+        static inline Diagnostic lift_to_cmd(Diagnostic         d,
+                                             const std::string& raw_cmd) {
+            if (d.input.empty() || d.input == raw_cmd)
+                return d;
+            size_t off = raw_cmd.find(d.input);
+            if (off == std::string::npos)
+                return d;
+            d.span.start += off;
+            d.span.end   += off;
+            d.input       = raw_cmd;
+            return d;
+        }
+
         /// Format `v` as a decimal string with trailing zeros stripped.
         ///
         /// # Returns
@@ -160,7 +179,7 @@ namespace math_solver {
                 auto   pr = parser.parse_equation().with_location(
                     cmd.source_file(), cmd.source_line());
                 if (!pr) {
-                    sink.push(pr.error());
+                    sink.push(lift_to_cmd(pr.error(), cmd.raw_command()));
                     return HistoryStatus::Error;
                 }
                 auto&           eq = *pr;
@@ -174,7 +193,9 @@ namespace math_solver {
                     lhs_r = lc2.collect(eq->lhs());
                     rhs_r = lc2.collect(eq->rhs());
                     if (!lhs_r || !rhs_r) {
-                        sink.push(!lhs_r ? lhs_r.error() : rhs_r.error());
+                        sink.push(lift_to_cmd(
+                            !lhs_r ? lhs_r.error() : rhs_r.error(),
+                            cmd.raw_command()));
                         return HistoryStatus::Error;
                     }
                 }
@@ -212,8 +233,10 @@ namespace math_solver {
             MatrixSolver ms(payload);
             auto         result_r = ms.solve(forms, var_order, opts);
             if (!result_r) {
-                sink.push(result_r.error().with_location(cmd.source_file(),
-                                                         cmd.source_line()));
+                sink.push(lift_to_cmd(
+                    result_r.error().with_location(cmd.source_file(),
+                                                   cmd.source_line()),
+                    cmd.raw_command()));
                 return HistoryStatus::Error;
             }
             const SystemSolveResult& result = *result_r;
@@ -371,8 +394,10 @@ namespace math_solver {
             auto             roots_r = ps.solve(combined, payload);
 
             if (!roots_r) {
-                sink.push(roots_r.error().with_location(cmd.source_file(),
-                                                        cmd.source_line()));
+                sink.push(lift_to_cmd(
+                    roots_r.error().with_location(cmd.source_file(),
+                                                  cmd.source_line()),
+                    cmd.raw_command()));
                 return HistoryStatus::Error;
             }
 
@@ -503,7 +528,8 @@ namespace math_solver {
                 auto   parse_result = parser.parse_equation().with_location(
                     cmd.source_file(), cmd.source_line());
                 if (!parse_result) {
-                    sink.push(parse_result.error());
+                    sink.push(
+                        lift_to_cmd(parse_result.error(), cmd.raw_command()));
                     return HistoryStatus::Error;
                 }
                 auto eq = std::move(*parse_result);
@@ -530,7 +556,7 @@ namespace math_solver {
                                                     payload, "operation failed")
                                        .with_location(cmd.source_file(),
                                                       cmd.source_line());
-                    sink.push(d);
+                    sink.push(lift_to_cmd(d, cmd.raw_command()));
                 }
 
                 if (unknowns.empty()) {
@@ -561,8 +587,10 @@ namespace math_solver {
                 EquationSolver solver(solve_ctx, payload);
                 auto           result_r = solver.solve(*eq);
                 if (!result_r) {
-                    sink.push(result_r.error().with_location(
-                        cmd.source_file(), cmd.source_line()));
+                    sink.push(lift_to_cmd(
+                        result_r.error().with_location(cmd.source_file(),
+                                                       cmd.source_line()),
+                        cmd.raw_command()));
                     return HistoryStatus::Error;
                 }
                 SolveResult        result = *result_r;
@@ -586,7 +614,7 @@ namespace math_solver {
                     Diagnostic::make(e.what(), "E0200", Span{}, payload,
                                      "operation failed")
                         .with_location(cmd.source_file(), cmd.source_line());
-                sink.push(d);
+                sink.push(lift_to_cmd(d, cmd.raw_command()));
                 return HistoryStatus::Error;
             }
         }

@@ -14,6 +14,7 @@
 
 #include "command.hpp"
 #include "command_visitor.hpp"
+#include "core/span.hpp"
 
 namespace math_solver {
     /// AST node for a variable-management command.
@@ -38,6 +39,7 @@ namespace math_solver {
         std::vector<std::string>   var_name_;
         std::optional<std::string> payload_;
         std::optional<std::string> math_action_;
+        Span                       var_name_span_;
 
         public:
         /// Construct a `VarCommand` for the given action and variable name.
@@ -68,6 +70,12 @@ namespace math_solver {
 
         /// Return the variable operation kind.
         Action                          action() const { return action_; }
+
+        /// Set the span of the first var-name token recorded at parse time.
+        void set_var_name_span(const Span& s) { var_name_span_ = s; }
+
+        /// Return the span of the first var-name token (empty if not set).
+        const Span& var_name_span() const { return var_name_span_; }
 
         /// Return the target variable name.
         const std::vector<std::string>& var_name() const { return var_name_; }

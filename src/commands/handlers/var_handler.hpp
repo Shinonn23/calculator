@@ -2,10 +2,10 @@
 
 //! # Module — `src/commands/handlers/var_handler.hpp`
 //!
-//! Implements variable-management command handlers: `handle_set`, `handle_unset`,
-//! and the top-level dispatcher `handle_var`. All functions are `inline` and
-//! live entirely in this header. They operate on the live `Context` and surface
-//! errors via `DiagnosticSink` rather than exceptions.
+//! Implements variable-management command handlers: `handle_set`,
+//! `handle_unset`, and the top-level dispatcher `handle_var`. All functions are
+//! `inline` and live entirely in this header. They operate on the live
+//! `Context` and surface errors via `DiagnosticSink` rather than exceptions.
 
 #include "algebra/polynomial/ast_to_poly.hpp"
 #include "algebra/polynomial/factor.hpp"
@@ -13,6 +13,10 @@
 #include "ast/command/history_entry.hpp"
 #include "ast/command/var_command.hpp"
 #include "ast/math/array_expr.hpp"
+#include "ast/math/binary_expr.hpp"
+#include "ast/math/call_expr.hpp"
+#include "ast/math/unary_expr.hpp"
+#include "ast/math/variable_expr.hpp"
 #include "config/config.hpp"
 #include "diagnostics/diagnostic.hpp"
 #include "diagnostics/kinds/command_errors.hpp"
@@ -27,12 +31,13 @@
 namespace math_solver {
     namespace handlers {
 
-        /// Return `true` when `name` is a syntactically valid, non-reserved identifier.
+        /// Return `true` when `name` is a syntactically valid, non-reserved
+        /// identifier.
         ///
         /// A valid identifier starts with an ASCII letter or `'_'` and contains
         /// only ASCII alphanumeric characters or `'_'`. Reserved keywords (as
-        /// determined by `is_reserved_keyword`) are rejected even if they satisfy
-        /// the character rules.
+        /// determined by `is_reserved_keyword`) are rejected even if they
+        /// satisfy the character rules.
         ///
         /// # Arguments
         ///
@@ -48,7 +53,60 @@ namespace math_solver {
             return true;
         }
 
-        /// Execute a `:set <var> <expr|action>` command and bind the result in `ctx`.
+        /// Walk an expression tree and return true if `target` appears as a
+        /// Variable.
+        ///
+        /// Uses the ExprVisitor interface for full traversal. Short-circuits on
+        /// the first match to avoid unnecessary work.
+        class SelfRefChecker : public ExprVisitor {
+            const std::string& target_;
+
+            public:
+            bool found = false;
+            explicit SelfRefChecker(const std::string& target)
+                : target_(target) {}
+
+            void visit(const Number&) override {}
+            void visit(const Variable& node) override {
+                if (node.name() == target_)
+                    found = true;
+            }
+            void visit(const BinaryOp& node) override {
+                if (found)
+                    return;
+                node.left().accept(*this);
+                if (found)
+                    return;
+                node.right().accept(*this);
+            }
+            void visit(const UnaryOp& node) override {
+                if (found)
+                    return;
+                node.operand().accept(*this);
+            }
+            void visit(const FunctionCall& node) override {
+                if (found)
+                    return;
+                node.arg().accept(*this);
+            }
+            void visit(const ArrayExpr& node) override {
+                for (const auto& e : node.elements()) {
+                    if (found)
+                        return;
+                    e->accept(*this);
+                }
+            }
+        };
+
+        inline bool expr_references_var(const Expr&        expr,
+                                        const std::string& var) {
+            SelfRefChecker checker(var);
+            expr.accept(checker);
+            return checker.found;
+        }
+
+        /// Execute a `:set <var> <expr|action>` command and bind the result in
+        /// `ctx`.
         ///
         /// Dispatches on `cmd.math_action()`:
         /// - `"solve"` — parses the payload as an equation, solves it via
@@ -56,7 +114,8 @@ namespace math_solver {
         ///   prevent self-reference, and stores the numeric result.
         /// - `"expand"` — converts the expression to a `Polynomial` via
         ///   `ASTToPolynomial`, then re-parses and stores the expanded form.
-        /// - `"factor"` — converts to `Polynomial`, applies `factor_polynomial`,
+        /// - `"factor"` — converts to `Polynomial`, applies
+        /// `factor_polynomial`,
         ///   re-parses, and stores the factored form.
         /// - Default — stores the parsed expression. Attempts eager numeric
         ///   evaluation via `Resolver`; falls back to symbolic display when
@@ -64,22 +123,25 @@ namespace math_solver {
         ///
         /// # Arguments
         ///
-        /// * `cmd`    — The `:set` command node; supplies var name, payload, flags, and source info.
+        /// * `cmd`    — The `:set` command node; supplies var name, payload,
+        /// flags, and source info.
         /// * `ctx`    — Variable context; updated on success.
-        /// * `config` — Configuration store (currently unused; reserved for future use).
+        /// * `config` — Configuration store (currently unused; reserved for
+        /// future use).
         /// * `sink`   — Diagnostic sink for errors and output.
         ///
         /// # Returns
         ///
-        /// `HistoryStatus::Success` when the variable is bound and output emitted,
-        /// `HistoryStatus::Error` on any validation or solver failure.
+        /// `HistoryStatus::Success` when the variable is bound and output
+        /// emitted, `HistoryStatus::Error` on any validation or solver failure.
         ///
         /// # Errors
         ///
         /// Pushes `missing_var_name` when the variable name is absent.
         /// Pushes `reserved_keyword` or `invalid_identifier` for invalid names.
         /// Pushes `missing_expr` when no payload is provided.
-        /// Pushes parse and solver diagnostics for `"solve"` / `"expand"` / `"factor"` actions.
+        /// Pushes parse and solver diagnostics for `"solve"` / `"expand"` /
+        /// `"factor"` actions.
         inline HistoryStatus handle_set(const VarCommand& cmd, Context& ctx,
                                         Config& config, DiagnosticSink& sink) {
             (void)config;
@@ -90,12 +152,14 @@ namespace math_solver {
 
             if (vars.empty()) {
                 sink.push(errors::missing_var_name(
-                    raw, ":set", "`:set <var> <expr>`", file, line));
+                    raw, find_token_span(raw, ":set"),
+                    "`:set <var> <expr>`", file, line));
                 return HistoryStatus::Error;
             }
 
             if (vars.size() > 1) {
-                sink.push(errors::not_support_multiple(raw, vars, file, line));
+                sink.push(errors::not_support_multiple(
+                    raw, cmd.var_name_span(), vars, file, line));
                 return HistoryStatus::Error;
             }
 
@@ -103,25 +167,30 @@ namespace math_solver {
 
             if (var.empty()) {
                 sink.push(errors::missing_var_name(
-                    raw, ":set", "`:set <var> <expr>`", file, line));
+                    raw, find_token_span(raw, ":set"),
+                    "`:set <var> <expr>`", file, line));
                 return HistoryStatus::Error;
             }
             if (!is_valid_identifier(var)) {
                 if (is_reserved_keyword(var)) {
-                    sink.push(errors::reserved_keyword(raw, var, file, line));
+                    sink.push(errors::reserved_keyword(
+                        raw, cmd.var_name_span(), var, file, line));
                 } else {
-                    sink.push(errors::invalid_identifier(raw, var, file, line));
+                    sink.push(errors::invalid_identifier(
+                        raw, cmd.var_name_span(), var, file, line));
                 }
                 return HistoryStatus::Error;
             }
             if (cmd.payload().empty()) {
-                sink.push(errors::missing_expr(raw, var, file, line));
+                sink.push(errors::missing_expr(
+                    raw, cmd.var_name_span(), var, file, line));
                 return HistoryStatus::Error;
             }
 
             const std::string& payload = cmd.payload();
             if (!cmd.has_math_action()) {
-                sink.push(errors::missing_expr(raw, var, file, line));
+                sink.push(errors::missing_expr(
+                    raw, cmd.var_name_span(), var, file, line));
                 return HistoryStatus::Error;
             }
             const std::string& math_action = cmd.math_action();
@@ -175,7 +244,14 @@ namespace math_solver {
                         sink.push(parse_result.error());
                         return HistoryStatus::Error;
                     }
-                    auto expr   = std::move(*parse_result);
+
+                    auto expr = std::move(*parse_result);
+
+                    if (expr_references_var(*expr, var)) {
+                        sink.push(errors::self_reference(
+                            raw, cmd.var_name_span(), var, file, line));
+                        return HistoryStatus::Error;
+                    }
                     auto poly_r = ASTToPolynomial(payload).convert(*expr);
                     if (!poly_r) {
                         sink.push(poly_r.error().with_location(
@@ -216,7 +292,15 @@ namespace math_solver {
                     sink.push(parse_result.error());
                     return HistoryStatus::Error;
                 }
-                auto expr   = std::move(*parse_result);
+
+                auto expr = std::move(*parse_result);
+
+                if (expr_references_var(*expr, var)) {
+                    sink.push(errors::self_reference(
+                        raw, cmd.var_name_span(), var, file, line));
+                    return HistoryStatus::Error;
+                }
+
                 auto poly_r = ASTToPolynomial(payload).convert(*expr);
                 if (!poly_r) {
                     sink.push(poly_r.error().with_location(cmd.source_file(),
@@ -254,6 +338,11 @@ namespace math_solver {
                 sink.push(parse_result.error());
                 return HistoryStatus::Error;
             }
+            if (expr_references_var(**parse_result, var)) {
+                sink.push(errors::self_reference(
+                    raw, cmd.var_name_span(), var, file, line));
+                return HistoryStatus::Error;
+            }
             ctx.set(var, std::move(*parse_result));
 
             // Array literals are stored directly; skip scalar evaluation.
@@ -283,22 +372,23 @@ namespace math_solver {
 
         /// Remove one or more variable bindings from `ctx`.
         ///
-        /// Iterates over all names in `cmd.var_name()`. Each name is removed from
-        /// the live context if present; missing names produce a `var_not_found`
-        /// diagnostic. If any removal fails the context is restored to its state
-        /// before the call (transactional via clone).
+        /// Iterates over all names in `cmd.var_name()`. Each name is removed
+        /// from the live context if present; missing names produce a
+        /// `var_not_found` diagnostic. If any removal fails the context is
+        /// restored to its state before the call (transactional via clone).
         ///
         /// # Arguments
         ///
-        /// * `cmd`  — The `:unset` command node; `var_name()` lists the targets.
+        /// * `cmd`  — The `:unset` command node; `var_name()` lists the
+        /// targets.
         /// * `ctx`  — Variable context; mutated on success.
         /// * `sink` — Diagnostic sink for errors and output.
         ///
         /// # Returns
         ///
         /// `HistoryStatus::Success` when all named variables are removed,
-        /// `HistoryStatus::Error` when any variable is missing or a name is empty
-        /// (context is rolled back in this case).
+        /// `HistoryStatus::Error` when any variable is missing or a name is
+        /// empty (context is rolled back in this case).
         ///
         /// # Errors
         ///
@@ -318,8 +408,8 @@ namespace math_solver {
 
                 if (var.size() < 1) {
                     sink.push(errors::missing_var_name(
-                        raw, ":unset", "`:unset <var>, <var>, ...`", file,
-                        line));
+                        raw, find_token_span(raw, ":unset"),
+                        "`:unset <var>, <var>, ...`", file, line));
                     is_success = false;
                 }
 
@@ -328,7 +418,8 @@ namespace math_solver {
                     sink.push_output("  Removed: " + var + "\n");
                     is_success = true;
                 } else {
-                    sink.push(errors::var_not_found(raw, var, ctx, file, line));
+                    sink.push(errors::var_not_found(
+                        raw, cmd.var_name_span(), var, ctx, file, line));
                     is_success = false;
                 }
             }
@@ -351,14 +442,16 @@ namespace math_solver {
         /// * `cmd`    — The variable command to execute.
         /// * `ctx`    — Variable context forwarded to the sub-handler.
         /// * `config` — Configuration forwarded to `handle_set`.
-        /// * `raw`    — Raw command string used for span construction in `Unknown` errors.
+        /// * `raw`    — Raw command string used for span construction in
+        /// `Unknown` errors.
         /// * `sink`   — Diagnostic sink for errors and output.
         ///
         /// # Returns
         ///
         /// The `HistoryStatus` from the selected sub-handler, or
-        /// `HistoryStatus::Error` for `Unknown`. Returns `HistoryStatus::Unknown`
-        /// only when a new `VarCommand::Action` is added without a matching case.
+        /// `HistoryStatus::Error` for `Unknown`. Returns
+        /// `HistoryStatus::Unknown` only when a new `VarCommand::Action` is
+        /// added without a matching case.
         inline HistoryStatus handle_var(const VarCommand& cmd, Context& ctx,
                                         Config& config, std::string& raw,
                                         DiagnosticSink& sink) {

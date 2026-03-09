@@ -11,6 +11,7 @@
 
 #include "command.hpp"
 #include "command_visitor.hpp"
+#include "core/span.hpp"
 
 namespace math_solver {
 
@@ -56,6 +57,8 @@ namespace math_solver {
         std::string              target_env_;
         std::vector<std::string> vars_to_save_;
         Flags                    flags_;
+        Span                     target_span_;
+        Span                     source_span_;
 
         public:
         /// Construct an `EnvCommand` with a target environment and raw input.
@@ -81,6 +84,12 @@ namespace math_solver {
         /// Set the behavioral flags for this command.
         void   set_flags(const Flags& flags) { flags_ = flags; }
 
+        /// Set the span of the target-env token recorded at parse time.
+        void set_target_span(const Span& s) { target_span_ = s; }
+
+        /// Set the span of the source-env token recorded at parse time.
+        void set_source_span(const Span& s) { source_span_ = s; }
+
         /// Return the environment operation kind.
         Action action() const { return action_; }
 
@@ -89,6 +98,12 @@ namespace math_solver {
 
         /// Return the target environment name.
         const std::string& target_env() const { return target_env_; }
+
+        /// Return the span of the target-env token (empty if not recorded).
+        const Span& target_span() const { return target_span_; }
+
+        /// Return the span of the source-env token (empty if not recorded).
+        const Span& source_span() const { return source_span_; }
 
         /// Return the list of variable names to include (empty means all).
         const std::vector<std::string>& vars_to_save() const {
