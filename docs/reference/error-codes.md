@@ -28,8 +28,10 @@ General math errors such as division by zero.
 
 ```
 error[E0000]: division by zero
-  --> 1 / 0
-          ^
+  --> <repl>:1:5
+   |
+ 1 | 1 / 0
+   |     ^
 ```
 
 ### `E0001` — Parse Error
@@ -37,9 +39,11 @@ error[E0000]: division by zero
 Syntax errors during math expression parsing.
 
 ```
-error[E0001]: unexpected token
-  --> 2 + + 3
-          ^
+error[E0001]: unexpected token '='
+  --> <repl>:1:5
+   |
+ 1 | 2 + = 3
+   |     ^ unexpected syntax
 ```
 
 ### `E0002` — Function Domain Error
@@ -47,9 +51,11 @@ error[E0001]: unexpected token
 A math function received an argument outside its valid domain.
 
 ```
-error[E0002]: sqrt() requires non-negative argument
-  --> sqrt(-1)
-      ^^^^^^^
+error[E0002]: domain error: sqrt of negative number
+  --> <repl>:1:1
+   |
+ 1 | sqrt(-1)
+   | ^^^^^^^^ domain error
 ```
 
 Also used for:
@@ -61,9 +67,12 @@ Also used for:
 An unexpected flag was found after a command.
 
 ```
-error[E0003]: unexpected trailing flag
-  --> :var set x = 5 --unknown
-                     ^^^^^^^^^
+error[E0003]: flag `--unknown` after an unquoted expression is ignored
+  --> <repl>:1:12
+   |
+ 1 | :set x = 5 --unknown
+   |            ^^^^^^^^^ unexpected trailing flag
+   = help: quote the expression so trailing flags are parsed: e.g.  :solve "2x + 3 = 7" --no-save
 ```
 
 ---
@@ -75,10 +84,11 @@ error[E0003]: unexpected trailing flag
 The equation has no solution.
 
 ```
-error[E0301]: equation has no solution
-  --> 0x = 5
-      ^^^^^^
-  help: the equation simplifies to 0 = 5 which is a contradiction
+error[E0301]: equation has no solution (-5.000000 != 0)
+  --> <repl>:1:8
+   |
+ 1 | :solve 0x = 5
+   |        ^^^^^^ no solution
 ```
 
 ### `E0302` — Infinite Solutions
@@ -86,10 +96,11 @@ error[E0301]: equation has no solution
 The equation is satisfied for all values of the variable.
 
 ```
-error[E0302]: infinitely many solutions
-  --> x = x
-      ^^^^^
-  help: the equation simplifies to 0 = 0 (identity)
+error[E0302]: equation is always true (0 = 0)
+  --> <repl>:1:8
+   |
+ 1 | :solve x = x
+   |        ^^^^^ infinite solutions
 ```
 
 ### `E0303` — Invalid Equation

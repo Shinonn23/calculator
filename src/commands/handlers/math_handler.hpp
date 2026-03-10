@@ -21,6 +21,7 @@
 #include "core/fraction.hpp"
 #include "diagnostics/diagnostic.hpp"
 #include "diagnostics/kinds/command_errors.hpp"
+#include "diagnostics/kinds/solver_errors.hpp"
 #include "diagnostics/sink.hpp"
 #include "eval/evaluator.hpp"
 #include "parser/math/math_parser.hpp"
@@ -708,9 +709,21 @@ namespace math_solver {
                     cmd.as_fraction() || config.settings().output_fraction;
 
                 Simplifier     simplifier(&ctx, payload);
-                SimplifyResult result      = simplifier.simplify(*eq, opts);
-                bool           has_warning = false;
+                SimplifyResult result = simplifier.simplify(*eq, opts);
 
+                if (result.canonical.empty()) {
+                    const std::string& raw = cmd.raw_command();
+                    Diagnostic         d   = errors::unsupported_equation(
+                        ":simplify only supports linear expressions",
+                        find_token_span(raw, payload), raw, cmd.source_file(),
+                        cmd.source_line());
+                    d.help =
+                        "use :solve for polynomial or non-linear equations";
+                    sink.push(d);
+                    return HistoryStatus::Error;
+                }
+
+                bool has_warning = false;
                 for (const auto& w : result.warnings) {
                     Diagnostic d = Diagnostic::warning(w).with_location(
                         cmd.source_file(), cmd.source_line());

@@ -113,6 +113,12 @@ namespace math_solver {
     }
 
     void Evaluator::visit(const ArrayExpr& node) {
+        if (broadcast_index_ >= 0 &&
+            static_cast<size_t>(broadcast_index_) < node.size()) {
+            node.elements()[static_cast<size_t>(broadcast_index_)]->accept(
+                *this);
+            return;
+        }
         // Arrays cannot be used directly in scalar expression evaluation.
         // The caller should use evaluate_broadcast() when array variables are
         // expected.
@@ -222,7 +228,7 @@ namespace math_solver {
         VarNameCollector col;
         expr.accept(col);
 
-        // Step 2: find array-bound variables and determine array size.
+        // Step 2a: find array-bound variables and determine array size.
         std::vector<std::string> arr_vars;
         size_t                   arr_size = 0;
 
@@ -248,6 +254,41 @@ namespace math_solver {
             arr_vars.push_back(name);
         }
 
+        // Step 2b: find inline ArrayExpr literals and check size consistency.
+        class ArrayLiteralFinder : public ExprVisitor {
+            public:
+            std::vector<const ArrayExpr*> arrays;
+            void visit(const Number&) override {}
+            void visit(const BinaryOp& n) override {
+                n.left().accept(*this);
+                n.right().accept(*this);
+            }
+            void visit(const UnaryOp& n) override { n.operand().accept(*this); }
+            void visit(const Variable&) override {}
+            void visit(const ArrayExpr& n) override { arrays.push_back(&n); }
+            void visit(const FunctionCall& n) override { n.arg().accept(*this); }
+        };
+
+        ArrayLiteralFinder finder;
+        expr.accept(finder);
+
+        for (const auto* arr : finder.arrays) {
+            if (arr_size == 0) {
+                arr_size = arr->size();
+            } else if (arr->size() != arr_size) {
+                auto d = errors::math(
+                    "array size mismatch: array literal has " +
+                        std::to_string(arr->size()) +
+                        " elements but expected " + std::to_string(arr_size),
+                    arr->span(), input_, source_file_, source_line_);
+                if (sink_)
+                    sink_->push(d);
+                return {};
+            }
+        }
+
+        bool has_inline_arrays = !finder.arrays.empty();
+
         // Step 3: iterate and evaluate.
         std::vector<double> results;
         results.reserve(arr_size);
@@ -262,6 +303,9 @@ namespace math_solver {
                 temp.set(var, *arr.elements()[i]);
             }
             Evaluator elem_eval(&temp, input_, sink_);
+            elem_eval.set_source(source_file_, source_line_);
+            if (has_inline_arrays)
+                elem_eval.set_broadcast_index(static_cast<int>(i));
             results.push_back(elem_eval.evaluate(expr));
         }
 

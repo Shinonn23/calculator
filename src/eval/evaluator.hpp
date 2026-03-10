@@ -40,8 +40,9 @@ namespace math_solver {
         std::string                           input_;
         DiagnosticSink*                       sink_;
         std::unordered_map<std::string, Span> visited_;
-        std::string                           source_file_ = "<repl>";
-        size_t                                source_line_ = 1;
+        std::string                           source_file_      = "<repl>";
+        size_t                                source_line_      = 1;
+        int                                   broadcast_index_  = -1;
 
         public:
         Evaluator()
@@ -77,8 +78,11 @@ namespace math_solver {
         void visit(const BinaryOp& node) override;
         void visit(const UnaryOp& node) override;
         void visit(const Variable& node) override;
-        // ArrayExpr in scalar context emits an error via sink.
+        // ArrayExpr: returns element[broadcast_index_] when in broadcast mode,
+        // otherwise emits an error via sink.
         void visit(const ArrayExpr& node) override;
+
+        void set_broadcast_index(int idx) { broadcast_index_ = idx; }
         void visit(const FunctionCall& node) override;
 
         // Broadcast evaluation: resolves array-bound variables in expr and
