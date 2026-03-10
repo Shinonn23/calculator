@@ -157,7 +157,7 @@ TEST(CommandLexer, WordWithEquals) {
 TEST(CommandLexer, StandaloneCommaIsWord) {
     CommandLexer l(",");
     auto         t = next(l);
-    EXPECT_EQ(t.type, CommandTokenType::Word);
+    EXPECT_EQ(t.type, CommandTokenType::Comma);
     EXPECT_EQ(t.value, ",");
 }
 

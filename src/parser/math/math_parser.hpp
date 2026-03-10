@@ -15,7 +15,6 @@ namespace math_solver {
         Lexer                     lexer_;
         Token                     current_;
         std::string               input_;
-        std::string               raw_cmd_;
         std::optional<Diagnostic> last_error_;
 
         // Advances to the next token. Must be called after consuming a token to
@@ -38,8 +37,7 @@ namespace math_solver {
         bool expect(TokenType type, const std::string& msg) {
             if (current_.type != type) {
                 if (!last_error_)
-                    last_error_ =
-                        errors::parse(msg, current_.span, input_, raw_cmd_);
+                    last_error_ = errors::parse(msg, current_.span, input_);
                 return false;
             }
             (void)advance();
@@ -60,14 +58,14 @@ namespace math_solver {
         public:
         // Initializes the parser and primes the first token.
         // The input string must remain valid for the lifetime of the parser.
-        explicit Parser(const std::string& input,
-                        const std::string& raw_cmd = "")
-            : lexer_(input), input_(input), raw_cmd_(raw_cmd) {}
+        explicit Parser(const std::string& input)
+            : lexer_(input), input_(input) {
+            (void)advance();
+        }
 
         // Returns the original input string. Used for diagnostics and error
         // reporting.
         const std::string&                      input() const;
-        const std::string&                      raw_cmd() const;
 
         // Parses a single expression from the input.
         Result<ExprPtr>                         parse();

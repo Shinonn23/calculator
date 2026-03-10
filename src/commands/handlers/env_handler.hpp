@@ -77,7 +77,7 @@ namespace math_solver {
             }
             ctx.clear();
             for (const auto& [name, expr_str] : (*env_res)->variables) {
-                Parser parser(expr_str, raw);
+                Parser parser(expr_str);
                 auto   parse_result = parser.parse();
                 if (parse_result) {
                     ctx.set(name, std::move(*parse_result));

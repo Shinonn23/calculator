@@ -183,7 +183,7 @@ namespace math_solver {
             std::set<std::string>   all_vars_set;
 
             for (const auto& eq_str : eq_strs) {
-                Parser parser(eq_str, cmd.raw_command());
+                Parser parser(eq_str);
                 auto   pr = parser.parse_equation().with_location(
                     cmd.source_file(), cmd.source_line());
                 if (!pr) {
@@ -717,8 +717,7 @@ namespace math_solver {
                         ":simplify only supports linear expressions",
                         find_token_span(raw, payload), raw, cmd.source_file(),
                         cmd.source_line());
-                    d.help =
-                        "use :solve for polynomial or non-linear equations";
+                    d.help = "use :solve for polynomial or non-linear equations";
                     sink.push(d);
                     return HistoryStatus::Error;
                 }

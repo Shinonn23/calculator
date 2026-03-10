@@ -163,7 +163,8 @@ TEST(MathParser, AddIsLeftAssociative) {
     auto& outer = dynamic_cast<const BinaryOp&>(*e);
     EXPECT_EQ(outer.op(), BinaryOpType::Add);
     EXPECT_DOUBLE_EQ(dynamic_cast<const Number&>(outer.right()).value(), 3.0);
-    EXPECT_EQ(dynamic_cast<const BinaryOp&>(outer.left()).op(), BinaryOpType::Add);
+    EXPECT_EQ(dynamic_cast<const BinaryOp&>(outer.left()).op(),
+              BinaryOpType::Add);
 }
 
 TEST(MathParser, MulIsLeftAssociative) {
@@ -172,7 +173,8 @@ TEST(MathParser, MulIsLeftAssociative) {
     ASSERT_NE(e, nullptr);
     auto& outer = dynamic_cast<const BinaryOp&>(*e);
     EXPECT_EQ(outer.op(), BinaryOpType::Div);
-    EXPECT_EQ(dynamic_cast<const BinaryOp&>(outer.left()).op(), BinaryOpType::Div);
+    EXPECT_EQ(dynamic_cast<const BinaryOp&>(outer.left()).op(),
+              BinaryOpType::Div);
 }
 
 // ============================================================
@@ -326,7 +328,8 @@ TEST(MathParser, SingleElementArray) {
     ASSERT_NE(e, nullptr);
     auto& a = dynamic_cast<const ArrayExpr&>(*e);
     ASSERT_EQ(a.elements().size(), 1u);
-    EXPECT_DOUBLE_EQ(dynamic_cast<const Number&>(*a.elements()[0]).value(), 1.0);
+    EXPECT_DOUBLE_EQ(dynamic_cast<const Number&>(*a.elements()[0]).value(),
+                     1.0);
 }
 
 TEST(MathParser, ThreeElementArray) {
@@ -334,9 +337,12 @@ TEST(MathParser, ThreeElementArray) {
     ASSERT_NE(e, nullptr);
     auto& a = dynamic_cast<const ArrayExpr&>(*e);
     ASSERT_EQ(a.elements().size(), 3u);
-    EXPECT_DOUBLE_EQ(dynamic_cast<const Number&>(*a.elements()[0]).value(), 1.0);
-    EXPECT_DOUBLE_EQ(dynamic_cast<const Number&>(*a.elements()[1]).value(), 2.0);
-    EXPECT_DOUBLE_EQ(dynamic_cast<const Number&>(*a.elements()[2]).value(), 3.0);
+    EXPECT_DOUBLE_EQ(dynamic_cast<const Number&>(*a.elements()[0]).value(),
+                     1.0);
+    EXPECT_DOUBLE_EQ(dynamic_cast<const Number&>(*a.elements()[1]).value(),
+                     2.0);
+    EXPECT_DOUBLE_EQ(dynamic_cast<const Number&>(*a.elements()[2]).value(),
+                     3.0);
 }
 
 TEST(MathParser, ArrayWithExprElements) {
@@ -344,7 +350,8 @@ TEST(MathParser, ArrayWithExprElements) {
     ASSERT_NE(e, nullptr);
     auto& a = dynamic_cast<const ArrayExpr&>(*e);
     ASSERT_EQ(a.elements().size(), 2u);
-    EXPECT_EQ(dynamic_cast<const BinaryOp&>(*a.elements()[0]).op(), BinaryOpType::Add);
+    EXPECT_EQ(dynamic_cast<const BinaryOp&>(*a.elements()[0]).op(),
+              BinaryOpType::Add);
 }
 
 // ============================================================
@@ -355,7 +362,8 @@ TEST(MathParser, SimpleEquationZeroRhs) {
     Parser p("x + 1 = 0");
     auto   r = p.parse_equation();
     ASSERT_TRUE(r.ok());
-    EXPECT_EQ(dynamic_cast<const BinaryOp&>((*r)->lhs()).op(), BinaryOpType::Add);
+    EXPECT_EQ(dynamic_cast<const BinaryOp&>((*r)->lhs()).op(),
+              BinaryOpType::Add);
     EXPECT_DOUBLE_EQ(dynamic_cast<const Number&>((*r)->rhs()).value(), 0.0);
 }
 
@@ -381,16 +389,16 @@ TEST(MathParser, ExpressionOrEquation_Expr) {
     Parser p("x + 1");
     auto   r = p.parse_expression_or_equation();
     ASSERT_TRUE(r.ok());
-    EXPECT_NE((*r).first, nullptr);   // expression is populated
-    EXPECT_EQ((*r).second, nullptr);  // equation is null
+    EXPECT_NE((*r).first, nullptr);  // expression is populated
+    EXPECT_EQ((*r).second, nullptr); // equation is null
 }
 
 TEST(MathParser, ExpressionOrEquation_Equation) {
     Parser p("x + 1 = 0");
     auto   r = p.parse_expression_or_equation();
     ASSERT_TRUE(r.ok());
-    EXPECT_EQ((*r).first, nullptr);   // expression is null
-    EXPECT_NE((*r).second, nullptr);  // equation is populated
+    EXPECT_EQ((*r).first, nullptr);  // expression is null
+    EXPECT_NE((*r).second, nullptr); // equation is populated
 }
 
 // ============================================================
@@ -425,7 +433,7 @@ TEST(MathParser, ToStringFunctionCall) {
 // Error cases
 // ============================================================
 
-TEST(MathParser, EmptyIsError)           { parse_fail(""); }
+TEST(MathParser, EmptyIsError) { parse_fail(""); }
 TEST(MathParser, UnmatchedLParenIsError) { parse_fail("(1 + 2"); }
-TEST(MathParser, TrailingOperatorIsError){ parse_fail("1 +"); }
+TEST(MathParser, TrailingOperatorIsError) { parse_fail("1 +"); }
 TEST(MathParser, ReservedKeywordIsError) { parse_fail("solve + 1"); }
