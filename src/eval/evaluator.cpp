@@ -47,8 +47,8 @@ namespace math_solver {
         // This is critical to avoid infinite recursion in cases like `a = a +
         // 1`.
         if (auto it = visited_.find(name); it != visited_.end()) {
-            auto d = circular_dependency(name, it->second, input_,
-                                         source_file_, source_line_);
+            auto d = circular_dependency(name, it->second, input_, source_file_,
+                                         source_line_);
             if (sink_)
                 sink_->push(d);
             return;
@@ -119,12 +119,21 @@ namespace math_solver {
                 *this);
             return;
         }
+
+        if (node.size() == 0) {
+            auto d = errors::math("empty array", node.span(), input_,
+                                  source_file_, source_line_);
+            if (sink_)
+                sink_->push(d);
+            result_ = 0.0;
+            return;
+        }
+
         // Arrays cannot be used directly in scalar expression evaluation.
         // The caller should use evaluate_broadcast() when array variables are
         // expected.
         auto d = errors::math("array value cannot be used in scalar context",
-                              node.span(), input_,
-                              source_file_, source_line_);
+                              node.span(), input_, source_file_, source_line_);
         if (sink_)
             sink_->push(d);
         result_ = 0.0;
@@ -134,63 +143,102 @@ namespace math_solver {
         node.arg().accept(*this);
         double x = result_;
         switch (node.kind()) {
-        case FuncKind::Sin:   result_ = std::sin(x);   break;
-        case FuncKind::Cos:   result_ = std::cos(x);   break;
-        case FuncKind::Tan:   result_ = std::tan(x);   break;
+        case FuncKind::Sin:
+            result_ = std::sin(x);
+            break;
+        case FuncKind::Cos:
+            result_ = std::cos(x);
+            break;
+        case FuncKind::Tan:
+            result_ = std::tan(x);
+            break;
         case FuncKind::Asin:
             if (x < -1.0 || x > 1.0) {
                 auto d = errors::func_domain(
                     "domain error: asin argument must be in [-1, 1]",
                     node.span(), input_);
-                if (sink_) sink_->push(d);
-                result_ = 0.0; return;
+                if (sink_)
+                    sink_->push(d);
+                result_ = 0.0;
+                return;
             }
-            result_ = std::asin(x); break;
+            result_ = std::asin(x);
+            break;
         case FuncKind::Acos:
             if (x < -1.0 || x > 1.0) {
                 auto d = errors::func_domain(
                     "domain error: acos argument must be in [-1, 1]",
                     node.span(), input_);
-                if (sink_) sink_->push(d);
-                result_ = 0.0; return;
+                if (sink_)
+                    sink_->push(d);
+                result_ = 0.0;
+                return;
             }
-            result_ = std::acos(x); break;
-        case FuncKind::Atan:  result_ = std::atan(x);  break;
-        case FuncKind::Sinh:  result_ = std::sinh(x);  break;
-        case FuncKind::Cosh:  result_ = std::cosh(x);  break;
-        case FuncKind::Tanh:  result_ = std::tanh(x);  break;
-        case FuncKind::Exp:   result_ = std::exp(x);   break;
+            result_ = std::acos(x);
+            break;
+        case FuncKind::Atan:
+            result_ = std::atan(x);
+            break;
+        case FuncKind::Sinh:
+            result_ = std::sinh(x);
+            break;
+        case FuncKind::Cosh:
+            result_ = std::cosh(x);
+            break;
+        case FuncKind::Tanh:
+            result_ = std::tanh(x);
+            break;
+        case FuncKind::Exp:
+            result_ = std::exp(x);
+            break;
         case FuncKind::Sqrt:
             if (x < 0.0) {
-                auto d = errors::func_domain(
-                    "domain error: sqrt of negative number",
-                    node.span(), input_);
-                if (sink_) sink_->push(d);
-                result_ = 0.0; return;
+                auto d =
+                    errors::func_domain("domain error: sqrt of negative number",
+                                        node.span(), input_);
+                if (sink_)
+                    sink_->push(d);
+                result_ = 0.0;
+                return;
             }
-            result_ = std::sqrt(x); break;
+            result_ = std::sqrt(x);
+            break;
         case FuncKind::Ln:
             if (x <= 0.0) {
                 auto d = errors::func_domain(
-                    "domain error: ln argument must be positive",
-                    node.span(), input_);
-                if (sink_) sink_->push(d);
-                result_ = 0.0; return;
+                    "domain error: ln argument must be positive", node.span(),
+                    input_);
+                if (sink_)
+                    sink_->push(d);
+                result_ = 0.0;
+                return;
             }
-            result_ = std::log(x); break;
+            result_ = std::log(x);
+            break;
         case FuncKind::Log:
             if (x <= 0.0) {
                 auto d = errors::func_domain(
-                    "domain error: log argument must be positive",
-                    node.span(), input_);
-                if (sink_) sink_->push(d);
-                result_ = 0.0; return;
+                    "domain error: log argument must be positive", node.span(),
+                    input_);
+                if (sink_)
+                    sink_->push(d);
+                result_ = 0.0;
+                return;
             }
-            result_ = std::log10(x); break;
-        case FuncKind::Abs:   result_ = std::abs(x);   break;
-        case FuncKind::Floor: result_ = std::floor(x); break;
-        case FuncKind::Ceil:  result_ = std::ceil(x);  break;
-        case FuncKind::Round: result_ = std::round(x); break;
+            result_ = std::log10(x);
+            break;
+        case FuncKind::Abs:
+            result_ = std::abs(x);
+            break;
+        case FuncKind::Floor:
+            result_ = std::floor(x);
+            break;
+        case FuncKind::Ceil:
+            result_ = std::ceil(x);
+            break;
+        case FuncKind::Round:
+            result_ = std::round(x);
+            break;
         }
     }
 
@@ -211,8 +259,8 @@ namespace math_solver {
         class VarNameCollector : public ExprVisitor {
             public:
             std::set<std::string> names;
-            void visit(const Number&) override {}
-            void visit(const BinaryOp& n) override {
+            void                  visit(const Number&) override {}
+            void                  visit(const BinaryOp& n) override {
                 n.left().accept(*this);
                 n.right().accept(*this);
             }
@@ -222,7 +270,9 @@ namespace math_solver {
                 for (const auto& e : n.elements())
                     e->accept(*this);
             }
-            void visit(const FunctionCall& n) override { n.arg().accept(*this); }
+            void visit(const FunctionCall& n) override {
+                n.arg().accept(*this);
+            }
         };
 
         VarNameCollector col;
@@ -258,15 +308,17 @@ namespace math_solver {
         class ArrayLiteralFinder : public ExprVisitor {
             public:
             std::vector<const ArrayExpr*> arrays;
-            void visit(const Number&) override {}
-            void visit(const BinaryOp& n) override {
+            void                          visit(const Number&) override {}
+            void                          visit(const BinaryOp& n) override {
                 n.left().accept(*this);
                 n.right().accept(*this);
             }
             void visit(const UnaryOp& n) override { n.operand().accept(*this); }
             void visit(const Variable&) override {}
             void visit(const ArrayExpr& n) override { arrays.push_back(&n); }
-            void visit(const FunctionCall& n) override { n.arg().accept(*this); }
+            void visit(const FunctionCall& n) override {
+                n.arg().accept(*this);
+            }
         };
 
         ArrayLiteralFinder finder;
@@ -287,7 +339,7 @@ namespace math_solver {
             }
         }
 
-        bool has_inline_arrays = !finder.arrays.empty();
+        bool                has_inline_arrays = !finder.arrays.empty();
 
         // Step 3: iterate and evaluate.
         std::vector<double> results;

@@ -183,7 +183,7 @@ namespace math_solver {
             std::set<std::string>   all_vars_set;
 
             for (const auto& eq_str : eq_strs) {
-                Parser parser(eq_str);
+                Parser parser(eq_str, cmd.raw_command());
                 auto   pr = parser.parse_equation().with_location(
                     cmd.source_file(), cmd.source_line());
                 if (!pr) {
